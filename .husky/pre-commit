@@ -1,29 +1,17 @@
 #!/bin/sh
 
 echo "=== [STRATEGY] Commencing pre-commit auto-formatting & checks ==="
-# --- FRONTEND ---
-# lint-staged formats and lints staged files automatically
-# npx lint-staged || {
-#  echo "❌ [FRONTEND ERROR] Linting failed. Fix your logic. Commit aborted."
-#  exit 1
-#}
-echo "[FRONTEND] Linter not defined yet."
 
-# --- BACKEND ---
-#./mvnw spotless:apply || {
-#  echo "❌ [BACKEND ERROR] Spotless failed to format. Commit aborted."
-#  exit 1
-#}
-echo "[BACKEND] Linter not defined yet."
+echo "   -> Running Spotless (code formatting)..."
+./mvnw spotless:apply || {
+  echo "❌ [BACKEND ERROR] Spotless failed to format. Commit aborted."
+  exit 1
+}
 
-
-#cd project/back || exit 1
-#echo "   -> Compiling tests (Syntax check)..."
-#./mvnw clean test-compile || {
-#  echo "❌ [BACKEND ERROR] Compilation failed. Commit aborted."
-#  exit 1
-#}
-
-echo "[Testing] Testing folders not defined yet."
+echo "   -> Compiling tests (Syntax check)..."
+./mvnw clean test-compile || {
+  echo "❌ [BACKEND ERROR] Compilation failed. Commit aborted."
+  exit 1
+}
 
 echo "✅ [STRATEGY] Code automatically formatted and verified. Commit authorized."

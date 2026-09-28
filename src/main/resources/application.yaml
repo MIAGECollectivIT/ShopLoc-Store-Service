@@ -1,0 +1,45 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: store-service
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    persistAuthorization: true
+
+# Application configuration including OpenAPI extensions and Authentication
+application:
+  openapi:
+    title: "ShopLoc - Store Service API"
+    description: "Store & merchant management REST API for the ShopLoc platform"
+    version: "1.0.0"
+    contact:
+      name: "MIAGE Collectiv'IT Team"
+      email: "contact@collectivit.miage.fr"
+      url: "https://github.com/MIAGECollectivIT"
+    license:
+      name: "MIT"
+      url: "https://opensource.org/licenses/MIT"
+    extensions:
+      x-api-audience: "ShopLoc Internal Microservices"
+      x-service-environment: "${ENVIRONMENT:development}"
+      x-service-name: "store-service"
+  security:
+    auth-type: "Bearer JWT"
+    jwt:
+      header-name: "Authorization"
+      token-prefix: "Bearer "
+      secret-key: "${JWT_SECRET:dGhpc2lzYXZlcnlzZWNyZXRqd3RzdG9yZXNlcnZpY2VrZXkxMjM0NTY=}"
+      issuer: "shoploc-auth-service"
+      expiration-ms: 86400000
+    description: "Authenticate using a JWT Bearer token. Enter your token prefixed with 'Bearer ' or simply the token value."

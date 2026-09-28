@@ -8,6 +8,12 @@ echo "   -> Running Spotless (code formatting)..."
   exit 1
 }
 
+echo "   -> Running PMD (static analysis)..."
+./mvnw pmd:check || {
+  echo "❌ [BACKEND ERROR] PMD check failed. Commit aborted."
+  exit 1
+}
+
 echo "   -> Compiling tests (Syntax check)..."
 ./mvnw clean test-compile || {
   echo "❌ [BACKEND ERROR] Compilation failed. Commit aborted."

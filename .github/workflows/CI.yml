@@ -28,5 +28,8 @@ jobs:
       - name: Check Spotless formatting
         run: ./mvnw spotless:check
 
+      - name: Run PMD static analysis
+        run: ./mvnw pmd:check
+
       - name: Build and Test with Maven
         run: ./mvnw clean verify

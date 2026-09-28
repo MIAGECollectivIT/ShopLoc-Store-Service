@@ -1,21 +1,28 @@
 #!/bin/sh
 
+# If JAVA_HOME is not set or invalid, resolve it from common locations on Windows
+if [ -z "$JAVA_HOME" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
+  if [ -n "$USERPROFILE" ] && [ -d "$USERPROFILE/.jdks/ms-21.0.12.1" ]; then
+    export JAVA_HOME="$USERPROFILE/.jdks/ms-21.0.12.1"
+  fi
+fi
+
 echo "=== [STRATEGY] Commencing pre-commit auto-formatting & checks ==="
 
 echo "   -> Running Spotless (code formatting)..."
-./mvnw spotless:apply || {
+./mvnw -B -ntp spotless:apply || {
   echo "❌ [BACKEND ERROR] Spotless failed to format. Commit aborted."
   exit 1
 }
 
 echo "   -> Running PMD (static analysis)..."
-./mvnw pmd:check || {
+./mvnw -B -ntp pmd:check || {
   echo "❌ [BACKEND ERROR] PMD check failed. Commit aborted."
   exit 1
 }
 
 echo "   -> Compiling tests (Syntax check)..."
-./mvnw clean test-compile || {
+./mvnw -B -ntp clean test-compile || {
   echo "❌ [BACKEND ERROR] Compilation failed. Commit aborted."
   exit 1
 }

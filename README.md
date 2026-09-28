@@ -88,6 +88,7 @@ npm install
 │       └── java/                # Unit & integration tests
 ├── mvnw                         # Maven Wrapper script (Linux / macOS)
 ├── mvnw.cmd                     # Maven Wrapper batch script (Windows)
+├── pmd-ruleset.xml              # PMD customized ruleset configuration
 ├── pom.xml                      # Maven project configuration, dependencies & plugins
 └── README.md
 ```

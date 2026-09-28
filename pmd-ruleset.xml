@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="ShopLoc PMD Ruleset"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.github.io/schema/ruleset_2_0_0.xsd">
+
+    <description>Custom PMD ruleset for ShopLoc Store Service</description>
+
+    <!-- Best Practices -->
+    <rule ref="category/java/bestpractices.xml"/>
+
+    <!-- Error Prone rules -->
+    <rule ref="category/java/errorprone.xml"/>
+
+    <!-- Performance rules -->
+    <rule ref="category/java/performance.xml"/>
+
+    <!-- Design rules: exclude UseUtilityClass (Spring Boot main class) and unconfigured LoosePackageCoupling -->
+    <rule ref="category/java/design.xml">
+        <exclude name="UseUtilityClass"/>
+        <exclude name="LoosePackageCoupling"/>
+    </rule>
+</ruleset>

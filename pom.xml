@@ -131,10 +131,7 @@
 					<linkXRef>false</linkXRef>
 					<includeTests>false</includeTests>
 					<rulesets>
-						<ruleset>category/java/bestpractices.xml</ruleset>
-						<ruleset>category/java/errorprone.xml</ruleset>
-						<ruleset>category/java/performance.xml</ruleset>
-						<ruleset>category/java/design.xml</ruleset>
+						<ruleset>${project.basedir}/pmd-ruleset.xml</ruleset>
 					</rulesets>
 				</configuration>
 				<executions>

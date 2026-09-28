@@ -110,5 +110,5 @@ A pre-commit hook runs automatically before every commit to format code with Spo
 ```
 
 #### 5.2.2 GitHub Actions 
-- **CI**: Runs on every Pull Request targeting `main` and `dev`. Validates Spotless formatting (`./mvnw spotless:check`), executes PMD static analysis (`./mvnw pmd:check`), and runs the full build and verification suite (`./mvnw clean verify`).
+- **CI**: Runs on every Pull Request targeting `main` and `dev`. Executes the complete verification suite (`./mvnw -B -ntp -T 1C verify`) covering Maven Enforcer rules, Spotless formatting, PMD static analysis, and all unit/integration tests in a single optimized pass.
 - **CD**: Runs on push to `main` to generate an automated semantic release using `cycjimmy/semantic-release-action`.

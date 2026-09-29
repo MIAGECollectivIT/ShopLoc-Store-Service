@@ -7,6 +7,8 @@ Merchant management microservice for the ShopLoc project (MIAGE Collectiv'IT).
 - [2. Installation & Setup](#2-installation--setup)
   - [2.1. Husky](#21-husky)
 - [3. Launch & Test](#3-launch--test)
+  - [3.1 Local Execution (Maven)](#31-local-execution-maven)
+  - [3.2 Containerized Execution (Docker & Docker Compose)](#32-containerized-execution-docker--docker-compose)
 - [4. API Documentation & Swagger UI](#4-api-documentation--swagger-ui)
   - [4.1 Interactive Documentation](#41-interactive-documentation)
   - [4.2 Authentication in application.yaml](#42-authentication-in-applicationyaml)
@@ -22,6 +24,7 @@ Merchant management microservice for the ShopLoc project (MIAGE Collectiv'IT).
 - **Java 21** (JDK 21 LTS minimum, enforced by `maven-enforcer-plugin`)
 - **Maven** (>= 3.8.0, included via the Maven Wrapper `./mvnw` / `mvnw.cmd` and enforced by `maven-enforcer-plugin`)
 - **Node.js** (>= 18) & **npm** (for Husky git hooks)
+- **Docker** & **Docker Compose** (for containerized execution)
 
 ## 1. Tech Stack & Dependencies
 - **Spring Boot**: Foundation framework for creating standalone REST microservices.
@@ -50,6 +53,8 @@ npm install
 
 ## 3. Launch & Test
 
+### 3.1 Local Execution (Maven)
+
 ```bash
 # Run the application locally
 ./mvnw spring-boot:run
@@ -74,6 +79,33 @@ npm install
 ```
 
 *On Windows (PowerShell / Command Prompt), use `.\mvnw.cmd` instead of `./mvnw`.*
+
+### 3.2 Containerized Execution (Docker & Docker Compose)
+
+#### Docker
+Build and run the multi-stage container image locally:
+```bash
+# Build the Docker image
+docker build -t store-service .
+
+# Run the container (mapping port 8080)
+docker run -p 8080:8080 store-service
+```
+
+#### Docker Compose
+A `docker-compose.yml` file is provided for local multi-container orchestration.
+> **Note**: The PostgreSQL database service (`db`), its healthcheck, volume, and datasource environment variables in `docker-compose.yml` are temporarily commented out until database persistence is configured.
+
+```bash
+# Build and start services in detached mode
+docker compose up --build -d
+
+# View live container logs
+docker compose logs -f backend
+
+# Stop services
+docker compose down
+```
 
 ## 4. API Documentation & Swagger UI
 
@@ -111,10 +143,12 @@ application:
 
 ## 5. Project structure
 ```
+├── .dockerignore                # Docker build context exclusions
 ├── .github/                     # GitHub Actions workflows (CI & CD)
 │   └── workflows/
 │       ├── CI.yml               # Spotless lint + PMD analysis + Build & Tests
-│       └── CD.yml               # Semantic Release & automated versioning
+│       ├── cd-dev.yml           # Continuous Deployment to Development (K3s)
+│       └── cd-prod.yml          # Semantic Release, Docker Build & Deployment to Production (K3s)
 ├── .husky/                      # Git hooks (pre-commit)
 ├── .mvn/                        # Maven Wrapper configuration
 ├── src/
@@ -134,6 +168,8 @@ application:
 │               ├── controller/
 │               │   └── StoreStatusControllerTest.java
 │               └── StoreServiceApplicationTests.java
+├── docker-compose.yml           # Local multi-container development orchestration
+├── Dockerfile                   # Multi-stage container image definition
 ├── mvnw                         # Maven Wrapper script (Linux / macOS)
 ├── mvnw.cmd                     # Maven Wrapper batch script (Windows)
 ├── pmd-ruleset.xml              # PMD customized ruleset configuration
@@ -158,5 +194,19 @@ A pre-commit hook runs automatically before every commit to format code with Spo
 ```
 
 #### 6.2.2 GitHub Actions 
-- **CI**: Runs on every Pull Request targeting `main` and `dev`. Executes the complete verification suite (`./mvnw -B -ntp -T 1C verify`) covering Maven Enforcer rules, Spotless formatting, PMD static analysis, and all unit/integration tests in a single optimized pass.
-- **CD**: Runs on push to `main` to generate an automated semantic release using `cycjimmy/semantic-release-action`.
+- **CI (`CI.yml`)**:
+  - **Trigger**: Pull requests targeting `main` and `dev`.
+  - **Pipeline**: Executes the complete verification suite (`./mvnw -B -ntp -T 1C verify`) covering Maven Enforcer version rules, Spotless formatting check, PMD static analysis, and all unit/integration tests in a single optimized pass.
+- **CD Dev (`cd-dev.yml`)**:
+  - **Trigger**: Push to `dev` branch or manual `workflow_dispatch`.
+  - **Pipeline**:
+    1. **Maven Test & Verify**: Runs tests and build verification (`mvn clean verify`).
+    2. **Build & Push Docker**: Builds and publishes Docker image to GitHub Container Registry (`ghcr.io/<repository>:dev`).
+    3. **Deploy to K3s Dev**: Updates the Kubernetes deployment image (`:dev`) in the development namespace (`$K8S_NAMESPACE_DEV`) and triggers a rollout restart.
+- **CD Prod (`cd-prod.yml`)**:
+  - **Trigger**: Push to `main` branch or manual `workflow_dispatch`.
+  - **Pipeline**:
+    1. **Maven Test & Verify**: Runs tests and build verification (`mvn clean verify`).
+    2. **Semantic Release**: Calculates semantic version from Conventional Commits, creates git tags, and publishes a GitHub Release (`cycjimmy/semantic-release-action`).
+    3. **Build & Push Docker**: Builds and publishes Docker image tagged with `v<version>` and `latest` (or commit SHA if no new release).
+    4. **Deploy to K3s Prod**: Deploys the release image to the production Kubernetes cluster namespace (`$K8S_NAMESPACE_PROD`).

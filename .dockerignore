@@ -1,0 +1,10 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+node_modules/
+.git/
+.github/
+.husky/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

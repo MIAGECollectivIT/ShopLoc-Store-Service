@@ -19,6 +19,7 @@ Merchant management microservice for the ShopLoc project (MIAGE Collectiv'IT).
   - [6.2 Quality pipeline](#62-quality-pipeline)
     - [6.2.1 (Husky) Pre-commit](#621-husky-pre-commit)
     - [6.2.2 GitHub Actions](#622-github-actions)
+- [7. Starting The Service](#7-starting-the-service)
 
 ## 0. Prerequisites
 - **Java 21** (JDK 21 LTS minimum, enforced by `maven-enforcer-plugin`)
@@ -210,3 +211,27 @@ A pre-commit hook runs automatically before every commit to format code with Spo
     2. **Semantic Release**: Calculates semantic version from Conventional Commits, creates git tags, and publishes a GitHub Release (`cycjimmy/semantic-release-action`).
     3. **Build & Push Docker**: Builds and publishes Docker image tagged with `v<version>` and `latest` (or commit SHA if no new release).
     4. **Deploy to K3s Prod**: Deploys the release image to the production Kubernetes cluster namespace (`$K8S_NAMESPACE_PROD`).
+
+
+## 7. Starting The Service
+
+### Lancer les conteneurs en local
+
+````bash
+
+docker compose up --build -d backend
+````
+
+### Routes
+
+- GET http://localhost:8080/api/shops
+- GET http://localhost:8080/api/shops/{id}
+
+
+### Couper les conteneurs
+
+```bash
+
+docker compose down -v
+
+```

@@ -1,11 +1,13 @@
-package fr.miage.collectivit.storeservice;
+package com.example.service_shop;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class StoreServiceApplicationTests {
+class ServiceShopApplicationTests {
 
-  @Test
-  void contextLoads() {}
+	@Test
+	void contextLoads() {
+	}
+
 }

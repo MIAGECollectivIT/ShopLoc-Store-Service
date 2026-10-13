@@ -1,8 +1,8 @@
-package com.example.service_shop;
+package com.shoploc.store_service;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface ShopRepository extends JpaRepository<Shop, Long> {
+public interface StoreRepository extends JpaRepository<Store, Long> {
 }

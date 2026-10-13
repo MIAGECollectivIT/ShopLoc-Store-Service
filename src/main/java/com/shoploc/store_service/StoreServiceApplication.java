@@ -1,13 +1,13 @@
-package com.example.service_shop;
+package com.shoploc.store_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class ServiceShopApplication {
+public class StoreServiceApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ServiceShopApplication.class, args);
+		SpringApplication.run(StoreServiceApplication.class, args);
 	}
 
 }

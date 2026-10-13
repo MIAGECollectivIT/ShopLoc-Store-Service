@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/shops")
+@RequestMapping("/api/v1/stores")
 public class ShopController {
 
     private final ShopService shopService;
@@ -16,13 +16,11 @@ public class ShopController {
         this.shopService = shopService;
     }
 
-    // GET http://localhost:8080/api/shops
     @GetMapping
     public List<Shop> getAllShops() {
         return shopService.getAllShops();
     }
 
-    // GET http://localhost:8080/api/shops/{id}
     @GetMapping("/{id}")
     public ResponseEntity<Shop> getShopById(@PathVariable Long id) {
         return shopService.getShopById(id)
@@ -30,7 +28,6 @@ public class ShopController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // POST http://localhost:8080/api/shops
     @PostMapping
     public ResponseEntity<Shop> createShop(@RequestBody Shop shop) {
         Shop createdShop = shopService.createShop(shop);

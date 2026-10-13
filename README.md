@@ -224,8 +224,8 @@ docker compose up --build -d backend
 
 ### Routes
 
-- GET http://localhost:8080/api/shops
-- GET http://localhost:8080/api/shops/{id}
+- GET http://localhost:8080/v1/stores
+- GET http://localhost:8080/v1/stores/{id}
 
 
 ### Couper les conteneurs

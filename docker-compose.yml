@@ -1,5 +1,5 @@
 services:
-  # CONTENEUR 1 : Base de données PostgreSQL (commenté pour l'instant)
+  # CONTAINER 1: PostgreSQL Database
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -9,7 +9,6 @@ services:
       POSTGRES_DB: app_db
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -18,18 +17,19 @@ services:
       timeout: 5s
       retries: 5
 
-  # CONTENEUR 2 : Backend Spring Boot
+  # CONTAINER 2: Spring Boot Backend
   backend:
     build: .
     restart: unless-stopped
     ports:
-      - "8080:8080" # Port par défaut de Spring Boot
+      - "8080:8080" # Default Spring Boot port
     environment:
-      # Variables reconnues automatiquement par Spring Boot
+      # Automatically recognized by Spring Boot
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/app_db
       SPRING_DATASOURCE_USERNAME: devuser
       SPRING_DATASOURCE_PASSWORD: devpassword
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update # ou "validate" selon votre besoin
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      FLYWAY_ADDITIONAL_LOCATIONS: ",classpath:db/devdata"
     depends_on:
       db:
         condition: service_healthy

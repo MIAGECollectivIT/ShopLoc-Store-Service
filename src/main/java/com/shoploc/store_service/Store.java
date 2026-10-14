@@ -1,4 +1,4 @@
-package com.example.service_shop;
+package com.shoploc.store_service;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "shops")
-public class Shop {
+public class Store {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,10 +25,10 @@ public class Shop {
     private String url;
 
     // Constructeur vide requis par JPA/Hibernate
-    public Shop() {
+    public Store() {
     }
 
-    public Shop(String name, String address, String url) {
+    public Store(String name, String address, String url) {
         this.name = name;
         this.address = address;
         this.url = url;

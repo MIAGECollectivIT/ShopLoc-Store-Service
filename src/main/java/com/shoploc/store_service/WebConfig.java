@@ -1,4 +1,4 @@
-package com.example.service_shop;
+package com.shoploc.store_service;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;

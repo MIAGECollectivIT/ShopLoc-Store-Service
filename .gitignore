@@ -4,6 +4,16 @@
 ## Additionnals ingores
 package-lock.json
 
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# IDE & Tooling
+.vscode/
+.metals/
+.bloop/
+
 
 
 ### Angular ###

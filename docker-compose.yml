@@ -4,15 +4,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: devuser
-      POSTGRES_PASSWORD: devpassword
-      POSTGRES_DB: app_db
+      POSTGRES_USER: ${POSTGRES_USER:-devuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-app_db}
     volumes:
       - db_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devuser -d app_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devuser} -d ${POSTGRES_DB:-app_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,12 +22,14 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "8080:8080" # Default Spring Boot port
+      - "${PORT:-8080}:8080" # Default Spring Boot port
     environment:
-      # Automatically recognized by Spring Boot
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/app_db
-      SPRING_DATASOURCE_USERNAME: devuser
-      SPRING_DATASOURCE_PASSWORD: devpassword
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${POSTGRES_DB:-app_db}
+      DB_USER: ${POSTGRES_USER:-devuser}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      PORT: ${PORT:-8080}
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       FLYWAY_ADDITIONAL_LOCATIONS: ",classpath:db/devdata"
     depends_on:

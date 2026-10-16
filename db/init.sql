@@ -1,5 +1,5 @@
 -- Création de la table
-CREATE TABLE IF NOT EXISTS shops (
+CREATE TABLE IF NOT EXISTS stores (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     address VARCHAR(255) NOT NULL,

@@ -1,15 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: service-shop
-  namespace: shoploc
+  name: store-service
   labels:
-    app: service-shop
+    app: store-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: service-shop
+      app: store-service
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -18,39 +17,41 @@ spec:
   template:
     metadata:
       labels:
-        app: service-shop
+        app: store-service
     spec:
       imagePullSecrets:
         - name: ghcr-secret
       containers:
-        - name: service-shop
-          image: ghcr.io/miagecollectivit/service-shop:latest
+        - name: store-service
+          image: ghcr.io/miagecollectivit/shoploc-store-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http
           env:
             - name: DB_HOST
-              value: "db-shop"
+              value: "store-db"
             - name: DB_PORT
               value: "5432"
             - name: DB_NAME
               valueFrom:
                 secretKeyRef:
-                  name: db-credentials
+                  name: db-credentials-store
                   key: POSTGRES_DB
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: db-credentials
+                  name: db-credentials-store
                   key: POSTGRES_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: db-credentials
+                  name: db-credentials-store
                   key: POSTGRES_PASSWORD
             - name: PORT
               value: "8080"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:+UseSerialGC -XX:MaxRAMPercentage=70.0 -Xss256k"
           resources:
             requests:
               cpu: 50m
@@ -59,18 +60,16 @@ spec:
               cpu: 500m
               memory: 512Mi
           livenessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: 8080
-            initialDelaySeconds: 40
+            initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 3
             failureThreshold: 3
           readinessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: 8080
-            initialDelaySeconds: 25
+            initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
@@ -78,16 +77,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: service-shop
-  namespace: shoploc
+  name: store-service
   labels:
-    app: service-shop
+    app: store-service
 spec:
   type: ClusterIP
-  selector:
-    app: service-shop
   ports:
-    - name: http
-      port: 8080
+    - port: 8080
       targetPort: 8080
       protocol: TCP
+      name: http
+  selector:
+    app: store-service

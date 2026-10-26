@@ -1,5 +1,7 @@
 package com.shoploc.store_service;
 
+import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.dto.StoreResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,10 +33,10 @@ class StoreControllerTest {
         User user = userRepository.save(new User(100L));
         storeRepository.save(new Store("Boutique A", "Adresse A", "https://img.com/a.jpg", "Mode", "FR7630006000011234567890189", user));
 
-        List<Store> stores = storeController.getAllStores(null);
+        List<StoreResponse> stores = storeController.getAllStores(null);
 
         assertThat(stores).isNotEmpty();
-        assertThat(stores).extracting(Store::getName).contains("Boutique A");
+        assertThat(stores).extracting(StoreResponse::getName).contains("Boutique A");
     }
 
     @Test
@@ -46,7 +48,7 @@ class StoreControllerTest {
         storeRepository.save(new Store("Store User 1", "Adresse 1", "https://img.com/1.jpg", "Epicerie", "FR7630006000011234567890189", user1));
         storeRepository.save(new Store("Store User 2", "Adresse 2", "https://img.com/2.jpg", "Boucherie", "FR7630006000011234567890189", user2));
 
-        List<Store> stores = storeController.getAllStores(201L);
+        List<StoreResponse> stores = storeController.getAllStores(201L);
 
         assertThat(stores).hasSize(1);
         assertThat(stores.get(0).getName()).isEqualTo("Store User 1");
@@ -54,21 +56,21 @@ class StoreControllerTest {
     }
 
     @Test
-    @DisplayName("POST /v1/stores - Devrait créer un établissement avec son partenaire rattaché")
-    void shouldCreateStoreWithUser() {
-        Store newStore = new Store(
+    @DisplayName("POST /v1/stores - Devrait créer un établissement avec DTO validé")
+    void shouldCreateStoreWithValidDto() {
+        StoreCreateRequest request = new StoreCreateRequest(
                 "Nouveau Magasin",
                 "10 rue du Commerce",
                 "https://img.com/store.jpg",
                 "Fleuriste",
                 "FR7630006000011234567890189",
-                new User(300L)
+                300L
         );
 
-        ResponseEntity<Store> response = storeController.createStore(newStore);
+        ResponseEntity<StoreResponse> response = storeController.createStore(request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        Store body = response.getBody();
+        StoreResponse body = response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.getId()).isNotNull();
         assertThat(body.getName()).isEqualTo("Nouveau Magasin");

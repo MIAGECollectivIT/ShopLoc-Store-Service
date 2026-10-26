@@ -1,35 +1,28 @@
 package com.shoploc.store_service.validation;
 
-import java.math.BigInteger;
-import java.util.Map;
 import java.util.regex.Pattern;
 
+/**
+ * Utility helper for validating French RIB (Relevé d'Identité Bancaire) and international IBANs.
+ * Difference:
+ * - RIB: French national 23-character format (5-digit bank, 5-digit branch, 11-char account, 2-digit key).
+ * - IBAN: ISO 13616 international format (2-letter country code + 2 check digits + BBAN, 27 characters for France).
+ */
 public final class RibIbanHelper {
 
     private static final Pattern IBAN_FORMAT_PATTERN = Pattern.compile("^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$");
     private static final Pattern FRENCH_RIB_PATTERN = Pattern.compile("^[0-9]{5}[0-9]{5}[A-Z0-9]{11}[0-9]{2}$");
 
-    // Standard French banking transliteration table for alphanumeric account numbers
-    private static final Map<Character, Integer> FRENCH_RIB_LETTER_MAP = Map.ofEntries(
-            Map.entry('A', 1), Map.entry('J', 1),
-            Map.entry('B', 2), Map.entry('K', 2), Map.entry('S', 2),
-            Map.entry('C', 3), Map.entry('L', 3), Map.entry('T', 3),
-            Map.entry('D', 4), Map.entry('M', 4), Map.entry('U', 4),
-            Map.entry('E', 5), Map.entry('N', 5), Map.entry('V', 5),
-            Map.entry('F', 6), Map.entry('O', 6), Map.entry('W', 6),
-            Map.entry('G', 7), Map.entry('P', 7), Map.entry('X', 7),
-            Map.entry('H', 8), Map.entry('Q', 8), Map.entry('Y', 8),
-            Map.entry('I', 9), Map.entry('R', 9), Map.entry('Z', 9)
-    );
-
     private RibIbanHelper() {
     }
 
+    // Strips whitespace and hyphens, then converts all characters to uppercase.
     public static String clean(String raw) {
         if (raw == null) {
             return null;
         }
-        return raw.replaceAll("[\\s-]+", "").toUpperCase();
+        String stripped = raw.replaceAll("[\\s-]+", "");
+        return stripped.toUpperCase();
     }
 
     public static boolean isValidRibOrIban(String raw) {
@@ -38,7 +31,7 @@ public final class RibIbanHelper {
             return false;
         }
 
-        if (cleaned.length() >= 15 && Character.isLetter(cleaned.charAt(0)) && Character.isLetter(cleaned.charAt(1))) {
+        if (isPotentialIban(cleaned)) {
             return isValidIban(cleaned);
         }
 
@@ -49,38 +42,60 @@ public final class RibIbanHelper {
         return false;
     }
 
+    private static boolean isPotentialIban(String cleaned) {
+        if (cleaned.length() < 15) {
+            return false;
+        }
+        char firstChar = cleaned.charAt(0);
+        char secondChar = cleaned.charAt(1);
+        return Character.isLetter(firstChar) && Character.isLetter(secondChar);
+    }
+
     /**
      * Validates IBAN according to ISO 7064 MOD 97-10 algorithm.
      */
     public static boolean isValidIban(String cleaned) {
-        if (cleaned == null || !IBAN_FORMAT_PATTERN.matcher(cleaned).matches()) {
+        if (cleaned == null) {
             return false;
         }
-
-        // Specific length check for France
+        if (!IBAN_FORMAT_PATTERN.matcher(cleaned).matches()) {
+            return false;
+        }
         if (cleaned.startsWith("FR") && cleaned.length() != 27) {
             return false;
         }
 
-        // Move first 4 characters to the end
-        String rearranged = cleaned.substring(4) + cleaned.substring(0, 4);
-
-        // Convert letters to numbers: A -> 10, B -> 11, ..., Z -> 35
-        StringBuilder numericString = new StringBuilder();
-        for (int i = 0; i < rearranged.length(); i++) {
-            char ch = rearranged.charAt(i);
-            if (Character.isDigit(ch)) {
-                numericString.append(ch);
-            } else if (Character.isLetter(ch)) {
-                numericString.append(ch - 'A' + 10);
-            } else {
-                return false;
-            }
+        String rearranged = rearrangeIban(cleaned);
+        String numericRepresentation = convertLettersToDigits(rearranged);
+        if (numericRepresentation == null) {
+            return false;
         }
 
-        // Verify checksum modulo 97 == 1
-        BigInteger bigInt = new BigInteger(numericString.toString());
-        return bigInt.mod(BigInteger.valueOf(97)).intValue() == 1;
+        int remainder = calculateModulo97(numericRepresentation);
+        return remainder == 1;
+    }
+
+    // Moves the first 4 characters (country code and check digits) to the end per ISO 7064 checksum rules.
+    private static String rearrangeIban(String iban) {
+        String countryAndChecksum = iban.substring(0, 4);
+        String bbanPart = iban.substring(4);
+        return bbanPart + countryAndChecksum;
+    }
+
+    private static String convertLettersToDigits(String str) {
+        StringBuilder numericBuilder = new StringBuilder();
+        for (int i = 0; i < str.length(); i++) {
+            char ch = str.charAt(i);
+            if (Character.isDigit(ch)) {
+                numericBuilder.append(ch);
+            } else if (Character.isLetter(ch)) {
+                int numericValue = ch - 'A' + 10;
+                numericBuilder.append(numericValue);
+            } else {
+                return null;
+            }
+        }
+        return numericBuilder.toString();
     }
 
     /**
@@ -95,41 +110,75 @@ public final class RibIbanHelper {
 
         String codeBanque = cleaned.substring(0, 5);
         String codeGuichet = cleaned.substring(5, 10);
-        String numCompteRaw = cleaned.substring(10, 21);
-        String cleStr = cleaned.substring(21, 23);
+        String numCompte = cleaned.substring(10, 21);
+        String cleFournieStr = cleaned.substring(21, 23);
 
-        // Transliterate letters in account number according to standard French banking rules
-        StringBuilder numCompteNumeric = new StringBuilder();
-        for (int i = 0; i < numCompteRaw.length(); i++) {
-            char ch = numCompteRaw.charAt(i);
-            if (Character.isDigit(ch)) {
-                numCompteNumeric.append(ch);
-            } else {
-                Integer mapped = FRENCH_RIB_LETTER_MAP.get(ch);
-                if (mapped == null) {
-                    return false;
-                }
-                numCompteNumeric.append(mapped);
-            }
+        String numericCompte = transliterateAccountNumber(numCompte);
+        if (numericCompte == null) {
+            return false;
         }
 
         try {
             long banque = Long.parseLong(codeBanque);
             long guichet = Long.parseLong(codeGuichet);
-            long cleFournie = Long.parseLong(cleStr);
+            long cleFournie = Long.parseLong(cleFournieStr);
 
-            long term1 = (89 * banque) % 97;
-            long term2 = (15 * guichet) % 97;
+            long termBanque = (89 * banque) % 97;
+            long termGuichet = (15 * guichet) % 97;
+            long termCompte = (3L * calculateModulo97(numericCompte)) % 97;
 
-            BigInteger compteBigInt = new BigInteger(numCompteNumeric.toString());
-            long term3 = compteBigInt.multiply(BigInteger.valueOf(3)).mod(BigInteger.valueOf(97)).longValue();
-
-            long remainder = (term1 + term2 + term3) % 97;
-            long cleCalculee = 97 - remainder;
+            long totalModulo = (termBanque + termGuichet + termCompte) % 97;
+            long cleCalculee = 97 - totalModulo;
 
             return cleFournie == cleCalculee;
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    private static String transliterateAccountNumber(String rawAccount) {
+        StringBuilder numericAccount = new StringBuilder();
+        for (int i = 0; i < rawAccount.length(); i++) {
+            char ch = rawAccount.charAt(i);
+            if (Character.isDigit(ch)) {
+                numericAccount.append(ch);
+            } else {
+                int digit = transliterateRibLetter(ch);
+                if (digit < 0) {
+                    return null;
+                }
+                numericAccount.append(digit);
+            }
+        }
+        return numericAccount.toString();
+    }
+
+    /**
+     * Transliterates French banking letters to digits:
+     * A-I -> 1-9, J-R -> 1-9, S-Z -> 2-9
+     */
+    private static int transliterateRibLetter(char ch) {
+        if (ch >= 'A' && ch <= 'I') {
+            return ch - 'A' + 1;
+        }
+        if (ch >= 'J' && ch <= 'R') {
+            return ch - 'J' + 1;
+        }
+        if (ch >= 'S' && ch <= 'Z') {
+            return ch - 'S' + 2;
+        }
+        return -1;
+    }
+
+    /**
+     * Computes (numericString mod 97) iteratively to prevent integer overflow and avoid BigInteger overhead.
+     */
+    private static int calculateModulo97(String numericString) {
+        int remainder = 0;
+        for (int i = 0; i < numericString.length(); i++) {
+            int digit = numericString.charAt(i) - '0';
+            remainder = (remainder * 10 + digit) % 97;
+        }
+        return remainder;
     }
 }

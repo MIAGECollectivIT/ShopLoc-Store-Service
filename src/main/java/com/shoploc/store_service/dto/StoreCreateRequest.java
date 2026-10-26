@@ -47,14 +47,24 @@ public class StoreCreateRequest {
     }
 
     public Store toEntity() {
-        return new Store(
-                name != null ? name.trim() : null,
-                address != null ? address.trim() : null,
-                url != null ? url.trim() : null,
-                category != null ? category.trim() : null,
-                RibIbanHelper.clean(rib),
-                userId != null ? new User(userId) : null
-        );
+        Store store = new Store();
+        store.setName(cleanTrim(name));
+        store.setAddress(cleanTrim(address));
+        store.setUrl(cleanTrim(url));
+        store.setCategory(cleanTrim(category));
+        store.setRib(RibIbanHelper.clean(rib));
+
+        if (userId != null) {
+            store.setUser(new User(userId));
+        }
+        return store;
+    }
+
+    private String cleanTrim(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim();
     }
 
     public String getName() {

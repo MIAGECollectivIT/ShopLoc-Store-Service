@@ -7,7 +7,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/v1/stores")
@@ -22,25 +24,39 @@ public class StoreController {
     // GET /v1/stores ou /v1/stores?userId={userId}
     @GetMapping
     public List<StoreResponse> getAllStores(@RequestParam(required = false) Long userId) {
-        List<Store> stores = (userId != null)
-                ? storeService.getStoresByUserId(userId)
-                : storeService.getAllStores();
-        return stores.stream().map(StoreResponse::fromEntity).toList();
+        List<Store> stores;
+        if (userId != null) {
+            stores = storeService.getStoresByUserId(userId);
+        } else {
+            stores = storeService.getAllStores();
+        }
+
+        List<StoreResponse> responseList = new ArrayList<>();
+        for (Store store : stores) {
+            responseList.add(StoreResponse.fromEntity(store));
+        }
+        return responseList;
     }
 
     // GET /v1/stores/{storeId}
     @GetMapping("/{storeId}")
     public ResponseEntity<StoreResponse> getStoreById(@PathVariable Long storeId) {
-        return storeService.getStoreById(storeId)
-                .map(StoreResponse::fromEntity)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        Optional<Store> storeOptional = storeService.getStoreById(storeId);
+        if (storeOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Store store = storeOptional.get();
+        StoreResponse response = StoreResponse.fromEntity(store);
+        return ResponseEntity.ok(response);
     }
 
     // POST /v1/stores
     @PostMapping
     public ResponseEntity<StoreResponse> createStore(@Valid @RequestBody StoreCreateRequest request) {
-        Store createdStore = storeService.createStore(request.toEntity());
-        return ResponseEntity.status(HttpStatus.CREATED).body(StoreResponse.fromEntity(createdStore));
+        Store storeToCreate = request.toEntity();
+        Store createdStore = storeService.createStore(storeToCreate);
+        StoreResponse response = StoreResponse.fromEntity(createdStore);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

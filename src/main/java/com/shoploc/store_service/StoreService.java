@@ -29,11 +29,21 @@ public class StoreService {
     }
 
     public Store createStore(Store store) {
-        if (store.getUser() != null && store.getUser().getId() != null) {
-            User user = userRepository.findById(store.getUser().getId())
-                    .orElseGet(() -> userRepository.save(new User(store.getUser().getId())));
-            store.setUser(user);
+        User associatedUser = store.getUser();
+        if (associatedUser != null && associatedUser.getId() != null) {
+            Long userId = associatedUser.getId();
+            User persistentUser = resolveOrCreateUser(userId);
+            store.setUser(persistentUser);
         }
         return storeRepository.save(store);
+    }
+
+    private User resolveOrCreateUser(Long userId) {
+        Optional<User> existingUser = userRepository.findById(userId);
+        if (existingUser.isPresent()) {
+            return existingUser.get();
+        }
+        User newUser = new User(userId);
+        return userRepository.save(newUser);
     }
 }

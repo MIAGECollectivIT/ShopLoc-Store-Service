@@ -1,10 +1,15 @@
 package com.shoploc.store_service;
 
+import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.dto.StoreResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/v1/stores")
@@ -18,25 +23,40 @@ public class StoreController {
 
     // GET /v1/stores ou /v1/stores?userId={userId}
     @GetMapping
-    public List<Store> getAllStores(@RequestParam(required = false) Long userId) {
+    public List<StoreResponse> getAllStores(@RequestParam(required = false) Long userId) {
+        List<Store> stores;
         if (userId != null) {
-            return storeService.getStoresByUserId(userId);
+            stores = storeService.getStoresByUserId(userId);
+        } else {
+            stores = storeService.getAllStores();
         }
-        return storeService.getAllStores();
+
+        List<StoreResponse> responseList = new ArrayList<>();
+        for (Store store : stores) {
+            responseList.add(StoreResponse.fromEntity(store));
+        }
+        return responseList;
     }
 
     // GET /v1/stores/{storeId}
     @GetMapping("/{storeId}")
-    public ResponseEntity<Store> getStoreById(@PathVariable Long storeId) {
-        return storeService.getStoreById(storeId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<StoreResponse> getStoreById(@PathVariable Long storeId) {
+        Optional<Store> storeOptional = storeService.getStoreById(storeId);
+        if (storeOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Store store = storeOptional.get();
+        StoreResponse response = StoreResponse.fromEntity(store);
+        return ResponseEntity.ok(response);
     }
 
     // POST /v1/stores
     @PostMapping
-    public ResponseEntity<Store> createStore(@RequestBody Store store) {
-        Store createdStore = storeService.createStore(store);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdStore);
+    public ResponseEntity<StoreResponse> createStore(@Valid @RequestBody StoreCreateRequest request) {
+        Store storeToCreate = request.toEntity();
+        Store createdStore = storeService.createStore(storeToCreate);
+        StoreResponse response = StoreResponse.fromEntity(createdStore);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

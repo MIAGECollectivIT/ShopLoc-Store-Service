@@ -21,7 +21,7 @@ public class StoreController {
         this.storeService = storeService;
     }
 
-    // GET /v1/stores ou /v1/stores?userId={userId}
+    // GET /v1/stores
     @GetMapping
     public List<StoreResponse> getAllStores(@RequestParam(required = false) Long userId) {
         List<Store> stores;

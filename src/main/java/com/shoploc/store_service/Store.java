@@ -51,7 +51,6 @@ public class Store {
         this.userId = userId;
     }
 
-    // Getters et Setters
     public Long getId() {
         return id;
     }

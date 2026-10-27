@@ -54,8 +54,7 @@ public class StoreController {
     // POST /v1/stores
     @PostMapping
     public ResponseEntity<StoreResponse> createStore(@Valid @RequestBody StoreCreateRequest request) {
-        Store storeToCreate = request.toEntity();
-        Store createdStore = storeService.createStore(storeToCreate);
+        Store createdStore = storeService.createStore(request);
         StoreResponse response = StoreResponse.fromEntity(createdStore);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

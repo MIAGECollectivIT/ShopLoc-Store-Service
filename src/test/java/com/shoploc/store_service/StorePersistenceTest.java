@@ -1,14 +1,17 @@
 package com.shoploc.store_service;
 
+import com.shoploc.store_service.client.UserClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @Transactional
@@ -18,23 +21,21 @@ class StorePersistenceTest {
     private StoreRepository storeRepository;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
     private StoreService storeService;
 
-    @Test
-    @DisplayName("Devrait persister un magasin avec nom, catégorie, RIB et liaison à un utilisateur")
-    void shouldPersistStoreWithCategoryRibAndUser() {
-        User user = userRepository.save(new User(10L));
+    @MockitoBean
+    private UserClient userClient;
 
+    @Test
+    @DisplayName("Devrait persister un magasin avec nom, catégorie, RIB et liaison à un identifiant utilisateur")
+    void shouldPersistStoreWithCategoryRibAndUserId() {
         Store store = new Store(
                 "Boulangerie Paul",
                 "1 Place Rihour, 59000 Lille",
                 "https://example.com/paul.jpg",
                 "Boulangerie",
                 "FR7630006000011234567890189",
-                user
+                10L
         );
 
         Store savedStore = storeRepository.save(store);
@@ -43,22 +44,19 @@ class StorePersistenceTest {
         assertThat(savedStore.getName()).isEqualTo("Boulangerie Paul");
         assertThat(savedStore.getCategory()).isEqualTo("Boulangerie");
         assertThat(savedStore.getRib()).isEqualTo("FR7630006000011234567890189");
-        assertThat(savedStore.getUser()).isNotNull();
-        assertThat(savedStore.getUser().getId()).isEqualTo(10L);
+        assertThat(savedStore.getUserId()).isEqualTo(10L);
     }
 
     @Test
-    @DisplayName("Devrait autoriser un même partenaire (User) à posséder plusieurs établissements distincts (relation n:1)")
+    @DisplayName("Devrait autoriser un même partenaire (userId) à posséder plusieurs établissements distincts (relation n:1)")
     void shouldAllowOneUserToOwnMultipleStores() {
-        User partner = userRepository.save(new User(42L));
-
         Store store1 = new Store(
                 "Café de Flore Lille",
                 "12 Rue de Paris, 59000 Lille",
                 "https://example.com/cafe1.jpg",
                 "Restauration",
                 "FR7630006000011234567890189",
-                partner
+                42L
         );
 
         Store store2 = new Store(
@@ -67,7 +65,7 @@ class StorePersistenceTest {
                 "https://example.com/bistrot.jpg",
                 "Restauration",
                 "FR7630006000011234567890189",
-                partner
+                42L
         );
 
         storeRepository.save(store1);
@@ -81,22 +79,23 @@ class StorePersistenceTest {
     }
 
     @Test
-    @DisplayName("Devrait créer un store via StoreService et lier automatiquement l'utilisateur")
-    void shouldCreateStoreViaServiceWithAutoUser() {
+    @DisplayName("Devrait créer un store via StoreService après vérification du partenaire")
+    void shouldCreateStoreViaServiceWithVerifiedUser() {
+        when(userClient.userExists(99L)).thenReturn(true);
+
         Store store = new Store(
                 "Librairie du Furet",
                 "15 Grand Place, 59000 Lille",
                 "https://example.com/furet.jpg",
                 "Librairie",
                 "FR7630006000011234567890189",
-                new User(99L)
+                99L
         );
 
         Store created = storeService.createStore(store);
 
         assertThat(created.getId()).isNotNull();
-        assertThat(created.getUser().getId()).isEqualTo(99L);
-        assertThat(userRepository.existsById(99L)).isTrue();
+        assertThat(created.getUserId()).isEqualTo(99L);
 
         List<Store> storesForUser = storeService.getStoresByUserId(99L);
         assertThat(storesForUser).hasSize(1);

@@ -16,13 +16,16 @@ public class StoreController {
         this.storeService = storeService;
     }
 
-    // GET http://localhost:8080/V1/stores
+    // GET /v1/stores ou /v1/stores?userId={userId}
     @GetMapping
-    public List<Store> getAllStores() {
+    public List<Store> getAllStores(@RequestParam(required = false) Long userId) {
+        if (userId != null) {
+            return storeService.getStoresByUserId(userId);
+        }
         return storeService.getAllStores();
     }
 
-    // GET http://localhost:8080/V1/stores/{storeId}
+    // GET /v1/stores/{storeId}
     @GetMapping("/{storeId}")
     public ResponseEntity<Store> getStoreById(@PathVariable Long storeId) {
         return storeService.getStoreById(storeId)
@@ -30,7 +33,7 @@ public class StoreController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // POST http://localhost:8080/V1/stores
+    // POST /v1/stores
     @PostMapping
     public ResponseEntity<Store> createStore(@RequestBody Store store) {
         Store createdStore = storeService.createStore(store);

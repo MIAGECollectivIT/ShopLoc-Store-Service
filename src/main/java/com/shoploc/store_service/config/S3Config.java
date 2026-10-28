@@ -20,7 +20,7 @@ public class S3Config {
     @Value("${s3.access-key:devadmin}")
     private String accessKey;
 
-    @Value("${s3.secret-key:devpassword123}")
+    @Value("${s3.secret-key}")
     private String secretKey;
 
     @Value("${s3.region:us-east-1}")

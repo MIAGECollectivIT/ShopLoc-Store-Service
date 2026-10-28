@@ -32,6 +32,9 @@ class StoreControllerTest {
     @MockitoBean
     private UserClient userClient;
 
+    @MockitoBean
+    private com.shoploc.store_service.storage.ImageStorageService imageStorageService;
+
     @Test
     @DisplayName("GET /v1/stores - Devrait retourner tous les établissements")
     void shouldReturnAllStores() {
@@ -83,6 +86,40 @@ class StoreControllerTest {
 
         verify(userClient).userExists(300L);
         verify(userClient).linkStoreToUser(eq(300L), eq(body.getId()));
+    }
+
+    @Test
+    @DisplayName("POST /v1/stores (multipart) - Devrait téléverser l'image et assigner l'URL générée au commerce")
+    void shouldCreateStoreWithUploadedImageWhenMultipartProvided() {
+        when(userClient.userExists(301L)).thenReturn(true);
+        when(imageStorageService.uploadStoreImage(any()))
+                .thenReturn("https://dev.shop-loc.fr/storage/store-images/sample-uuid.jpg");
+
+        StoreCreateRequest request = new StoreCreateRequest(
+                "Pâtisserie Fine",
+                "15 rue Royale, Lille",
+                null,
+                "Pâtisserie",
+                "FR7630006000011234567890189",
+                301L
+        );
+
+        org.springframework.mock.web.MockMultipartFile mockFile = new org.springframework.mock.web.MockMultipartFile(
+                "image",
+                "vitrine.jpg",
+                "image/jpeg",
+                new byte[]{1, 2, 3, 4}
+        );
+
+        ResponseEntity<StoreResponse> response = storeController.createStore(request, mockFile);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        StoreResponse body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.getUrl()).isEqualTo("https://dev.shop-loc.fr/storage/store-images/sample-uuid.jpg");
+
+        verify(imageStorageService).uploadStoreImage(mockFile);
+        verify(userClient).linkStoreToUser(eq(301L), eq(body.getId()));
     }
 
     @Test

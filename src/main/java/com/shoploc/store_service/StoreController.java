@@ -54,8 +54,18 @@ public class StoreController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping
-    @Operation(summary = "Créer un nouveau commerce")
+    @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Créer un nouveau commerce avec upload d'image (multipart/form-data)")
+    public ResponseEntity<StoreResponse> createStore(
+            @Valid @RequestPart("store") StoreCreateRequest request,
+            @RequestPart(value = "image", required = false) org.springframework.web.multipart.MultipartFile image) {
+        Store createdStore = storeService.createStore(request, image);
+        StoreResponse response = StoreResponse.fromEntity(createdStore);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Créer un nouveau commerce sans image ou avec URL directe (application/json)")
     public ResponseEntity<StoreResponse> createStore(@Valid @RequestBody StoreCreateRequest request) {
         Store createdStore = storeService.createStore(request);
         StoreResponse response = StoreResponse.fromEntity(createdStore);

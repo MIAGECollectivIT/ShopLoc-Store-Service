@@ -3,7 +3,9 @@ package com.shoploc.store_service;
 import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.exception.UserNotFoundException;
+import com.shoploc.store_service.storage.ImageStorageService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,10 +15,12 @@ public class StoreService {
 
     private final StoreRepository storeRepository;
     private final UserClient userClient;
+    private final ImageStorageService imageStorageService;
 
-    public StoreService(StoreRepository storeRepository, UserClient userClient) {
+    public StoreService(StoreRepository storeRepository, UserClient userClient, ImageStorageService imageStorageService) {
         this.storeRepository = storeRepository;
         this.userClient = userClient;
+        this.imageStorageService = imageStorageService;
     }
 
     public List<Store> getAllStores() {
@@ -31,18 +35,28 @@ public class StoreService {
         return storeRepository.findByUserId(userId);
     }
 
-    public Store createStore(StoreCreateRequest request) {
+    public Store createStore(StoreCreateRequest request, MultipartFile image) {
         Long userId = request.getUserId();
         if (!userClient.userExists(userId)) {
             throw new UserNotFoundException(userId);
         }
 
         Store storeToSave = request.toEntity();
+
+        if (image != null && !image.isEmpty()) {
+            String imageUrl = imageStorageService.uploadStoreImage(image);
+            storeToSave.setUrl(imageUrl);
+        }
+
         Store savedStore = storeRepository.save(storeToSave);
 
         userClient.linkStoreToUser(userId, savedStore.getId());
 
         return savedStore;
+    }
+
+    public Store createStore(StoreCreateRequest request) {
+        return createStore(request, null);
     }
 
     public Store createStore(Store store) {

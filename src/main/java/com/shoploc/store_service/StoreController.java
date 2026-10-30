@@ -2,6 +2,7 @@ package com.shoploc.store_service;
 
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
+import com.shoploc.store_service.security.RequiresRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -55,7 +56,8 @@ public class StoreController {
     }
 
     @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Créer un nouveau commerce avec upload d'image (multipart/form-data)")
+    @RequiresRole("ADMIN")
+    @Operation(summary = "Créer un nouveau commerce avec upload d'image (multipart/form-data) - Réservé aux administrateurs")
     public ResponseEntity<StoreResponse> createStore(
             @Valid @RequestPart("store") StoreCreateRequest request,
             @RequestPart(value = "image", required = false) org.springframework.web.multipart.MultipartFile image) {
@@ -65,7 +67,8 @@ public class StoreController {
     }
 
     @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Créer un nouveau commerce sans image ou avec URL directe (application/json)")
+    @RequiresRole("ADMIN")
+    @Operation(summary = "Créer un nouveau commerce sans image ou avec URL directe (application/json) - Réservé aux administrateurs")
     public ResponseEntity<StoreResponse> createStore(@Valid @RequestBody StoreCreateRequest request) {
         Store createdStore = storeService.createStore(request);
         StoreResponse response = StoreResponse.fromEntity(createdStore);

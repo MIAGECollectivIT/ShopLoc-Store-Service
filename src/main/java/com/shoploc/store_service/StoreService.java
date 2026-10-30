@@ -1,6 +1,11 @@
 package com.shoploc.store_service;
 
+import com.shoploc.store_service.client.UserClient;
+import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.exception.UserNotFoundException;
+import com.shoploc.store_service.storage.ImageStorageService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -9,11 +14,13 @@ import java.util.Optional;
 public class StoreService {
 
     private final StoreRepository storeRepository;
-    private final UserRepository userRepository;
+    private final UserClient userClient;
+    private final ImageStorageService imageStorageService;
 
-    public StoreService(StoreRepository storeRepository, UserRepository userRepository) {
+    public StoreService(StoreRepository storeRepository, UserClient userClient, ImageStorageService imageStorageService) {
         this.storeRepository = storeRepository;
-        this.userRepository = userRepository;
+        this.userClient = userClient;
+        this.imageStorageService = imageStorageService;
     }
 
     public List<Store> getAllStores() {
@@ -28,22 +35,40 @@ public class StoreService {
         return storeRepository.findByUserId(userId);
     }
 
-    public Store createStore(Store store) {
-        User associatedUser = store.getUser();
-        if (associatedUser != null && associatedUser.getId() != null) {
-            Long userId = associatedUser.getId();
-            User persistentUser = resolveOrCreateUser(userId);
-            store.setUser(persistentUser);
+    public Store createStore(StoreCreateRequest request, MultipartFile image) {
+        Long userId = request.getUserId();
+        if (!userClient.userExists(userId)) {
+            throw new UserNotFoundException(userId);
         }
-        return storeRepository.save(store);
+
+        Store storeToSave = request.toEntity();
+
+        if (image != null && !image.isEmpty()) {
+            String imageUrl = imageStorageService.uploadStoreImage(image);
+            storeToSave.setUrl(imageUrl);
+        }
+
+        Store savedStore = storeRepository.save(storeToSave);
+
+        userClient.linkStoreToUser(userId, savedStore.getId());
+
+        return savedStore;
     }
 
-    private User resolveOrCreateUser(Long userId) {
-        Optional<User> existingUser = userRepository.findById(userId);
-        if (existingUser.isPresent()) {
-            return existingUser.get();
+    public Store createStore(StoreCreateRequest request) {
+        return createStore(request, null);
+    }
+
+    public Store createStore(Store store) {
+        Long userId = store.getUserId();
+        if (userId != null && !userClient.userExists(userId)) {
+            throw new UserNotFoundException(userId);
         }
-        User newUser = new User(userId);
-        return userRepository.save(newUser);
+
+        Store savedStore = storeRepository.save(store);
+        if (userId != null) {
+            userClient.linkStoreToUser(userId, savedStore.getId());
+        }
+        return savedStore;
     }
 }

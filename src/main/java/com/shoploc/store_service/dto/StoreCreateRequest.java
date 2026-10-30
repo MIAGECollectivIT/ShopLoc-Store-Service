@@ -1,7 +1,6 @@
 package com.shoploc.store_service.dto;
 
 import com.shoploc.store_service.Store;
-import com.shoploc.store_service.User;
 import com.shoploc.store_service.validation.RibIbanHelper;
 import com.shoploc.store_service.validation.ValidRibOrIban;
 import jakarta.validation.constraints.NotBlank;
@@ -53,10 +52,7 @@ public class StoreCreateRequest {
         store.setUrl(cleanTrim(url));
         store.setCategory(cleanTrim(category));
         store.setRib(RibIbanHelper.clean(rib));
-
-        if (userId != null) {
-            store.setUser(new User(userId));
-        }
+        store.setUserId(userId);
         return store;
     }
 

@@ -2,6 +2,9 @@ package com.shoploc.store_service;
 
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
+import com.shoploc.store_service.security.RequiresRole;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +16,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/v1/stores")
+@Tag(name = "Stores", description = "Gestion des commerces")
 public class StoreController {
 
     private final StoreService storeService;
@@ -21,8 +25,8 @@ public class StoreController {
         this.storeService = storeService;
     }
 
-    // GET /v1/stores ou /v1/stores?userId={userId}
     @GetMapping
+    @Operation(summary = "Récupère tous les commerces")
     public List<StoreResponse> getAllStores(@RequestParam(required = false) Long userId) {
         List<Store> stores;
         if (userId != null) {
@@ -38,8 +42,8 @@ public class StoreController {
         return responseList;
     }
 
-    // GET /v1/stores/{storeId}
     @GetMapping("/{storeId}")
+    @Operation(summary = "Récupère un commerce par son identifiant")
     public ResponseEntity<StoreResponse> getStoreById(@PathVariable Long storeId) {
         Optional<Store> storeOptional = storeService.getStoreById(storeId);
         if (storeOptional.isEmpty()) {
@@ -51,11 +55,22 @@ public class StoreController {
         return ResponseEntity.ok(response);
     }
 
-    // POST /v1/stores
-    @PostMapping
+    @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RequiresRole("ADMIN")
+    @Operation(summary = "Créer un nouveau commerce avec upload d'image (multipart/form-data) - Réservé aux administrateurs")
+    public ResponseEntity<StoreResponse> createStore(
+            @Valid @RequestPart("store") StoreCreateRequest request,
+            @RequestPart(value = "image", required = false) org.springframework.web.multipart.MultipartFile image) {
+        Store createdStore = storeService.createStore(request, image);
+        StoreResponse response = StoreResponse.fromEntity(createdStore);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+    @RequiresRole("ADMIN")
+    @Operation(summary = "Créer un nouveau commerce sans image ou avec URL directe (application/json) - Réservé aux administrateurs")
     public ResponseEntity<StoreResponse> createStore(@Valid @RequestBody StoreCreateRequest request) {
-        Store storeToCreate = request.toEntity();
-        Store createdStore = storeService.createStore(storeToCreate);
+        Store createdStore = storeService.createStore(request);
         StoreResponse response = StoreResponse.fromEntity(createdStore);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

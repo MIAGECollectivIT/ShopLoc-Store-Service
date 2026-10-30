@@ -2,12 +2,9 @@ package com.shoploc.store_service;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -33,9 +30,8 @@ public class Store {
     @Column(nullable = false, length = 34)
     private String rib;
 
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     public Store() {
     }
@@ -46,16 +42,15 @@ public class Store {
         this.url = url;
     }
 
-    public Store(String name, String address, String url, String category, String rib, User user) {
+    public Store(String name, String address, String url, String category, String rib, Long userId) {
         this.name = name;
         this.address = address;
         this.url = url;
         this.category = category;
         this.rib = rib;
-        this.user = user;
+        this.userId = userId;
     }
 
-    // Getters et Setters
     public Long getId() {
         return id;
     }
@@ -104,21 +99,11 @@ public class Store {
         this.rib = rib;
     }
 
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
     public Long getUserId() {
-        return user != null ? user.getId() : null;
+        return userId;
     }
 
     public void setUserId(Long userId) {
-        if (userId != null) {
-            this.user = new User(userId);
-        }
+        this.userId = userId;
     }
 }

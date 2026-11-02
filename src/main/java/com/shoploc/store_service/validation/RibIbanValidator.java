@@ -5,11 +5,11 @@ import jakarta.validation.ConstraintValidatorContext;
 
 public class RibIbanValidator implements ConstraintValidator<ValidRibOrIban, String> {
 
-    @Override
-    public boolean isValid(String value, ConstraintValidatorContext context) {
-        if (value == null || value.trim().isEmpty()) {
-            return false;
-        }
-        return RibIbanHelper.isValidRibOrIban(value);
+  @Override
+  public boolean isValid(String value, ConstraintValidatorContext context) {
+    if (value == null || value.trim().isEmpty()) {
+      return false;
     }
+    return RibIbanHelper.isValidRibOrIban(value);
+  }
 }

@@ -6,11 +6,10 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation déclarant le rôle requis dans le header 'X-User-Role'
- * pour accéder à une opération du contrôleur.
+ * Annotation déclarant un ou plusieurs rôles autorisés pour accéder à une opération du contrôleur.
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RequiresRole {
-    String value();
+  String[] value() default {};
 }

@@ -10,104 +10,104 @@ import jakarta.validation.constraints.Size;
 
 public class StoreCreateRequest {
 
-    @NotBlank(message = "Le nom de l'établissement est obligatoire")
-    @Size(max = 255, message = "Le nom ne doit pas dépasser 255 caractères")
-    private String name;
+  @NotBlank(message = "Le nom de l'établissement est obligatoire")
+  @Size(max = 255, message = "Le nom ne doit pas dépasser 255 caractères")
+  private String name;
 
-    @NotBlank(message = "L'adresse de l'établissement est obligatoire")
-    @Size(max = 255, message = "L'adresse ne doit pas dépasser 255 caractères")
-    private String address;
+  @NotBlank(message = "L'adresse de l'établissement est obligatoire")
+  @Size(max = 255, message = "L'adresse ne doit pas dépasser 255 caractères")
+  private String address;
 
-    @Size(max = 500, message = "L'URL ne doit pas dépasser 500 caractères")
-    private String url;
+  @Size(max = 500, message = "L'URL ne doit pas dépasser 500 caractères")
+  private String url;
 
-    @NotBlank(message = "La catégorie d'activité est obligatoire")
-    @Size(max = 255, message = "La catégorie ne doit pas dépasser 255 caractères")
-    private String category;
+  @NotBlank(message = "La catégorie d'activité est obligatoire")
+  @Size(max = 255, message = "La catégorie ne doit pas dépasser 255 caractères")
+  private String category;
 
-    @NotBlank(message = "Le RIB ou IBAN est obligatoire")
-    @ValidRibOrIban(message = "Le format ou la clé algorithmique du RIB/IBAN est invalide")
-    private String rib;
+  @NotBlank(message = "Le RIB ou IBAN est obligatoire")
+  @ValidRibOrIban(message = "Le format ou la clé algorithmique du RIB/IBAN est invalide")
+  private String rib;
 
-    @NotNull(message = "L'identifiant du partenaire propriétaire est obligatoire")
-    @Positive(message = "L'identifiant du partenaire propriétaire doit être un identifiant valide")
-    private Long userId;
+  @NotNull(message = "L'identifiant du partenaire propriétaire est obligatoire")
+  @Positive(message = "L'identifiant du partenaire propriétaire doit être un identifiant valide")
+  private Long userId;
 
-    public StoreCreateRequest() {
+  public StoreCreateRequest() {}
+
+  public StoreCreateRequest(
+      String name, String address, String url, String category, String rib, Long userId) {
+    this.name = name;
+    this.address = address;
+    this.url = url;
+    this.category = category;
+    this.rib = rib;
+    this.userId = userId;
+  }
+
+  public Store toEntity() {
+    Store store = new Store();
+    store.setName(cleanTrim(name));
+    store.setAddress(cleanTrim(address));
+    store.setUrl(cleanTrim(url));
+    store.setCategory(cleanTrim(category));
+    store.setRib(RibIbanHelper.clean(rib));
+    store.setUserId(userId);
+    return store;
+  }
+
+  private String cleanTrim(String value) {
+    if (value == null) {
+      return null;
     }
+    return value.trim();
+  }
 
-    public StoreCreateRequest(String name, String address, String url, String category, String rib, Long userId) {
-        this.name = name;
-        this.address = address;
-        this.url = url;
-        this.category = category;
-        this.rib = rib;
-        this.userId = userId;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public Store toEntity() {
-        Store store = new Store();
-        store.setName(cleanTrim(name));
-        store.setAddress(cleanTrim(address));
-        store.setUrl(cleanTrim(url));
-        store.setCategory(cleanTrim(category));
-        store.setRib(RibIbanHelper.clean(rib));
-        store.setUserId(userId);
-        return store;
-    }
+  public void setName(String name) {
+    this.name = name;
+  }
 
-    private String cleanTrim(String value) {
-        if (value == null) {
-            return null;
-        }
-        return value.trim();
-    }
+  public String getAddress() {
+    return address;
+  }
 
-    public String getName() {
-        return name;
-    }
+  public void setAddress(String address) {
+    this.address = address;
+  }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+  public String getUrl() {
+    return url;
+  }
 
-    public String getAddress() {
-        return address;
-    }
+  public void setUrl(String url) {
+    this.url = url;
+  }
 
-    public void setAddress(String address) {
-        this.address = address;
-    }
+  public String getCategory() {
+    return category;
+  }
 
-    public String getUrl() {
-        return url;
-    }
+  public void setCategory(String category) {
+    this.category = category;
+  }
 
-    public void setUrl(String url) {
-        this.url = url;
-    }
+  public String getRib() {
+    return rib;
+  }
 
-    public String getCategory() {
-        return category;
-    }
+  public void setRib(String rib) {
+    this.rib = rib;
+  }
 
-    public void setCategory(String category) {
-        this.category = category;
-    }
+  public Long getUserId() {
+    return userId;
+  }
 
-    public String getRib() {
-        return rib;
-    }
-
-    public void setRib(String rib) {
-        this.rib = rib;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
+  public void setUserId(Long userId) {
+    this.userId = userId;
+  }
 }

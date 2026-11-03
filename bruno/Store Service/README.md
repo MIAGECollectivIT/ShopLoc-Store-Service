@@ -81,3 +81,4 @@ bru run --env Local
 # Exécution avec rapport de synthèse
 bru run "02 - Catalogue Produits" --env Local
 ```
+

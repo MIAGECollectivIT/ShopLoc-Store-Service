@@ -99,4 +99,3 @@ public class ProductCreateRequest {
     this.stockQuantity = stockQuantity;
   }
 }
-

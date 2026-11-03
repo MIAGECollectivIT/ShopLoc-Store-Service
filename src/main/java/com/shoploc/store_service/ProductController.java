@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,7 +28,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/v1/stores/{storeId}/products")
-@Tag(name = "Products", description = "Gestion du catalogue Click & Collect et des stocks (Story SLE-58)")
+@Tag(
+    name = "Products",
+    description = "Gestion du catalogue Click & Collect et des stocks (Story SLE-58)")
 public class ProductController {
 
   private final ProductService productService;
@@ -67,8 +68,7 @@ public class ProductController {
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     ProductResponse response =
-        productService.createProduct(
-            storeId, request, image, authenticatedDbId, authenticatedRole);
+        productService.createProduct(storeId, request, image, authenticatedDbId, authenticatedRole);
     URI location = URI.create("/v1/stores/" + storeId + "/products/" + response.getId());
     return ResponseEntity.created(location).body(response);
   }
@@ -86,8 +86,7 @@ public class ProductController {
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     ProductResponse response =
-        productService.createProduct(
-            storeId, request, null, authenticatedDbId, authenticatedRole);
+        productService.createProduct(storeId, request, null, authenticatedDbId, authenticatedRole);
     URI location = URI.create("/v1/stores/" + storeId + "/products/" + response.getId());
     return ResponseEntity.created(location).body(response);
   }
@@ -134,12 +133,9 @@ public class ProductController {
   @DeleteMapping("/{productId}")
   @RequiresRole({"MERCHANT", "ADMIN"})
   @Operation(
-      summary =
-          "Supprimer un produit du catalogue - Réservé aux commerçants et administrateurs")
+      summary = "Supprimer un produit du catalogue - Réservé aux commerçants et administrateurs")
   public ResponseEntity<Void> deleteProduct(
-      @PathVariable Long storeId,
-      @PathVariable Long productId,
-      HttpServletRequest servletRequest) {
+      @PathVariable Long storeId, @PathVariable Long productId, HttpServletRequest servletRequest) {
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
@@ -188,4 +184,3 @@ public class ProductController {
     return roleObj != null ? roleObj.toString() : null;
   }
 }
-

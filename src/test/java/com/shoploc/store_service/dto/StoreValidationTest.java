@@ -76,7 +76,8 @@ class StoreValidationTest {
   }
 
   @Test
-  @DisplayName("Devrait autoriser un userId null (car injecté depuis le JWT) mais refuser un négatif")
+  @DisplayName(
+      "Devrait autoriser un userId null (car injecté depuis le JWT) mais refuser un négatif")
   void shouldAllowNullUserIdAndRejectNegative() {
     StoreCreateRequest requestNullUser =
         new StoreCreateRequest(

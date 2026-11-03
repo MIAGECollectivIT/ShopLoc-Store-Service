@@ -39,7 +39,8 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest avec stock initial null doit être valide (prend la valeur par défaut 0)")
+  @DisplayName(
+      "ProductCreateRequest avec stock initial null doit être valide (prend la valeur par défaut 0)")
   void shouldPassWhenStockQuantityIsNull() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -55,16 +56,12 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest avec prix nul (0.00 €) doit être valide (articles promotionnels)")
+  @DisplayName(
+      "ProductCreateRequest avec prix nul (0.00 €) doit être valide (articles promotionnels)")
   void shouldPassWhenPriceIsZero() {
     ProductCreateRequest request =
         new ProductCreateRequest(
-            "REF-GRATUIT",
-            "Échantillon gratuit",
-            "Offert",
-            new BigDecimal("0.00"),
-            null,
-            100);
+            "REF-GRATUIT", "Échantillon gratuit", "Offert", new BigDecimal("0.00"), null, 100);
 
     Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
     assertThat(violations).isEmpty();
@@ -75,12 +72,7 @@ class ProductValidationTest {
   void shouldFailWhenReferenceIsBlank() {
     ProductCreateRequest request =
         new ProductCreateRequest(
-            "   ",
-            "Baguette Tradition",
-            "Description",
-            new BigDecimal("1.20"),
-            null,
-            10);
+            "   ", "Baguette Tradition", "Description", new BigDecimal("1.20"), null, 10);
 
     Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("reference"));
@@ -91,13 +83,7 @@ class ProductValidationTest {
   void shouldFailWhenReferenceExceeds100Chars() {
     String longRef = "R".repeat(101);
     ProductCreateRequest request =
-        new ProductCreateRequest(
-            longRef,
-            "Baguette",
-            "Desc",
-            new BigDecimal("1.20"),
-            null,
-            10);
+        new ProductCreateRequest(longRef, "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
 
     Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("reference"));
@@ -107,13 +93,7 @@ class ProductValidationTest {
   @DisplayName("ProductCreateRequest avec nom vide doit échouer")
   void shouldFailWhenNameIsBlank() {
     ProductCreateRequest request =
-        new ProductCreateRequest(
-            "REF-01",
-            "",
-            "Description",
-            new BigDecimal("1.20"),
-            null,
-            10);
+        new ProductCreateRequest("REF-01", "", "Description", new BigDecimal("1.20"), null, 10);
 
     Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("name"));
@@ -125,12 +105,7 @@ class ProductValidationTest {
     String longName = "A".repeat(256);
     ProductCreateRequest request =
         new ProductCreateRequest(
-            "REF-01",
-            longName,
-            "Description",
-            new BigDecimal("1.20"),
-            null,
-            10);
+            "REF-01", longName, "Description", new BigDecimal("1.20"), null, 10);
 
     Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("name"));
@@ -141,12 +116,7 @@ class ProductValidationTest {
   void shouldFailWhenPriceIsNegative() {
     ProductCreateRequest request =
         new ProductCreateRequest(
-            "REF-01",
-            "Produit",
-            "Description",
-            new BigDecimal("-5.00"),
-            null,
-            10);
+            "REF-01", "Produit", "Description", new BigDecimal("-5.00"), null, 10);
 
     Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("price"));
@@ -157,12 +127,7 @@ class ProductValidationTest {
   void shouldFailWhenStockIsNegative() {
     ProductCreateRequest request =
         new ProductCreateRequest(
-            "REF-01",
-            "Produit",
-            "Description",
-            new BigDecimal("5.00"),
-            null,
-            -3);
+            "REF-01", "Produit", "Description", new BigDecimal("5.00"), null, -3);
 
     Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("stockQuantity"));
@@ -188,13 +153,7 @@ class ProductValidationTest {
   @DisplayName("ProductUpdateRequest avec référence vide ou nom vide doit échouer")
   void shouldFailWhenProductUpdateRequestHasBlankFields() {
     ProductUpdateRequest request =
-        new ProductUpdateRequest(
-            "",
-            "   ",
-            "Desc",
-            new BigDecimal("-1.00"),
-            null,
-            -5);
+        new ProductUpdateRequest("", "   ", "Desc", new BigDecimal("-1.00"), null, -5);
 
     Set<ConstraintViolation<ProductUpdateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("reference"));

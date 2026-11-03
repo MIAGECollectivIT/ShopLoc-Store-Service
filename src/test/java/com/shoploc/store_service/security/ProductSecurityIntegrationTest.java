@@ -68,8 +68,7 @@ class ProductSecurityIntegrationTest {
   @BeforeEach
   void setUp() {
     jwtValidatorService = new JwtValidatorService();
-    String pubKeyBase64 =
-        Base64.getEncoder().encodeToString(testKeyPair.getPublic().getEncoded());
+    String pubKeyBase64 = Base64.getEncoder().encodeToString(testKeyPair.getPublic().getEncoded());
     ReflectionTestUtils.setField(jwtValidatorService, "publicKeyString", pubKeyBase64);
     jwtValidatorService.init();
 
@@ -115,8 +114,7 @@ class ProductSecurityIntegrationTest {
   @DisplayName("POST /v1/stores/{storeId}/products sans token doit renvoyer 401 Unauthorized")
   void shouldDenyCreateProductWithoutToken() throws Exception {
     ProductCreateRequest request =
-        new ProductCreateRequest(
-            "REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
+        new ProductCreateRequest("REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
 
     mockMvc
         .perform(
@@ -131,8 +129,7 @@ class ProductSecurityIntegrationTest {
   void shouldDenyCreateProductWithClientRole() throws Exception {
     String clientToken = createToken("CLIENT", 42L);
     ProductCreateRequest request =
-        new ProductCreateRequest(
-            "REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
+        new ProductCreateRequest("REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
 
     mockMvc
         .perform(
@@ -144,16 +141,25 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{storeId}/products avec rôle MERCHANT sur son magasin doit réussir (201 Created)")
+  @DisplayName(
+      "POST /v1/stores/{storeId}/products avec rôle MERCHANT sur son magasin doit réussir (201 Created)")
   void shouldAllowCreateProductWithMerchantRole() throws Exception {
     String merchantToken = createToken("MERCHANT", 100L);
     ProductCreateRequest request =
-        new ProductCreateRequest(
-            "REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
+        new ProductCreateRequest("REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
 
     ProductResponse response =
         new ProductResponse(
-            1L, 1L, "REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10, Instant.now(), Instant.now());
+            1L,
+            1L,
+            "REF-001",
+            "Baguette",
+            "Desc",
+            new BigDecimal("1.20"),
+            null,
+            10,
+            Instant.now(),
+            Instant.now());
     when(productService.createProduct(eq(1L), any(), any(), eq(100L), eq("MERCHANT")))
         .thenReturn(response);
 
@@ -169,7 +175,8 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{storeId}/products avec rôle ADMIN doit réussir sur n'importe quel magasin")
+  @DisplayName(
+      "POST /v1/stores/{storeId}/products avec rôle ADMIN doit réussir sur n'importe quel magasin")
   void shouldAllowCreateProductWithAdminRole() throws Exception {
     String adminToken = createToken("ADMIN", 1L);
     ProductCreateRequest request =
@@ -178,7 +185,16 @@ class ProductSecurityIntegrationTest {
 
     ProductResponse response =
         new ProductResponse(
-            2L, 1L, "REF-ADMIN-01", "Boutique", "Desc", new BigDecimal("2.50"), null, 5, Instant.now(), Instant.now());
+            2L,
+            1L,
+            "REF-ADMIN-01",
+            "Boutique",
+            "Desc",
+            new BigDecimal("2.50"),
+            null,
+            5,
+            Instant.now(),
+            Instant.now());
     when(productService.createProduct(eq(1L), any(), any(), eq(1L), eq("ADMIN")))
         .thenReturn(response);
 
@@ -193,7 +209,8 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT /v1/stores/{storeId}/products/{productId} sans token doit renvoyer 401 Unauthorized")
+  @DisplayName(
+      "PUT /v1/stores/{storeId}/products/{productId} sans token doit renvoyer 401 Unauthorized")
   void shouldDenyUpdateProductWithoutToken() throws Exception {
     ProductUpdateRequest request =
         new ProductUpdateRequest("REF-01", "Nouveau nom", "Desc", new BigDecimal("2.00"), null, 10);
@@ -207,7 +224,8 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT /v1/stores/{storeId}/products/{productId} avec rôle CLIENT doit renvoyer 403 Forbidden")
+  @DisplayName(
+      "PUT /v1/stores/{storeId}/products/{productId} avec rôle CLIENT doit renvoyer 403 Forbidden")
   void shouldDenyUpdateProductWithClientRole() throws Exception {
     String clientToken = createToken("CLIENT", 50L);
     ProductUpdateRequest request =
@@ -223,7 +241,8 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT /v1/stores/{storeId}/products/{productId} avec rôle MERCHANT sur son magasin doit réussir (200 OK)")
+  @DisplayName(
+      "PUT /v1/stores/{storeId}/products/{productId} avec rôle MERCHANT sur son magasin doit réussir (200 OK)")
   void shouldAllowUpdateProductWithMerchantRole() throws Exception {
     String merchantToken = createToken("MERCHANT", 100L);
     ProductUpdateRequest request =
@@ -231,7 +250,16 @@ class ProductSecurityIntegrationTest {
 
     ProductResponse response =
         new ProductResponse(
-            10L, 1L, "REF-01", "Nom Modifié", "Desc", new BigDecimal("2.50"), null, 15, Instant.now(), Instant.now());
+            10L,
+            1L,
+            "REF-01",
+            "Nom Modifié",
+            "Desc",
+            new BigDecimal("2.50"),
+            null,
+            15,
+            Instant.now(),
+            Instant.now());
     when(productService.updateProduct(eq(1L), eq(10L), any(), any(), eq(100L), eq("MERCHANT")))
         .thenReturn(response);
 
@@ -246,27 +274,27 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} sans token doit renvoyer 401 Unauthorized")
+  @DisplayName(
+      "DELETE /v1/stores/{storeId}/products/{productId} sans token doit renvoyer 401 Unauthorized")
   void shouldDenyDeleteProductWithoutToken() throws Exception {
-    mockMvc
-        .perform(delete("/v1/stores/1/products/10"))
-        .andExpect(status().isUnauthorized());
+    mockMvc.perform(delete("/v1/stores/1/products/10")).andExpect(status().isUnauthorized());
   }
 
   @Test
-  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} avec rôle CLIENT doit renvoyer 403 Forbidden")
+  @DisplayName(
+      "DELETE /v1/stores/{storeId}/products/{productId} avec rôle CLIENT doit renvoyer 403 Forbidden")
   void shouldDenyDeleteProductWithClientRole() throws Exception {
     String clientToken = createToken("CLIENT", 20L);
 
     mockMvc
         .perform(
-            delete("/v1/stores/1/products/10")
-                .header("Authorization", "Bearer " + clientToken))
+            delete("/v1/stores/1/products/10").header("Authorization", "Bearer " + clientToken))
         .andExpect(status().isForbidden());
   }
 
   @Test
-  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} par gérant non propriétaire doit renvoyer 403 Forbidden")
+  @DisplayName(
+      "DELETE /v1/stores/{storeId}/products/{productId} par gérant non propriétaire doit renvoyer 403 Forbidden")
   void shouldDenyDeleteProductForNonOwnerMerchant() throws Exception {
     String merchantToken = createToken("MERCHANT", 999L);
     doThrow(new AccessDeniedException("Accès refusé"))
@@ -275,25 +303,25 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            delete("/v1/stores/1/products/10")
-                .header("Authorization", "Bearer " + merchantToken))
+            delete("/v1/stores/1/products/10").header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isForbidden());
   }
 
   @Test
-  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} par gérant commerçant propriétaire doit renvoyer 204 No Content")
+  @DisplayName(
+      "DELETE /v1/stores/{storeId}/products/{productId} par gérant commerçant propriétaire doit renvoyer 204 No Content")
   void shouldAllowMerchantToDeleteProduct() throws Exception {
     String merchantToken = createToken("MERCHANT", 100L);
 
     mockMvc
         .perform(
-            delete("/v1/stores/1/products/10")
-                .header("Authorization", "Bearer " + merchantToken))
+            delete("/v1/stores/1/products/10").header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isNoContent());
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock sans token doit renvoyer 401 Unauthorized")
+  @DisplayName(
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock sans token doit renvoyer 401 Unauthorized")
   void shouldDenyPatchStockWithoutToken() throws Exception {
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
 
@@ -306,7 +334,8 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock avec token expiré doit renvoyer 401 Unauthorized")
+  @DisplayName(
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock avec token expiré doit renvoyer 401 Unauthorized")
   void shouldDenyPatchStockWithExpiredToken() throws Exception {
     // Token expiré il y a 10 secondes
     String expiredToken = createToken("SERVICE", null, -10000L);
@@ -322,14 +351,24 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle SERVICE (M2M) doit renvoyer 200 OK")
+  @DisplayName(
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle SERVICE (M2M) doit renvoyer 200 OK")
   void shouldAllowServiceRoleToPatchStock() throws Exception {
     String serviceToken = createToken("SERVICE", null);
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-2);
 
     ProductResponse response =
         new ProductResponse(
-            10L, 1L, "REF-001", "Croissant", "Desc", new BigDecimal("1.50"), null, 18, Instant.now(), Instant.now());
+            10L,
+            1L,
+            "REF-001",
+            "Croissant",
+            "Desc",
+            new BigDecimal("1.50"),
+            null,
+            18,
+            Instant.now(),
+            Instant.now());
     when(productService.updateStock(eq(1L), eq(10L), any(), any(), eq("SERVICE")))
         .thenReturn(response);
 
@@ -344,14 +383,24 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle MERCHANT sur son magasin doit réussir")
+  @DisplayName(
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle MERCHANT sur son magasin doit réussir")
   void shouldAllowMerchantToPatchStockOnOwnedStore() throws Exception {
     String merchantToken = createToken("MERCHANT", 100L);
     StockUpdateRequest request = StockUpdateRequest.ofAbsolute(30);
 
     ProductResponse response =
         new ProductResponse(
-            10L, 1L, "REF-001", "Croissant", "Desc", new BigDecimal("1.50"), null, 30, Instant.now(), Instant.now());
+            10L,
+            1L,
+            "REF-001",
+            "Croissant",
+            "Desc",
+            new BigDecimal("1.50"),
+            null,
+            30,
+            Instant.now(),
+            Instant.now());
     when(productService.updateStock(eq(1L), eq(10L), any(), eq(100L), eq("MERCHANT")))
         .thenReturn(response);
 
@@ -366,7 +415,8 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle CLIENT doit être refusé (403 Forbidden)")
+  @DisplayName(
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle CLIENT doit être refusé (403 Forbidden)")
   void shouldDenyClientFromPatchingStock() throws Exception {
     String clientToken = createToken("CLIENT", 50L);
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
@@ -383,11 +433,13 @@ class ProductSecurityIntegrationTest {
   // --- TESTS ANTI-USURPATION & SÉCURITÉ : HEADER SPOOFING ---
 
   @Test
-  @DisplayName("Anti-usurpation : un jeton CLIENT injectant X-User-Role: ADMIN lors d'un POST doit être rejeté (403 Forbidden)")
+  @DisplayName(
+      "Anti-usurpation : un jeton CLIENT injectant X-User-Role: ADMIN lors d'un POST doit être rejeté (403 Forbidden)")
   void shouldRejectHeaderSpoofingWhenClientInjectsAdminHeaderOnCreate() throws Exception {
     String clientToken = createToken("CLIENT", 50L);
     ProductCreateRequest request =
-        new ProductCreateRequest("REF-SPOOF-01", "Article Piraté", "Desc", new BigDecimal("10.00"), null, 5);
+        new ProductCreateRequest(
+            "REF-SPOOF-01", "Article Piraté", "Desc", new BigDecimal("10.00"), null, 5);
 
     mockMvc
         .perform(
@@ -405,7 +457,8 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("Anti-usurpation : un jeton CLIENT injectant X-User-Role: MERCHANT lors d'un DELETE doit être rejeté (403 Forbidden)")
+  @DisplayName(
+      "Anti-usurpation : un jeton CLIENT injectant X-User-Role: MERCHANT lors d'un DELETE doit être rejeté (403 Forbidden)")
   void shouldRejectHeaderSpoofingWhenClientInjectsMerchantHeaderOnDelete() throws Exception {
     String clientToken = createToken("CLIENT", 50L);
 
@@ -421,10 +474,12 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("Anti-usurpation : une requête anonyme avec headers usurpés X-User-Role: ADMIN doit être rejetée (401 Unauthorized)")
+  @DisplayName(
+      "Anti-usurpation : une requête anonyme avec headers usurpés X-User-Role: ADMIN doit être rejetée (401 Unauthorized)")
   void shouldRejectHeaderSpoofingWhenAnonymousInjectsAdminHeader() throws Exception {
     ProductCreateRequest request =
-        new ProductCreateRequest("REF-SPOOF-02", "Piratage Anonyme", "Desc", new BigDecimal("5.00"), null, 2);
+        new ProductCreateRequest(
+            "REF-SPOOF-02", "Piratage Anonyme", "Desc", new BigDecimal("5.00"), null, 2);
 
     mockMvc
         .perform(
@@ -439,7 +494,8 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("Anti-usurpation : un jeton CLIENT injectant X-User-Role: SERVICE lors d'un PATCH stock doit être rejeté (403 Forbidden)")
+  @DisplayName(
+      "Anti-usurpation : un jeton CLIENT injectant X-User-Role: SERVICE lors d'un PATCH stock doit être rejeté (403 Forbidden)")
   void shouldRejectHeaderSpoofingWhenClientInjectsServiceHeaderOnStock() throws Exception {
     String clientToken = createToken("CLIENT", 50L);
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-5);

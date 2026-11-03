@@ -49,24 +49,25 @@ class ProductValidationExceptionHandlerTest {
   }
 
   @Test
-  @DisplayName("Validation POST produit vide -> doit renvoyer 400 avec la map fieldErrors détaillée")
+  @DisplayName(
+      "Validation POST produit vide -> doit renvoyer 400 avec la map fieldErrors détaillée")
   void shouldReturnDetailedFieldErrorsOnEmptyProductPost() throws Exception {
     mockMvc
         .perform(
-            post("/v1/stores/1/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"))
+            post("/v1/stores/1/products").contentType(MediaType.APPLICATION_JSON).content("{}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.error").value("Bad Request"))
         .andExpect(jsonPath("$.message").value("Validation des données d'entrée échouée"))
-        .andExpect(jsonPath("$.fieldErrors.reference").value("La référence de l'article est obligatoire"))
+        .andExpect(
+            jsonPath("$.fieldErrors.reference").value("La référence de l'article est obligatoire"))
         .andExpect(jsonPath("$.fieldErrors.name").value("Le nom du produit est obligatoire"))
         .andExpect(jsonPath("$.fieldErrors.price").value("Le prix du produit est obligatoire"));
   }
 
   @Test
-  @DisplayName("Validation POST produit avec prix et stock négatifs -> doit renvoyer 400 avec messages précis")
+  @DisplayName(
+      "Validation POST produit avec prix et stock négatifs -> doit renvoyer 400 avec messages précis")
   void shouldReturnDetailedFieldErrorsOnNegativePriceAndStock() throws Exception {
     ProductCreateRequest invalidRequest =
         new ProductCreateRequest("REF-123", "Pomme", "Desc", new BigDecimal("-2.50"), null, -5);
@@ -79,11 +80,13 @@ class ProductValidationExceptionHandlerTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.fieldErrors.price").value("Le prix doit être positif ou nul"))
-        .andExpect(jsonPath("$.fieldErrors.stockQuantity").value("Le stock ne peut pas être négatif"));
+        .andExpect(
+            jsonPath("$.fieldErrors.stockQuantity").value("Le stock ne peut pas être négatif"));
   }
 
   @Test
-  @DisplayName("Validation PUT produit avec référence et nom blancs -> doit renvoyer 400 avec fieldErrors")
+  @DisplayName(
+      "Validation PUT produit avec référence et nom blancs -> doit renvoyer 400 avec fieldErrors")
   void shouldReturnDetailedFieldErrorsOnBlankPutFields() throws Exception {
     ProductUpdateRequest invalidRequest =
         new ProductUpdateRequest("   ", "   ", "Desc", new BigDecimal("-1.00"), null, -2);
@@ -95,14 +98,17 @@ class ProductValidationExceptionHandlerTest {
                 .content(objectMapper.writeValueAsString(invalidRequest)))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.fieldErrors.reference").value("La référence de l'article est obligatoire"))
+        .andExpect(
+            jsonPath("$.fieldErrors.reference").value("La référence de l'article est obligatoire"))
         .andExpect(jsonPath("$.fieldErrors.name").value("Le nom du produit est obligatoire"))
         .andExpect(jsonPath("$.fieldErrors.price").value("Le prix doit être positif ou nul"))
-        .andExpect(jsonPath("$.fieldErrors.stockQuantity").value("Le stock ne peut pas être négatif"));
+        .andExpect(
+            jsonPath("$.fieldErrors.stockQuantity").value("Le stock ne peut pas être négatif"));
   }
 
   @Test
-  @DisplayName("Validation PATCH stock avec quantité absolue négative -> doit renvoyer 400 avec fieldErrors.newQuantity")
+  @DisplayName(
+      "Validation PATCH stock avec quantité absolue négative -> doit renvoyer 400 avec fieldErrors.newQuantity")
   void shouldReturnFieldErrorOnNegativeAbsoluteStock() throws Exception {
     StockUpdateRequest invalidStock = StockUpdateRequest.ofAbsolute(-10);
 
@@ -113,33 +119,41 @@ class ProductValidationExceptionHandlerTest {
                 .content(objectMapper.writeValueAsString(invalidStock)))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.fieldErrors.newQuantity").value("La nouvelle quantité doit être supérieure ou égale à 0"));
+        .andExpect(
+            jsonPath("$.fieldErrors.newQuantity")
+                .value("La nouvelle quantité doit être supérieure ou égale à 0"));
   }
 
   @Test
-  @DisplayName("GlobalExceptionHandler : vérification directe des réponses d'exception métier catalogue")
+  @DisplayName(
+      "GlobalExceptionHandler : vérification directe des réponses d'exception métier catalogue")
   void shouldVerifyDirectHandlerResponses() {
     ResponseEntity<Map<String, Object>> notFoundResp =
         exceptionHandler.handleNotFoundExceptions(new ProductNotFoundException(1L, 99L));
     assertThat(notFoundResp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    assertThat(notFoundResp.getBody().get("message")).isEqualTo("Produit 99 introuvable dans le commerce 1");
+    assertThat(notFoundResp.getBody().get("message"))
+        .isEqualTo("Produit 99 introuvable dans le commerce 1");
 
     ResponseEntity<Map<String, Object>> conflictResp =
-        exceptionHandler.handleProductReferenceConflict(new ProductReferenceAlreadyExistsException("REF-01", 1L));
+        exceptionHandler.handleProductReferenceConflict(
+            new ProductReferenceAlreadyExistsException("REF-01", 1L));
     assertThat(conflictResp.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     assertThat(conflictResp.getBody().get("message").toString()).contains("REF-01");
 
     ResponseEntity<Map<String, Object>> stockResp =
-        exceptionHandler.handleInsufficientStockException(new InsufficientStockException("Stock insuffisant"));
+        exceptionHandler.handleInsufficientStockException(
+            new InsufficientStockException("Stock insuffisant"));
     assertThat(stockResp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(stockResp.getBody().get("error")).isEqualTo("Bad Request");
 
     ResponseEntity<Map<String, Object>> invalidFileResp =
-        exceptionHandler.handleInvalidFileException(new InvalidFileException("Format non supporté"));
+        exceptionHandler.handleInvalidFileException(
+            new InvalidFileException("Format non supporté"));
     assertThat(invalidFileResp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 
     ResponseEntity<Map<String, Object>> fileStorageResp =
-        exceptionHandler.handleFileStorageException(new FileStorageException("MinIO S3 down", new RuntimeException("S3 unreachable")));
+        exceptionHandler.handleFileStorageException(
+            new FileStorageException("MinIO S3 down", new RuntimeException("S3 unreachable")));
     assertThat(fileStorageResp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 
     ResponseEntity<Map<String, Object>> accessDeniedResp =

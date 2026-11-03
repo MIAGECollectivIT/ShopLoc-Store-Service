@@ -139,4 +139,3 @@ public class ProductResponse {
     this.updatedAt = updatedAt;
   }
 }
-

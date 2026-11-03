@@ -17,15 +17,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
   Optional<Product> findByIdAndStoreId(Long id, Long storeId);
 
   /**
-   * Verrouille la ligne produit en base (SELECT ... FOR UPDATE) pour sérialiser
-   * les modifications concurrentes de stock et empêcher tout risque de survente (overselling).
+   * Verrouille la ligne produit en base (SELECT ... FOR UPDATE) pour sérialiser les modifications
+   * concurrentes de stock et empêcher tout risque de survente (overselling).
    */
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("SELECT p FROM Product p WHERE p.id = :id AND p.storeId = :storeId")
-  Optional<Product> findByIdAndStoreIdForUpdate(@Param("id") Long id, @Param("storeId") Long storeId);
+  Optional<Product> findByIdAndStoreIdForUpdate(
+      @Param("id") Long id, @Param("storeId") Long storeId);
 
   boolean existsByStoreIdAndReference(Long storeId, String reference);
 
   boolean existsByStoreIdAndReferenceAndIdNot(Long storeId, String reference, Long id);
 }
-

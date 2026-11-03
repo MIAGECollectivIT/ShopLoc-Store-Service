@@ -12,7 +12,6 @@ import com.shoploc.store_service.dto.StockUpdateRequest;
 import com.shoploc.store_service.exception.FileStorageException;
 import com.shoploc.store_service.exception.InsufficientStockException;
 import com.shoploc.store_service.exception.InvalidFileException;
-import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.storage.ImageStorageService;
@@ -84,12 +83,19 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{storeId}/products/{productId} - Devrait retourner le produit unitaire")
+  @DisplayName(
+      "GET /v1/stores/{storeId}/products/{productId} - Devrait retourner le produit unitaire")
   void shouldReturnSingleProduct() {
     Product product =
         productRepository.save(
             new Product(
-                store.getId(), "REF-JUS", "Jus d'orange", "Pur jus", new BigDecimal("2.10"), null, 10));
+                store.getId(),
+                "REF-JUS",
+                "Jus d'orange",
+                "Pur jus",
+                new BigDecimal("2.10"),
+                null,
+                10));
 
     ResponseEntity<ProductResponse> response =
         productController.getProduct(store.getId(), product.getId());
@@ -107,7 +113,8 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{storeId}/products (JSON) - Devrait créer un produit avec stock initial")
+  @DisplayName(
+      "POST /v1/stores/{storeId}/products (JSON) - Devrait créer un produit avec stock initial")
   void shouldCreateProductJson() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -144,11 +151,13 @@ class ProductControllerTest {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().getImageUrl()).isEqualTo("https://minio.shoploc.fr/products/miel.png");
+    assertThat(response.getBody().getImageUrl())
+        .isEqualTo("https://minio.shoploc.fr/products/miel.png");
   }
 
   @Test
-  @DisplayName("POST avec référence en doublon - Devrait lever ProductReferenceAlreadyExistsException")
+  @DisplayName(
+      "POST avec référence en doublon - Devrait lever ProductReferenceAlreadyExistsException")
   void shouldThrowWhenDuplicateReference() {
     productRepository.save(
         new Product(
@@ -189,7 +198,8 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} - Devrait supprimer l'article (204 No Content)")
+  @DisplayName(
+      "DELETE /v1/stores/{storeId}/products/{productId} - Devrait supprimer l'article (204 No Content)")
   void shouldDeleteProduct() {
     Product product =
         productRepository.save(
@@ -206,7 +216,8 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock - Devrait ajuster le stock (delta)")
+  @DisplayName(
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock - Devrait ajuster le stock (delta)")
   void shouldUpdateStockWithDelta() {
     Product product =
         productRepository.save(
@@ -226,7 +237,8 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock - Devrait ajuster le stock (valeur absolue)")
+  @DisplayName(
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock - Devrait ajuster le stock (valeur absolue)")
   void shouldUpdateStockWithAbsoluteValue() {
     Product product =
         productRepository.save(
@@ -244,7 +256,8 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("PATCH stock au-delà de la réserve disponible - Devrait lever InsufficientStockException")
+  @DisplayName(
+      "PATCH stock au-delà de la réserve disponible - Devrait lever InsufficientStockException")
   void shouldThrowWhenStockGoesBelowZero() {
     Product product =
         productRepository.save(
@@ -256,7 +269,9 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("SERVICE", null);
 
     assertThatThrownBy(
-            () -> productController.updateStock(store.getId(), product.getId(), stockReq, servletRequest))
+            () ->
+                productController.updateStock(
+                    store.getId(), product.getId(), stockReq, servletRequest))
         .isInstanceOf(InsufficientStockException.class);
   }
 
@@ -271,7 +286,8 @@ class ProductControllerTest {
         .thenThrow(new InvalidFileException("Format de fichier non supporté (application/pdf)"));
 
     ProductCreateRequest request =
-        new ProductCreateRequest("REF-PDF", "Produit PDF", "Desc", new BigDecimal("10.00"), null, 5);
+        new ProductCreateRequest(
+            "REF-PDF", "Produit PDF", "Desc", new BigDecimal("10.00"), null, 5);
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     assertThatThrownBy(
@@ -288,16 +304,19 @@ class ProductControllerTest {
     MockMultipartFile validImage =
         new MockMultipartFile("image", "photo.png", "image/png", new byte[] {1, 2, 3});
     when(imageStorageService.uploadProductImage(any()))
-        .thenThrow(new FileStorageException("Échec de l'upload de l'image sur le stockage S3 MinIO", new RuntimeException("Connection refused")));
+        .thenThrow(
+            new FileStorageException(
+                "Échec de l'upload de l'image sur le stockage S3 MinIO",
+                new RuntimeException("Connection refused")));
 
     ProductCreateRequest request =
-        new ProductCreateRequest("REF-S3-DOWN", "Produit S3 Down", "Desc", new BigDecimal("10.00"), null, 5);
+        new ProductCreateRequest(
+            "REF-S3-DOWN", "Produit S3 Down", "Desc", new BigDecimal("10.00"), null, 5);
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     assertThatThrownBy(
             () ->
-                productController.createProduct(
-                    store.getId(), request, validImage, servletRequest))
+                productController.createProduct(store.getId(), request, validImage, servletRequest))
         .isInstanceOf(FileStorageException.class)
         .hasMessageContaining("MinIO");
   }
@@ -313,10 +332,14 @@ class ProductControllerTest {
     MockMultipartFile validImage =
         new MockMultipartFile("image", "new-photo.jpg", "image/jpeg", new byte[] {1, 2, 3});
     when(imageStorageService.uploadProductImage(any()))
-        .thenThrow(new FileStorageException("Échec de l'upload de l'image sur le stockage S3 MinIO", new RuntimeException("S3 Timeout")));
+        .thenThrow(
+            new FileStorageException(
+                "Échec de l'upload de l'image sur le stockage S3 MinIO",
+                new RuntimeException("S3 Timeout")));
 
     ProductUpdateRequest request =
-        new ProductUpdateRequest("REF-UPD-S3", "Article Modifié", "Desc", new BigDecimal("6.00"), null, 3);
+        new ProductUpdateRequest(
+            "REF-UPD-S3", "Article Modifié", "Desc", new BigDecimal("6.00"), null, 3);
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     assertThatThrownBy(
@@ -327,4 +350,3 @@ class ProductControllerTest {
         .hasMessageContaining("MinIO");
   }
 }
-

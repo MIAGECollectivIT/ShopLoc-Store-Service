@@ -4,7 +4,6 @@ import com.shoploc.store_service.Store;
 import com.shoploc.store_service.validation.RibIbanHelper;
 import com.shoploc.store_service.validation.ValidRibOrIban;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 

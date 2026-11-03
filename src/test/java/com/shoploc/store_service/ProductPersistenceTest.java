@@ -74,7 +74,8 @@ class ProductPersistenceTest {
   }
 
   @Test
-  @DisplayName("Devrait interdire deux produits ayant la même référence dans le même magasin (unicité composite)")
+  @DisplayName(
+      "Devrait interdire deux produits ayant la même référence dans le même magasin (unicité composite)")
   void shouldRejectDuplicateReferenceInSameStore() {
     Product p1 =
         new Product(

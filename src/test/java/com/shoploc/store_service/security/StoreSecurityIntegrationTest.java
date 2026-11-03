@@ -203,7 +203,8 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores avec JWT MERCHANT et userId omis (null) -> doit auto-assigner l'identifiant du token (201 Created)")
+  @DisplayName(
+      "POST /v1/stores avec JWT MERCHANT et userId omis (null) -> doit auto-assigner l'identifiant du token (201 Created)")
   void shouldAllowStoreCreationWhenMerchantOmitsUserIdInBody() throws Exception {
     Store store =
         new Store(

@@ -10,4 +10,3 @@ public class ProductNotFoundException extends RuntimeException {
     super("Produit " + productId + " introuvable dans le commerce " + storeId);
   }
 }
-

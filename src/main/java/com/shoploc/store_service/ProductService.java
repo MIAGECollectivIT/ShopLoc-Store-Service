@@ -71,7 +71,8 @@ public class ProductService {
     String imageUrl = request.getImageUrl();
     if (image != null && !image.isEmpty()) {
       imageUrl = imageStorageService.uploadProductImage(image);
-      log.info("Image uploadée avec succès pour le produit dans le magasin {} : {}", storeId, imageUrl);
+      log.info(
+          "Image uploadée avec succès pour le produit dans le magasin {} : {}", storeId, imageUrl);
     }
 
     Product product =
@@ -209,13 +210,10 @@ public class ProductService {
   }
 
   private Store findStoreOrThrow(Long storeId) {
-    return storeRepository
-        .findById(storeId)
-        .orElseThrow(() -> new StoreNotFoundException(storeId));
+    return storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
   }
 
-  private void validateStoreOwnership(
-      Store store, Long authenticatedUserId, String userRole) {
+  private void validateStoreOwnership(Store store, Long authenticatedUserId, String userRole) {
     if ("ADMIN".equalsIgnoreCase(userRole)) {
       return;
     }
@@ -230,8 +228,7 @@ public class ProductService {
     }
 
     if (authenticatedUserId != null && !store.getUserId().equals(authenticatedUserId)) {
-      throw new AccessDeniedException(
-          "Accès refusé : propriétaire du magasin non concordant");
+      throw new AccessDeniedException("Accès refusé : propriétaire du magasin non concordant");
     }
   }
 
@@ -257,4 +254,3 @@ public class ProductService {
     }
   }
 }
-

@@ -1,6 +1,5 @@
 package com.shoploc.store_service;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -68,8 +67,7 @@ class ProductLifecycleE2EIntegrationTest {
     productRepository.deleteAll();
     storeRepository.deleteAll();
 
-    String pubKeyBase64 =
-        Base64.getEncoder().encodeToString(testKeyPair.getPublic().getEncoded());
+    String pubKeyBase64 = Base64.getEncoder().encodeToString(testKeyPair.getPublic().getEncoded());
     ReflectionTestUtils.setField(jwtValidatorService, "publicKeyString", pubKeyBase64);
     jwtValidatorService.init();
 
@@ -114,7 +112,8 @@ class ProductLifecycleE2EIntegrationTest {
   }
 
   @Test
-  @DisplayName("Scénario E2E complet du cycle de vie d'un produit Click & Collect (Création -> Consultation -> Vente -> Rupture -> Réappro -> MAJ -> Suppression)")
+  @DisplayName(
+      "Scénario E2E complet du cycle de vie d'un produit Click & Collect (Création -> Consultation -> Vente -> Rupture -> Réappro -> MAJ -> Suppression)")
   void shouldExecuteCompleteProductLifecycle() throws Exception {
     // 1. Le commerçant crée un produit avec un stock initial de 10
     ProductCreateRequest createRequest =
@@ -181,7 +180,8 @@ class ProductLifecycleE2EIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.stockQuantity").value(0));
 
-    // 6. Commande 3 : sales-service tente de commander 1 exemplaire de plus -> Rejet immédiat (400 Bad Request)
+    // 6. Commande 3 : sales-service tente de commander 1 exemplaire de plus -> Rejet immédiat (400
+    // Bad Request)
     StockUpdateRequest order3 = StockUpdateRequest.ofDelta(-1);
     mockMvc
         .perform(
@@ -191,7 +191,12 @@ class ProductLifecycleE2EIntegrationTest {
                 .content(objectMapper.writeValueAsString(order3)))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.message").value("Stock insuffisant pour le produit " + productId + " (actuel: 0, demandé: -1)"));
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "Stock insuffisant pour le produit "
+                        + productId
+                        + " (actuel: 0, demandé: -1)"));
 
     // 7. Le commerçant se fait réapprovisionner de 15 articles (+15)
     StockUpdateRequest restock = StockUpdateRequest.ofDelta(15);

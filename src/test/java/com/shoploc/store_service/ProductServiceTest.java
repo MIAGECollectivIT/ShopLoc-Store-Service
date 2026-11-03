@@ -113,23 +113,19 @@ class ProductServiceTest {
   void shouldCreateProductForMerchantOwner() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.existsByStoreIdAndReference(1L, "REF-002")).thenReturn(false);
-    when(productRepository.save(any(Product.class))).thenAnswer(inv -> {
-      Product p = inv.getArgument(0);
-      p.setId(20L);
-      return p;
-    });
+    when(productRepository.save(any(Product.class)))
+        .thenAnswer(
+            inv -> {
+              Product p = inv.getArgument(0);
+              p.setId(20L);
+              return p;
+            });
 
     ProductCreateRequest request =
         new ProductCreateRequest(
-            "REF-002",
-            "Pain au chocolat",
-            "Pur beurre",
-            new BigDecimal("1.60"),
-            null,
-            15);
+            "REF-002", "Pain au chocolat", "Pur beurre", new BigDecimal("1.60"), null, 15);
 
-    ProductResponse response =
-        productService.createProduct(1L, request, null, 100L, "MERCHANT");
+    ProductResponse response = productService.createProduct(1L, request, null, 100L, "MERCHANT");
 
     assertThat(response.getId()).isEqualTo(20L);
     assertThat(response.getName()).isEqualTo("Pain au chocolat");
@@ -137,7 +133,8 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("createProduct avec rôle MERCHANT sur le magasin d'un autre commerçant doit lever AccessDeniedException")
+  @DisplayName(
+      "createProduct avec rôle MERCHANT sur le magasin d'un autre commerçant doit lever AccessDeniedException")
   void shouldDenyCreateProductForNonOwnerMerchant() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
 
@@ -155,31 +152,31 @@ class ProductServiceTest {
   void shouldAllowAdminToCreateProductOnAnyStore() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.existsByStoreIdAndReference(1L, "REF-003")).thenReturn(false);
-    when(productRepository.save(any(Product.class))).thenAnswer(inv -> {
-      Product p = inv.getArgument(0);
-      p.setId(30L);
-      return p;
-    });
+    when(productRepository.save(any(Product.class)))
+        .thenAnswer(
+            inv -> {
+              Product p = inv.getArgument(0);
+              p.setId(30L);
+              return p;
+            });
 
     ProductCreateRequest request =
-        new ProductCreateRequest(
-            "REF-003", "Brioche", "Sucre", new BigDecimal("3.00"), null, 5);
+        new ProductCreateRequest("REF-003", "Brioche", "Sucre", new BigDecimal("3.00"), null, 5);
 
-    ProductResponse response =
-        productService.createProduct(1L, request, null, 999L, "ADMIN");
+    ProductResponse response = productService.createProduct(1L, request, null, 999L, "ADMIN");
 
     assertThat(response.getId()).isEqualTo(30L);
   }
 
   @Test
-  @DisplayName("createProduct avec référence existante dans le même magasin doit lever ProductReferenceAlreadyExistsException")
+  @DisplayName(
+      "createProduct avec référence existante dans le même magasin doit lever ProductReferenceAlreadyExistsException")
   void shouldThrowWhenReferenceAlreadyExistsInStore() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.existsByStoreIdAndReference(1L, "REF-001")).thenReturn(true);
 
     ProductCreateRequest request =
-        new ProductCreateRequest(
-            "REF-001", "Doublon", "Desc", new BigDecimal("1.00"), null, 5);
+        new ProductCreateRequest("REF-001", "Doublon", "Desc", new BigDecimal("1.00"), null, 5);
 
     assertThatThrownBy(() -> productService.createProduct(1L, request, null, 100L, "MERCHANT"))
         .isInstanceOf(ProductReferenceAlreadyExistsException.class)
@@ -191,7 +188,8 @@ class ProductServiceTest {
   void shouldUploadImageWhenProvided() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.existsByStoreIdAndReference(1L, "REF-IMG")).thenReturn(false);
-    when(imageStorageService.uploadProductImage(any())).thenReturn("https://s3.shoploc.fr/prod.jpg");
+    when(imageStorageService.uploadProductImage(any()))
+        .thenReturn("https://s3.shoploc.fr/prod.jpg");
     when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
     MockMultipartFile file =
@@ -199,8 +197,7 @@ class ProductServiceTest {
     ProductCreateRequest request =
         new ProductCreateRequest("REF-IMG", "Gâteau", "Desc", new BigDecimal("12.00"), null, 2);
 
-    ProductResponse response =
-        productService.createProduct(1L, request, file, 100L, "MERCHANT");
+    ProductResponse response = productService.createProduct(1L, request, file, 100L, "MERCHANT");
 
     assertThat(response.getImageUrl()).isEqualTo("https://s3.shoploc.fr/prod.jpg");
   }
@@ -210,7 +207,8 @@ class ProductServiceTest {
   void shouldAllowUpdateProductKeepingOwnReference() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
-    when(productRepository.existsByStoreIdAndReferenceAndIdNot(1L, "REF-001", 10L)).thenReturn(false);
+    when(productRepository.existsByStoreIdAndReferenceAndIdNot(1L, "REF-001", 10L))
+        .thenReturn(false);
     when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
     ProductUpdateRequest request =
@@ -231,11 +229,13 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateProduct avec référence déjà prise par un autre produit doit lever ProductReferenceAlreadyExistsException")
+  @DisplayName(
+      "updateProduct avec référence déjà prise par un autre produit doit lever ProductReferenceAlreadyExistsException")
   void shouldThrowWhenUpdateReferenceConflictsWithOtherProduct() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
-    when(productRepository.existsByStoreIdAndReferenceAndIdNot(1L, "REF-AUTRE", 10L)).thenReturn(true);
+    when(productRepository.existsByStoreIdAndReferenceAndIdNot(1L, "REF-AUTRE", 10L))
+        .thenReturn(true);
 
     ProductUpdateRequest request =
         new ProductUpdateRequest(
@@ -255,10 +255,10 @@ class ProductServiceTest {
     when(productRepository.findByIdAndStoreId(999L, 1L)).thenReturn(Optional.empty());
 
     ProductUpdateRequest request =
-        new ProductUpdateRequest(
-            "REF-NEW", "Nom", "Desc", new BigDecimal("2.00"), null, 10);
+        new ProductUpdateRequest("REF-NEW", "Nom", "Desc", new BigDecimal("2.00"), null, 10);
 
-    assertThatThrownBy(() -> productService.updateProduct(1L, 999L, request, null, 100L, "MERCHANT"))
+    assertThatThrownBy(
+            () -> productService.updateProduct(1L, 999L, request, null, 100L, "MERCHANT"))
         .isInstanceOf(ProductNotFoundException.class);
   }
 
@@ -268,8 +268,7 @@ class ProductServiceTest {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
 
     ProductUpdateRequest request =
-        new ProductUpdateRequest(
-            "REF-001", "Nom", "Desc", new BigDecimal("2.00"), null, 10);
+        new ProductUpdateRequest("REF-001", "Nom", "Desc", new BigDecimal("2.00"), null, 10);
 
     assertThatThrownBy(() -> productService.updateProduct(1L, 10L, request, null, 999L, "MERCHANT"))
         .isInstanceOf(AccessDeniedException.class)
@@ -312,13 +311,13 @@ class ProductServiceTest {
   @DisplayName("updateStock avec rôle SERVICE doit être autorisé sans contrainte d'utilisateur")
   void shouldAllowServiceRoleToUpdateStock() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
-    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
+        .thenReturn(Optional.of(sampleProduct));
     when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-3);
 
-    ProductResponse response =
-        productService.updateStock(1L, 10L, request, null, "SERVICE");
+    ProductResponse response = productService.updateStock(1L, 10L, request, null, "SERVICE");
 
     assertThat(response.getStockQuantity()).isEqualTo(17);
     verify(productRepository).save(sampleProduct);
@@ -328,13 +327,13 @@ class ProductServiceTest {
   @DisplayName("updateStock avec valeur absolue newQuantity doit écraser le stock disponible")
   void shouldSetAbsoluteStockQuantity() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
-    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
+        .thenReturn(Optional.of(sampleProduct));
     when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
     StockUpdateRequest request = StockUpdateRequest.ofAbsolute(50);
 
-    ProductResponse response =
-        productService.updateStock(1L, 10L, request, 100L, "MERCHANT");
+    ProductResponse response = productService.updateStock(1L, 10L, request, 100L, "MERCHANT");
 
     assertThat(response.getStockQuantity()).isEqualTo(50);
   }
@@ -343,7 +342,8 @@ class ProductServiceTest {
   @DisplayName("updateStock sans aucun champ doit lever IllegalArgumentException")
   void shouldThrowWhenNoStockUpdateFieldProvided() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
-    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
+        .thenReturn(Optional.of(sampleProduct));
 
     StockUpdateRequest request = new StockUpdateRequest(null, null);
 
@@ -365,10 +365,12 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateStock avec décrément supérieur au stock disponible doit lever InsufficientStockException")
+  @DisplayName(
+      "updateStock avec décrément supérieur au stock disponible doit lever InsufficientStockException")
   void shouldThrowWhenStockBecomesNegative() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
-    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
+        .thenReturn(Optional.of(sampleProduct));
 
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-25);
 

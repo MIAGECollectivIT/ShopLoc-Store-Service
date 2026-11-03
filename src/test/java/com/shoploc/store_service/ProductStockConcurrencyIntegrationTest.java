@@ -58,7 +58,8 @@ class ProductStockConcurrencyIntegrationTest {
   }
 
   @Test
-  @DisplayName("Concurrence : 15 requêtes concurrentes de décrément (-1) sur un stock initial de 10 -> exactement 10 réussites, 5 rejets, stock final = 0")
+  @DisplayName(
+      "Concurrence : 15 requêtes concurrentes de décrément (-1) sur un stock initial de 10 -> exactement 10 réussites, 5 rejets, stock final = 0")
   void shouldHandleConcurrentDecrementsWithoutOverselling() throws Exception {
     int totalRequests = 15;
     int expectedSuccesses = 10;
@@ -112,7 +113,8 @@ class ProductStockConcurrencyIntegrationTest {
   }
 
   @Test
-  @DisplayName("Concurrence : 10 requêtes concurrentes d'incrément (+2) sur stock initial 0 -> stock final = 20")
+  @DisplayName(
+      "Concurrence : 10 requêtes concurrentes d'incrément (+2) sur stock initial 0 -> stock final = 20")
   void shouldHandleConcurrentIncrementsWithoutLostUpdate() throws Exception {
     product.setStockQuantity(0);
     productRepository.save(product);

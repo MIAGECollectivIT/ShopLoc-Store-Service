@@ -224,8 +224,8 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("PUT /v1/stores/{storeId}/products/{productId}/stock - Alias PUT devrait aussi fonctionner")
-  void shouldUpdateStockWithPutAlias() {
+  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock - Devrait ajuster le stock (valeur absolue)")
+  void shouldUpdateStockWithAbsoluteValue() {
     Product product =
         productRepository.save(
             new Product(
@@ -235,7 +235,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     ResponseEntity<ProductResponse> response =
-        productController.updateStockPut(store.getId(), product.getId(), stockReq, servletRequest);
+        productController.updateStock(store.getId(), product.getId(), stockReq, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody().getStockQuantity()).isEqualTo(45);
@@ -258,3 +258,4 @@ class ProductControllerTest {
         .isInstanceOf(InsufficientStockException.class);
   }
 }
+

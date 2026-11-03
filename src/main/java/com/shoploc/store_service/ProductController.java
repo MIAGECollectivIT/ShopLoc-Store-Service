@@ -166,19 +166,6 @@ public class ProductController {
     return ResponseEntity.ok(response);
   }
 
-  @PutMapping("/{productId}/stock")
-  @RequiresRole({"MERCHANT", "ADMIN", "SERVICE"})
-  @Operation(
-      summary =
-          "Ajuster le stock physique disponible (alias PUT) - Réservé aux commerçants, admins et services internes")
-  public ResponseEntity<ProductResponse> updateStockPut(
-      @PathVariable Long storeId,
-      @PathVariable Long productId,
-      @Valid @RequestBody StockUpdateRequest request,
-      HttpServletRequest servletRequest) {
-    return updateStock(storeId, productId, request, servletRequest);
-  }
-
   private Long extractAuthenticatedUserId(HttpServletRequest request) {
     if (request == null) {
       return null;

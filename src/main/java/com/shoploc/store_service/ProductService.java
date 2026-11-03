@@ -165,7 +165,7 @@ public class ProductService {
 
     Product product =
         productRepository
-            .findByIdAndStoreId(productId, storeId)
+            .findByIdAndStoreIdForUpdate(productId, storeId)
             .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
 
     int currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : 0;

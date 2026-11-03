@@ -379,4 +379,79 @@ class ProductSecurityIntegrationTest {
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isForbidden());
   }
+
+  // --- TESTS ANTI-USURPATION & SÉCURITÉ : HEADER SPOOFING ---
+
+  @Test
+  @DisplayName("Anti-usurpation : un jeton CLIENT injectant X-User-Role: ADMIN lors d'un POST doit être rejeté (403 Forbidden)")
+  void shouldRejectHeaderSpoofingWhenClientInjectsAdminHeaderOnCreate() throws Exception {
+    String clientToken = createToken("CLIENT", 50L);
+    ProductCreateRequest request =
+        new ProductCreateRequest("REF-SPOOF-01", "Article Piraté", "Desc", new BigDecimal("10.00"), null, 5);
+
+    mockMvc
+        .perform(
+            post("/v1/stores/1/products")
+                .header("Authorization", "Bearer " + clientToken)
+                .header("X-User-Role", "ADMIN")
+                .header("Role", "ADMIN")
+                .header("X-Forwarded-User", "admin")
+                .header("X-Authenticated-Role", "ADMIN")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403))
+        .andExpect(jsonPath("$.error").value("Forbidden"));
+  }
+
+  @Test
+  @DisplayName("Anti-usurpation : un jeton CLIENT injectant X-User-Role: MERCHANT lors d'un DELETE doit être rejeté (403 Forbidden)")
+  void shouldRejectHeaderSpoofingWhenClientInjectsMerchantHeaderOnDelete() throws Exception {
+    String clientToken = createToken("CLIENT", 50L);
+
+    mockMvc
+        .perform(
+            delete("/v1/stores/1/products/10")
+                .header("Authorization", "Bearer " + clientToken)
+                .header("X-User-Role", "MERCHANT")
+                .header("X-User-Db-Id", "100")
+                .header("X-Authenticated-User-Id", "100"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403));
+  }
+
+  @Test
+  @DisplayName("Anti-usurpation : une requête anonyme avec headers usurpés X-User-Role: ADMIN doit être rejetée (401 Unauthorized)")
+  void shouldRejectHeaderSpoofingWhenAnonymousInjectsAdminHeader() throws Exception {
+    ProductCreateRequest request =
+        new ProductCreateRequest("REF-SPOOF-02", "Piratage Anonyme", "Desc", new BigDecimal("5.00"), null, 2);
+
+    mockMvc
+        .perform(
+            post("/v1/stores/1/products")
+                .header("X-User-Role", "ADMIN")
+                .header("X-User-Id", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.status").value(401))
+        .andExpect(jsonPath("$.error").value("Unauthorized"));
+  }
+
+  @Test
+  @DisplayName("Anti-usurpation : un jeton CLIENT injectant X-User-Role: SERVICE lors d'un PATCH stock doit être rejeté (403 Forbidden)")
+  void shouldRejectHeaderSpoofingWhenClientInjectsServiceHeaderOnStock() throws Exception {
+    String clientToken = createToken("CLIENT", 50L);
+    StockUpdateRequest request = StockUpdateRequest.ofDelta(-5);
+
+    mockMvc
+        .perform(
+            patch("/v1/stores/1/products/10/stock")
+                .header("Authorization", "Bearer " + clientToken)
+                .header("X-User-Role", "SERVICE")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403));
+  }
 }

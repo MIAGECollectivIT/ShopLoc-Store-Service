@@ -312,7 +312,7 @@ class ProductServiceTest {
   @DisplayName("updateStock avec rôle SERVICE doit être autorisé sans contrainte d'utilisateur")
   void shouldAllowServiceRoleToUpdateStock() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
-    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L)).thenReturn(Optional.of(sampleProduct));
     when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-3);
@@ -328,7 +328,7 @@ class ProductServiceTest {
   @DisplayName("updateStock avec valeur absolue newQuantity doit écraser le stock disponible")
   void shouldSetAbsoluteStockQuantity() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
-    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L)).thenReturn(Optional.of(sampleProduct));
     when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
     StockUpdateRequest request = StockUpdateRequest.ofAbsolute(50);
@@ -343,7 +343,7 @@ class ProductServiceTest {
   @DisplayName("updateStock sans aucun champ doit lever IllegalArgumentException")
   void shouldThrowWhenNoStockUpdateFieldProvided() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
-    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L)).thenReturn(Optional.of(sampleProduct));
 
     StockUpdateRequest request = new StockUpdateRequest(null, null);
 
@@ -368,7 +368,7 @@ class ProductServiceTest {
   @DisplayName("updateStock avec décrément supérieur au stock disponible doit lever InsufficientStockException")
   void shouldThrowWhenStockBecomesNegative() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
-    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L)).thenReturn(Optional.of(sampleProduct));
 
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-25);
 

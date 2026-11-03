@@ -9,7 +9,9 @@ import com.shoploc.store_service.dto.ProductCreateRequest;
 import com.shoploc.store_service.dto.ProductResponse;
 import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
+import com.shoploc.store_service.exception.FileStorageException;
 import com.shoploc.store_service.exception.InsufficientStockException;
+import com.shoploc.store_service.exception.InvalidFileException;
 import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
@@ -256,6 +258,73 @@ class ProductControllerTest {
     assertThatThrownBy(
             () -> productController.updateStock(store.getId(), product.getId(), stockReq, servletRequest))
         .isInstanceOf(InsufficientStockException.class);
+  }
+
+  // --- TESTS VALIDATION FICHIER & REJET S3 MINIO ---
+
+  @Test
+  @DisplayName("Création produit avec fichier non supporté (PDF) - Doit lever InvalidFileException")
+  void shouldRejectUnsupportedFileFormatOnProductCreation() {
+    MockMultipartFile invalidFile =
+        new MockMultipartFile("image", "facture.pdf", "application/pdf", new byte[] {1, 2, 3});
+    when(imageStorageService.uploadProductImage(any()))
+        .thenThrow(new InvalidFileException("Format de fichier non supporté (application/pdf)"));
+
+    ProductCreateRequest request =
+        new ProductCreateRequest("REF-PDF", "Produit PDF", "Desc", new BigDecimal("10.00"), null, 5);
+    MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
+
+    assertThatThrownBy(
+            () ->
+                productController.createProduct(
+                    store.getId(), request, invalidFile, servletRequest))
+        .isInstanceOf(InvalidFileException.class)
+        .hasMessageContaining("non supporté");
+  }
+
+  @Test
+  @DisplayName("Création produit avec panne stockage S3 MinIO - Doit lever FileStorageException")
+  void shouldThrowFileStorageExceptionWhenS3UnavailableOnCreation() {
+    MockMultipartFile validImage =
+        new MockMultipartFile("image", "photo.png", "image/png", new byte[] {1, 2, 3});
+    when(imageStorageService.uploadProductImage(any()))
+        .thenThrow(new FileStorageException("Échec de l'upload de l'image sur le stockage S3 MinIO", new RuntimeException("Connection refused")));
+
+    ProductCreateRequest request =
+        new ProductCreateRequest("REF-S3-DOWN", "Produit S3 Down", "Desc", new BigDecimal("10.00"), null, 5);
+    MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
+
+    assertThatThrownBy(
+            () ->
+                productController.createProduct(
+                    store.getId(), request, validImage, servletRequest))
+        .isInstanceOf(FileStorageException.class)
+        .hasMessageContaining("MinIO");
+  }
+
+  @Test
+  @DisplayName("Mise à jour produit avec panne stockage S3 MinIO - Doit lever FileStorageException")
+  void shouldThrowFileStorageExceptionWhenS3UnavailableOnUpdate() {
+    Product product =
+        productRepository.save(
+            new Product(
+                store.getId(), "REF-UPD-S3", "Article", "Desc", new BigDecimal("5.00"), null, 3));
+
+    MockMultipartFile validImage =
+        new MockMultipartFile("image", "new-photo.jpg", "image/jpeg", new byte[] {1, 2, 3});
+    when(imageStorageService.uploadProductImage(any()))
+        .thenThrow(new FileStorageException("Échec de l'upload de l'image sur le stockage S3 MinIO", new RuntimeException("S3 Timeout")));
+
+    ProductUpdateRequest request =
+        new ProductUpdateRequest("REF-UPD-S3", "Article Modifié", "Desc", new BigDecimal("6.00"), null, 3);
+    MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
+
+    assertThatThrownBy(
+            () ->
+                productController.updateProduct(
+                    store.getId(), product.getId(), request, validImage, servletRequest))
+        .isInstanceOf(FileStorageException.class)
+        .hasMessageContaining("MinIO");
   }
 }
 

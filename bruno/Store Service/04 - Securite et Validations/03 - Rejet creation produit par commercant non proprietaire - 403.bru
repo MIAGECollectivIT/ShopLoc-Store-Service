@@ -1,0 +1,32 @@
+meta {
+  name: 03 - Rejet creation produit par commercant non proprietaire - 403
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/v1/stores/999/products
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reference": "REF-NON-OWNER",
+    "name": "Produit Non Propriétaire",
+    "price": 3.00
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error: eq "Forbidden"
+}

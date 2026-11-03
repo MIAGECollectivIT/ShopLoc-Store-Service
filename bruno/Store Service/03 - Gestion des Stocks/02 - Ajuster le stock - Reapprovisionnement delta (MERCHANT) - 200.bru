@@ -1,0 +1,30 @@
+meta {
+  name: 02 - Ajuster le stock - Reapprovisionnement delta (MERCHANT) - 200
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "quantityDelta": 15
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.stockQuantity: isDefined
+}

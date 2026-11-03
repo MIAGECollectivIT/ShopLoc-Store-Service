@@ -1,0 +1,32 @@
+meta {
+  name: 02 - Rejet creation produit avec role CLIENT - 403
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reference": "REF-CLIENT-CREATE",
+    "name": "Tentative Client",
+    "price": 5.00
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error: eq "Forbidden"
+}

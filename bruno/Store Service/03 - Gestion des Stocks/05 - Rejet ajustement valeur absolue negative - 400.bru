@@ -1,0 +1,30 @@
+meta {
+  name: 05 - Rejet ajustement valeur absolue negative - 400
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "newQuantity": -5
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.fieldErrors.newQuantity: isDefined
+}

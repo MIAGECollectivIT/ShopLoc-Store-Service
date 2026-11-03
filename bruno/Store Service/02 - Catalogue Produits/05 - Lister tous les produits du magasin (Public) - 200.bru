@@ -1,0 +1,16 @@
+meta {
+  name: 05 - Lister tous les produits du magasin (Public) - 200
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}

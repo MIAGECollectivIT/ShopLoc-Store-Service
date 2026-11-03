@@ -1,0 +1,32 @@
+meta {
+  name: 08 - Rejet modification par commercant non proprietaire - 403
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/v1/stores/999/products/{{productId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reference": "REF-PIRATE",
+    "name": "Modification Non Autorisée",
+    "price": 10.00
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error: eq "Forbidden"
+}

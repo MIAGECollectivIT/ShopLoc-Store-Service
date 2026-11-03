@@ -1,0 +1,32 @@
+meta {
+  name: 04 - Rejet creation produit reference en double (Conflit) - 409
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reference": "REF-BAGUETTE-TRAD",
+    "name": "Baguette Doublon",
+    "price": 1.50
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.error: eq "Conflict"
+}

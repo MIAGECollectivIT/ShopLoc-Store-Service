@@ -1,0 +1,19 @@
+meta {
+  name: 08 - Supprimer un produit (MERCHANT) - 204
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+assert {
+  res.status: eq 204
+}

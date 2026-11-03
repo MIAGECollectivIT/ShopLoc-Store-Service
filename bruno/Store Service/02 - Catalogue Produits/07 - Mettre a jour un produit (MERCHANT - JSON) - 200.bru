@@ -1,0 +1,37 @@
+meta {
+  name: 07 - Mettre a jour un produit (MERCHANT - JSON) - 200
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reference": "REF-BAGUETTE-TRAD",
+    "name": "Baguette Tradition Bio",
+    "description": "Nouvelle recette 100% bio au levain naturel",
+    "price": 1.40,
+    "imageUrl": "https://cdn.shoploc.fr/products/tradition-bio.jpg",
+    "stockQuantity": 40
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq "Baguette Tradition Bio"
+  res.body.price: eq 1.40
+  res.body.stockQuantity: eq 40
+}

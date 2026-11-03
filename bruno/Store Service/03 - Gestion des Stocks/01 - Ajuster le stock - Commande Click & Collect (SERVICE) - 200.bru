@@ -1,0 +1,30 @@
+meta {
+  name: 01 - Ajuster le stock - Commande Click & Collect (SERVICE) - 200
+  type: http
+  seq: 1
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{serviceToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "quantityDelta": -2
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.stockQuantity: isDefined
+}

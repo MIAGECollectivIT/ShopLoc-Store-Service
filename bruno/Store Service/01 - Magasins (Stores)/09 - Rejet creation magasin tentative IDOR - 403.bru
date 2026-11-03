@@ -1,0 +1,34 @@
+meta {
+  name: 09 - Rejet creation magasin tentative IDOR - 403
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/v1/stores
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Boutique Usurpee",
+    "address": "15 rue du Piratage",
+    "category": "Commerce",
+    "rib": "FR7630006000011234567890189",
+    "userId": 99999
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error: eq "Forbidden"
+}

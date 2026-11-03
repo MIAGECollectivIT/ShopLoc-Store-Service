@@ -1,0 +1,32 @@
+meta {
+  name: 12 - Rejet creation produit magasin inexistant - 404
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/v1/stores/999999/products
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reference": "REF-NO-STORE",
+    "name": "Produit Sans Magasin",
+    "price": 10.00
+  }
+}
+
+assert {
+  res.status: eq 404
+  res.body.error: eq "Not Found"
+}

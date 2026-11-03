@@ -1,0 +1,30 @@
+meta {
+  name: 10 - Rejet ajustement stock par role CLIENT - 403
+  type: http
+  seq: 10
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "quantityDelta": -1
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error: eq "Forbidden"
+}

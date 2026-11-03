@@ -1,0 +1,35 @@
+meta {
+  name: 11 - Rejet tentative spoofing header X-User-Role ADMIN - 403
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+headers {
+  Content-Type: application/json
+  X-User-Role: ADMIN
+  Role: ADMIN
+  X-Forwarded-User: admin
+}
+
+body:json {
+  {
+    "reference": "REF-SPOOF",
+    "name": "Produit Piraté",
+    "price": 99.99
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error: eq "Forbidden"
+}

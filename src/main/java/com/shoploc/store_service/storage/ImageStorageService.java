@@ -11,4 +11,14 @@ public interface ImageStorageService {
    * @return the accessible URL of the stored image
    */
   String uploadStoreImage(MultipartFile file);
+
+  /**
+   * Uploads a product image to the S3 bucket and returns the public URL.
+   *
+   * @param file the multipart file to upload
+   * @return the accessible URL of the stored image
+   */
+  default String uploadProductImage(MultipartFile file) {
+    return uploadStoreImage(file);
+  }
 }

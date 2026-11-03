@@ -203,6 +203,42 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
+  @DisplayName("POST /v1/stores avec JWT MERCHANT et userId omis (null) -> doit auto-assigner l'identifiant du token (201 Created)")
+  void shouldAllowStoreCreationWhenMerchantOmitsUserIdInBody() throws Exception {
+    Store store =
+        new Store(
+            "Boulangerie Sans UserId",
+            "5 Place du Marché",
+            "https://img.com/boulangerie.jpg",
+            "Alimentation",
+            "FR7630006000011234567890189",
+            102L);
+    when(storeService.createStore(any(StoreCreateRequest.class))).thenReturn(store);
+
+    // userId est null dans la requête du formulaire Front
+    StoreCreateRequest requestWithoutUserId =
+        new StoreCreateRequest(
+            "Boulangerie Sans UserId",
+            "5 Place du Marché",
+            "https://img.com/boulangerie.jpg",
+            "Alimentation",
+            "FR7630006000011234567890189",
+            null);
+    String merchantToken =
+        generateTestToken("MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), 102L);
+
+    mockMvc
+        .perform(
+            post("/v1/stores")
+                .header("Authorization", "Bearer " + merchantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(requestWithoutUserId)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.name").value("Boulangerie Sans UserId"))
+        .andExpect(jsonPath("$.userId").value(102L));
+  }
+
+  @Test
   @DisplayName(
       "POST /v1/stores par un MERCHANT tentant d'usurper un autre userId -> doit renvoyer 403 Forbidden (Anti-IDOR)")
   void shouldDenyStoreCreationWhenMerchantTriesToSpoofAnotherUserId() throws Exception {

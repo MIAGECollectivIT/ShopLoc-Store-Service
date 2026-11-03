@@ -27,7 +27,6 @@ public class ProductCreateRequest {
   @Size(max = 1000, message = "L'URL de l'image ne doit pas dépasser 1000 caractères")
   private String imageUrl;
 
-  @NotNull(message = "Le stock initial est obligatoire")
   @Min(value = 0, message = "Le stock ne peut pas être négatif")
   private Integer stockQuantity;
 

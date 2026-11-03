@@ -29,7 +29,6 @@ public class StoreCreateRequest {
   @ValidRibOrIban(message = "Le format ou la clé algorithmique du RIB/IBAN est invalide")
   private String rib;
 
-  @NotNull(message = "L'identifiant du partenaire propriétaire est obligatoire")
   @Positive(message = "L'identifiant du partenaire propriétaire doit être un identifiant valide")
   private Long userId;
 

@@ -39,6 +39,22 @@ class ProductValidationTest {
   }
 
   @Test
+  @DisplayName("ProductCreateRequest avec stock initial null doit être valide (prend la valeur par défaut 0)")
+  void shouldPassWhenStockQuantityIsNull() {
+    ProductCreateRequest request =
+        new ProductCreateRequest(
+            "REF-STOCK-DEFAULT",
+            "Pain de campagne",
+            "Au levain",
+            new BigDecimal("2.00"),
+            null,
+            null);
+
+    Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
+    assertThat(violations).isEmpty();
+  }
+
+  @Test
   @DisplayName("ProductCreateRequest avec prix nul (0.00 €) doit être valide (articles promotionnels)")
   void shouldPassWhenPriceIsZero() {
     ProductCreateRequest request =

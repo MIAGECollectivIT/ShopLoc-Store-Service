@@ -12,7 +12,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    uniqueConstraints = {
+      @jakarta.persistence.UniqueConstraint(
+          name = "uq_store_product_reference",
+          columnNames = {"store_id", "reference"})
+    })
 public class Product {
 
   @Id
@@ -160,3 +166,4 @@ public class Product {
     this.updatedAt = updatedAt;
   }
 }
+

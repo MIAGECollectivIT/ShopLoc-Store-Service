@@ -18,3 +18,4 @@ CREATE TABLE IF NOT EXISTS products (
 
 CREATE INDEX IF NOT EXISTS idx_products_store_id ON products(store_id);
 CREATE INDEX IF NOT EXISTS idx_products_store_reference ON products(store_id, reference);
+

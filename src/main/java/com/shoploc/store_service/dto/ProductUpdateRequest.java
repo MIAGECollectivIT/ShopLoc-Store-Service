@@ -94,3 +94,4 @@ public class ProductUpdateRequest {
     this.stockQuantity = stockQuantity;
   }
 }
+

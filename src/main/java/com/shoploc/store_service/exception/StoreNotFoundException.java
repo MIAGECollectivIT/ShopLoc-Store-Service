@@ -6,3 +6,4 @@ public class StoreNotFoundException extends RuntimeException {
     super("Commerce introuvable avec l'identifiant : " + storeId);
   }
 }
+

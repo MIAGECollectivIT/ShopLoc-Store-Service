@@ -46,3 +46,4 @@ public class StockUpdateRequest {
     this.newQuantity = newQuantity;
   }
 }
+

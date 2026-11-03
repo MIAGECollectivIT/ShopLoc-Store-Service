@@ -3,6 +3,7 @@ package com.shoploc.store_service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -86,6 +87,28 @@ class ProductServiceTest {
   }
 
   @Test
+  @DisplayName("getProductById doit retourner le produit s'il existe dans le magasin")
+  void shouldReturnProductById() {
+    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+
+    ProductResponse response = productService.getProductById(1L, 10L);
+    assertThat(response.getId()).isEqualTo(10L);
+    assertThat(response.getName()).isEqualTo("Croissant au beurre");
+  }
+
+  @Test
+  @DisplayName("getProductById sur produit inexistant doit lancer ProductNotFoundException")
+  void shouldThrowWhenProductNotFoundById() {
+    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(productRepository.findByIdAndStoreId(999L, 1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> productService.getProductById(1L, 999L))
+        .isInstanceOf(ProductNotFoundException.class)
+        .hasMessageContaining("999");
+  }
+
+  @Test
   @DisplayName("createProduct avec rôle MERCHANT sur son magasin doit réussir")
   void shouldCreateProductForMerchantOwner() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
@@ -122,7 +145,6 @@ class ProductServiceTest {
         new ProductCreateRequest(
             "REF-002", "Pain au chocolat", "Pur beurre", new BigDecimal("1.60"), null, 15);
 
-    // Propriétaire est 100L, mais le commerçant connecté est 200L
     assertThatThrownBy(() -> productService.createProduct(1L, request, null, 200L, "MERCHANT"))
         .isInstanceOf(AccessDeniedException.class)
         .hasMessageContaining("vous n'êtes pas le commerçant gestionnaire");
@@ -184,34 +206,95 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateStock avec rôle SERVICE doit être autorisé sans contrainte d'utilisateur")
-  void shouldAllowServiceRoleToUpdateStock() {
+  @DisplayName("updateProduct conservant sa propre référence ne doit pas lever de conflit")
+  void shouldAllowUpdateProductKeepingOwnReference() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.existsByStoreIdAndReferenceAndIdNot(1L, "REF-001", 10L)).thenReturn(false);
     when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    // Décrémenter 3 unités (ex: commande Click & Collect par Sales Service)
-    StockUpdateRequest request = StockUpdateRequest.ofDelta(-3);
+    ProductUpdateRequest request =
+        new ProductUpdateRequest(
+            "REF-001",
+            "Croissant Pur Beurre Modifié",
+            "Nouvelle recette",
+            new BigDecimal("1.70"),
+            null,
+            25);
 
     ProductResponse response =
-        productService.updateStock(1L, 10L, request, null, "SERVICE");
+        productService.updateProduct(1L, 10L, request, null, 100L, "MERCHANT");
 
-    assertThat(response.getStockQuantity()).isEqualTo(17);
-    verify(productRepository).save(sampleProduct);
+    assertThat(response.getName()).isEqualTo("Croissant Pur Beurre Modifié");
+    assertThat(response.getPrice()).isEqualByComparingTo("1.70");
+    assertThat(response.getStockQuantity()).isEqualTo(25);
   }
 
   @Test
-  @DisplayName("updateStock avec décrément supérieur au stock disponible doit lever InsufficientStockException")
-  void shouldThrowWhenStockBecomesNegative() {
+  @DisplayName("updateProduct avec référence déjà prise par un autre produit doit lever ProductReferenceAlreadyExistsException")
+  void shouldThrowWhenUpdateReferenceConflictsWithOtherProduct() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.existsByStoreIdAndReferenceAndIdNot(1L, "REF-AUTRE", 10L)).thenReturn(true);
 
-    // Stock actuel = 20, on tente de retirer 25
-    StockUpdateRequest request = StockUpdateRequest.ofDelta(-25);
+    ProductUpdateRequest request =
+        new ProductUpdateRequest(
+            "REF-AUTRE", "Croissant", "Desc", new BigDecimal("1.50"), null, 20);
 
-    assertThatThrownBy(() -> productService.updateStock(1L, 10L, request, null, "SERVICE"))
-        .isInstanceOf(InsufficientStockException.class)
-        .hasMessageContaining("Stock insuffisant");
+    assertThatThrownBy(() -> productService.updateProduct(1L, 10L, request, null, 100L, "MERCHANT"))
+        .isInstanceOf(ProductReferenceAlreadyExistsException.class)
+        .hasMessageContaining("existe déjà dans le commerce");
+
+    verify(productRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("updateProduct sur produit inexistant doit lever ProductNotFoundException")
+  void shouldThrowWhenUpdatingNonExistentProduct() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreId(999L, 1L)).thenReturn(Optional.empty());
+
+    ProductUpdateRequest request =
+        new ProductUpdateRequest(
+            "REF-NEW", "Nom", "Desc", new BigDecimal("2.00"), null, 10);
+
+    assertThatThrownBy(() -> productService.updateProduct(1L, 999L, request, null, 100L, "MERCHANT"))
+        .isInstanceOf(ProductNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("updateProduct par un commerçant non gérant doit lever AccessDeniedException")
+  void shouldDenyUpdateProductForNonOwnerMerchant() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+
+    ProductUpdateRequest request =
+        new ProductUpdateRequest(
+            "REF-001", "Nom", "Desc", new BigDecimal("2.00"), null, 10);
+
+    assertThatThrownBy(() -> productService.updateProduct(1L, 10L, request, null, 999L, "MERCHANT"))
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessageContaining("vous n'êtes pas le commerçant gestionnaire");
+  }
+
+  @Test
+  @DisplayName("deleteProduct sur produit inexistant doit lever ProductNotFoundException")
+  void shouldThrowWhenDeletingNonExistentProduct() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreId(999L, 1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> productService.deleteProduct(1L, 999L, 100L, "MERCHANT"))
+        .isInstanceOf(ProductNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("deleteProduct par un commerçant non propriétaire doit lever AccessDeniedException")
+  void shouldDenyDeleteProductForNonOwner() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+
+    assertThatThrownBy(() -> productService.deleteProduct(1L, 10L, 999L, "MERCHANT"))
+        .isInstanceOf(AccessDeniedException.class);
+
+    verify(productRepository, never()).delete(any());
   }
 
   @Test
@@ -223,5 +306,74 @@ class ProductServiceTest {
     productService.deleteProduct(1L, 10L, 100L, "MERCHANT");
 
     verify(productRepository).delete(sampleProduct);
+  }
+
+  @Test
+  @DisplayName("updateStock avec rôle SERVICE doit être autorisé sans contrainte d'utilisateur")
+  void shouldAllowServiceRoleToUpdateStock() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    StockUpdateRequest request = StockUpdateRequest.ofDelta(-3);
+
+    ProductResponse response =
+        productService.updateStock(1L, 10L, request, null, "SERVICE");
+
+    assertThat(response.getStockQuantity()).isEqualTo(17);
+    verify(productRepository).save(sampleProduct);
+  }
+
+  @Test
+  @DisplayName("updateStock avec valeur absolue newQuantity doit écraser le stock disponible")
+  void shouldSetAbsoluteStockQuantity() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    StockUpdateRequest request = StockUpdateRequest.ofAbsolute(50);
+
+    ProductResponse response =
+        productService.updateStock(1L, 10L, request, 100L, "MERCHANT");
+
+    assertThat(response.getStockQuantity()).isEqualTo(50);
+  }
+
+  @Test
+  @DisplayName("updateStock sans aucun champ doit lever IllegalArgumentException")
+  void shouldThrowWhenNoStockUpdateFieldProvided() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+
+    StockUpdateRequest request = new StockUpdateRequest(null, null);
+
+    assertThatThrownBy(() -> productService.updateStock(1L, 10L, request, 100L, "MERCHANT"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Au moins un des champs");
+  }
+
+  @Test
+  @DisplayName("updateStock par un commerçant non gérant doit lever AccessDeniedException")
+  void shouldDenyStockUpdateForNonOwnerMerchant() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+
+    StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
+
+    assertThatThrownBy(() -> productService.updateStock(1L, 10L, request, 999L, "MERCHANT"))
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessageContaining("vous n'êtes pas le commerçant gestionnaire");
+  }
+
+  @Test
+  @DisplayName("updateStock avec décrément supérieur au stock disponible doit lever InsufficientStockException")
+  void shouldThrowWhenStockBecomesNegative() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+
+    StockUpdateRequest request = StockUpdateRequest.ofDelta(-25);
+
+    assertThatThrownBy(() -> productService.updateStock(1L, 10L, request, null, "SERVICE"))
+        .isInstanceOf(InsufficientStockException.class)
+        .hasMessageContaining("Stock insuffisant");
   }
 }

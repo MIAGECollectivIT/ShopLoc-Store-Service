@@ -39,6 +39,22 @@ class ProductValidationTest {
   }
 
   @Test
+  @DisplayName("ProductCreateRequest avec prix nul (0.00 €) doit être valide (articles promotionnels)")
+  void shouldPassWhenPriceIsZero() {
+    ProductCreateRequest request =
+        new ProductCreateRequest(
+            "REF-GRATUIT",
+            "Échantillon gratuit",
+            "Offert",
+            new BigDecimal("0.00"),
+            null,
+            100);
+
+    Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
+    assertThat(violations).isEmpty();
+  }
+
+  @Test
   @DisplayName("ProductCreateRequest avec référence vide doit échouer")
   void shouldFailWhenReferenceIsBlank() {
     ProductCreateRequest request =
@@ -55,12 +71,46 @@ class ProductValidationTest {
   }
 
   @Test
+  @DisplayName("ProductCreateRequest avec référence dépassant 100 caractères doit échouer")
+  void shouldFailWhenReferenceExceeds100Chars() {
+    String longRef = "R".repeat(101);
+    ProductCreateRequest request =
+        new ProductCreateRequest(
+            longRef,
+            "Baguette",
+            "Desc",
+            new BigDecimal("1.20"),
+            null,
+            10);
+
+    Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
+    assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("reference"));
+  }
+
+  @Test
   @DisplayName("ProductCreateRequest avec nom vide doit échouer")
   void shouldFailWhenNameIsBlank() {
     ProductCreateRequest request =
         new ProductCreateRequest(
             "REF-01",
             "",
+            "Description",
+            new BigDecimal("1.20"),
+            null,
+            10);
+
+    Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
+    assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("name"));
+  }
+
+  @Test
+  @DisplayName("ProductCreateRequest avec nom dépassant 255 caractères doit échouer")
+  void shouldFailWhenNameExceeds255Chars() {
+    String longName = "A".repeat(256);
+    ProductCreateRequest request =
+        new ProductCreateRequest(
+            "REF-01",
+            longName,
             "Description",
             new BigDecimal("1.20"),
             null,
@@ -100,6 +150,51 @@ class ProductValidationTest {
 
     Set<ConstraintViolation<ProductCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("stockQuantity"));
+  }
+
+  @Test
+  @DisplayName("ProductUpdateRequest valide ne doit lever aucune violation")
+  void shouldPassWhenProductUpdateRequestIsValid() {
+    ProductUpdateRequest request =
+        new ProductUpdateRequest(
+            "REF-EDIT-01",
+            "Nom Modifié",
+            "Nouvelle desc",
+            new BigDecimal("4.50"),
+            "https://cdn.shoploc.fr/new.jpg",
+            30);
+
+    Set<ConstraintViolation<ProductUpdateRequest>> violations = validator.validate(request);
+    assertThat(violations).isEmpty();
+  }
+
+  @Test
+  @DisplayName("ProductUpdateRequest avec référence vide ou nom vide doit échouer")
+  void shouldFailWhenProductUpdateRequestHasBlankFields() {
+    ProductUpdateRequest request =
+        new ProductUpdateRequest(
+            "",
+            "   ",
+            "Desc",
+            new BigDecimal("-1.00"),
+            null,
+            -5);
+
+    Set<ConstraintViolation<ProductUpdateRequest>> violations = validator.validate(request);
+    assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("reference"));
+    assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("name"));
+    assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("price"));
+    assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("stockQuantity"));
+  }
+
+  @Test
+  @DisplayName("StockUpdateRequest avec delta positif ou négatif ne doit lever aucune violation")
+  void shouldPassWhenDeltaIsProvided() {
+    StockUpdateRequest reqPositive = StockUpdateRequest.ofDelta(10);
+    StockUpdateRequest reqNegative = StockUpdateRequest.ofDelta(-5);
+
+    assertThat(validator.validate(reqPositive)).isEmpty();
+    assertThat(validator.validate(reqNegative)).isEmpty();
   }
 
   @Test

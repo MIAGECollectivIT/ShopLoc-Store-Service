@@ -2,6 +2,7 @@ package com.shoploc.store_service.security;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -82,6 +83,10 @@ class ProductSecurityIntegrationTest {
   }
 
   private String createToken(String role, Long dbId) {
+    return createToken(role, dbId, 3600000L);
+  }
+
+  private String createToken(String role, Long dbId, long ttlMs) {
     return Jwts.builder()
         .header()
         .keyId("test-key")
@@ -89,7 +94,7 @@ class ProductSecurityIntegrationTest {
         .id(UUID.randomUUID().toString())
         .subject(UUID.randomUUID().toString())
         .issuer("shoploc-auth-service")
-        .expiration(new Date(System.currentTimeMillis() + 3600000))
+        .expiration(new Date(System.currentTimeMillis() + ttlMs))
         .claim("role", role)
         .claim("dbId", dbId)
         .claim("userId", UUID.randomUUID().toString())
@@ -103,9 +108,7 @@ class ProductSecurityIntegrationTest {
   void shouldAllowPublicCatalogConsultation() throws Exception {
     when(productService.getProductsByStore(1L)).thenReturn(List.of());
 
-    mockMvc
-        .perform(get("/v1/stores/1/products"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/v1/stores/1/products")).andExpect(status().isOk());
   }
 
   @Test
@@ -190,6 +193,135 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
+  @DisplayName("PUT /v1/stores/{storeId}/products/{productId} sans token doit renvoyer 401 Unauthorized")
+  void shouldDenyUpdateProductWithoutToken() throws Exception {
+    ProductUpdateRequest request =
+        new ProductUpdateRequest("REF-01", "Nouveau nom", "Desc", new BigDecimal("2.00"), null, 10);
+
+    mockMvc
+        .perform(
+            put("/v1/stores/1/products/10")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("PUT /v1/stores/{storeId}/products/{productId} avec rôle CLIENT doit renvoyer 403 Forbidden")
+  void shouldDenyUpdateProductWithClientRole() throws Exception {
+    String clientToken = createToken("CLIENT", 50L);
+    ProductUpdateRequest request =
+        new ProductUpdateRequest("REF-01", "Nom", "Desc", new BigDecimal("2.00"), null, 10);
+
+    mockMvc
+        .perform(
+            put("/v1/stores/1/products/10")
+                .header("Authorization", "Bearer " + clientToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("PUT /v1/stores/{storeId}/products/{productId} avec rôle MERCHANT sur son magasin doit réussir (200 OK)")
+  void shouldAllowUpdateProductWithMerchantRole() throws Exception {
+    String merchantToken = createToken("MERCHANT", 100L);
+    ProductUpdateRequest request =
+        new ProductUpdateRequest("REF-01", "Nom Modifié", "Desc", new BigDecimal("2.50"), null, 15);
+
+    ProductResponse response =
+        new ProductResponse(
+            10L, 1L, "REF-01", "Nom Modifié", "Desc", new BigDecimal("2.50"), null, 15, Instant.now(), Instant.now());
+    when(productService.updateProduct(eq(1L), eq(10L), any(), any(), eq(100L), eq("MERCHANT")))
+        .thenReturn(response);
+
+    mockMvc
+        .perform(
+            put("/v1/stores/1/products/10")
+                .header("Authorization", "Bearer " + merchantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Nom Modifié"));
+  }
+
+  @Test
+  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} sans token doit renvoyer 401 Unauthorized")
+  void shouldDenyDeleteProductWithoutToken() throws Exception {
+    mockMvc
+        .perform(delete("/v1/stores/1/products/10"))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} avec rôle CLIENT doit renvoyer 403 Forbidden")
+  void shouldDenyDeleteProductWithClientRole() throws Exception {
+    String clientToken = createToken("CLIENT", 20L);
+
+    mockMvc
+        .perform(
+            delete("/v1/stores/1/products/10")
+                .header("Authorization", "Bearer " + clientToken))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} par gérant non propriétaire doit renvoyer 403 Forbidden")
+  void shouldDenyDeleteProductForNonOwnerMerchant() throws Exception {
+    String merchantToken = createToken("MERCHANT", 999L);
+    doThrow(new AccessDeniedException("Accès refusé"))
+        .when(productService)
+        .deleteProduct(eq(1L), eq(10L), eq(999L), eq("MERCHANT"));
+
+    mockMvc
+        .perform(
+            delete("/v1/stores/1/products/10")
+                .header("Authorization", "Bearer " + merchantToken))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} par gérant commerçant propriétaire doit renvoyer 204 No Content")
+  void shouldAllowMerchantToDeleteProduct() throws Exception {
+    String merchantToken = createToken("MERCHANT", 100L);
+
+    mockMvc
+        .perform(
+            delete("/v1/stores/1/products/10")
+                .header("Authorization", "Bearer " + merchantToken))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock sans token doit renvoyer 401 Unauthorized")
+  void shouldDenyPatchStockWithoutToken() throws Exception {
+    StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
+
+    mockMvc
+        .perform(
+            patch("/v1/stores/1/products/10/stock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock avec token expiré doit renvoyer 401 Unauthorized")
+  void shouldDenyPatchStockWithExpiredToken() throws Exception {
+    // Token expiré il y a 10 secondes
+    String expiredToken = createToken("SERVICE", null, -10000L);
+    StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
+
+    mockMvc
+        .perform(
+            patch("/v1/stores/1/products/10/stock")
+                .header("Authorization", "Bearer " + expiredToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
   @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle SERVICE (M2M) doit renvoyer 200 OK")
   void shouldAllowServiceRoleToPatchStock() throws Exception {
     String serviceToken = createToken("SERVICE", null);
@@ -212,6 +344,28 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
+  @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle MERCHANT sur son magasin doit réussir")
+  void shouldAllowMerchantToPatchStockOnOwnedStore() throws Exception {
+    String merchantToken = createToken("MERCHANT", 100L);
+    StockUpdateRequest request = StockUpdateRequest.ofAbsolute(30);
+
+    ProductResponse response =
+        new ProductResponse(
+            10L, 1L, "REF-001", "Croissant", "Desc", new BigDecimal("1.50"), null, 30, Instant.now(), Instant.now());
+    when(productService.updateStock(eq(1L), eq(10L), any(), eq(100L), eq("MERCHANT")))
+        .thenReturn(response);
+
+    mockMvc
+        .perform(
+            patch("/v1/stores/1/products/10/stock")
+                .header("Authorization", "Bearer " + merchantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.stockQuantity").value(30));
+  }
+
+  @Test
   @DisplayName("PATCH /v1/stores/{storeId}/products/{productId}/stock avec rôle CLIENT doit être refusé (403 Forbidden)")
   void shouldDenyClientFromPatchingStock() throws Exception {
     String clientToken = createToken("CLIENT", 50L);
@@ -224,17 +378,5 @@ class ProductSecurityIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isForbidden());
-  }
-
-  @Test
-  @DisplayName("DELETE /v1/stores/{storeId}/products/{productId} par gérant commerçant doit renvoyer 204 No Content")
-  void shouldAllowMerchantToDeleteProduct() throws Exception {
-    String merchantToken = createToken("MERCHANT", 100L);
-
-    mockMvc
-        .perform(
-            delete("/v1/stores/1/products/10")
-                .header("Authorization", "Bearer " + merchantToken))
-        .andExpect(status().isNoContent());
   }
 }

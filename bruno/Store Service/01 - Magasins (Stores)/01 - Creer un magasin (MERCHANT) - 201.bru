@@ -1,0 +1,37 @@
+meta {
+  name: 01 - Creer un magasin (MERCHANT) - 201
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/v1/stores
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Boulangerie Paul",
+    "address": "10 rue Royale, 59000 Lille",
+    "category": "Boulangerie",
+    "rib": "FR7630006000011234567890189",
+    "url": "https://cdn.shoploc.fr/stores/paul.jpg"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.name: eq "Boulangerie Paul"
+  res.body.category: eq "Boulangerie"
+  res.body.id: isDefined
+}
+

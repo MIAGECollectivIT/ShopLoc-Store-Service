@@ -76,8 +76,9 @@ class StoreValidationTest {
   }
 
   @Test
-  @DisplayName("Devrait refuser un userId null ou négatif")
-  void shouldRejectNullOrNegativeUserId() {
+  @DisplayName(
+      "Devrait autoriser un userId null (car injecté depuis le JWT) mais refuser un négatif")
+  void shouldAllowNullUserIdAndRejectNegative() {
     StoreCreateRequest requestNullUser =
         new StoreCreateRequest(
             "Mon Magasin",
@@ -88,7 +89,7 @@ class StoreValidationTest {
             null);
 
     Set<ConstraintViolation<StoreCreateRequest>> violations = validator.validate(requestNullUser);
-    assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("userId"));
+    assertThat(violations).isEmpty();
 
     StoreCreateRequest requestNegativeUser =
         new StoreCreateRequest(

@@ -1,0 +1,31 @@
+meta {
+  name: 04 - Rejet decrement au-dela du stock (Rupture) - 400
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{serviceToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "quantityDelta": -9999
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error: eq "Bad Request"
+}
+

@@ -1,0 +1,33 @@
+meta {
+  name: 08 - Rejet creation magasin avec role CLIENT - 403
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/v1/stores
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Boutique Client",
+    "address": "10 rue des Clients",
+    "category": "Commerce",
+    "rib": "FR7630006000011234567890189"
+  }
+}
+
+assert {
+  res.status: eq 403
+}
+

@@ -1,0 +1,35 @@
+meta {
+  name: 04 - Creer un produit sans stock (Defaut a 0) - 201
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reference": "REF-PAIN-SEIGLE",
+    "name": "Pain de Seigle Noir",
+    "description": "Pain rustique sans stock initial",
+    "price": 2.80
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.reference: eq "REF-PAIN-SEIGLE"
+  res.body.stockQuantity: eq 0
+}
+

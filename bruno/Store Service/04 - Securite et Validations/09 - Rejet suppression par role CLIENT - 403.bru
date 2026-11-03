@@ -1,0 +1,21 @@
+meta {
+  name: 09 - Rejet suppression par role CLIENT - 403
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.error: eq "Forbidden"
+}
+

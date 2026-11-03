@@ -1,0 +1,33 @@
+meta {
+  name: 07 - Rejet modification produit inexistant - 404
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/999999
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reference": "REF-INEXISTANT",
+    "name": "Produit Inexistant",
+    "price": 5.00
+  }
+}
+
+assert {
+  res.status: eq 404
+  res.body.error: eq "Not Found"
+}
+

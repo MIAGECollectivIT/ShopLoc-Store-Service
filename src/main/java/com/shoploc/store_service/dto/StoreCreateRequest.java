@@ -4,7 +4,6 @@ import com.shoploc.store_service.Store;
 import com.shoploc.store_service.validation.RibIbanHelper;
 import com.shoploc.store_service.validation.ValidRibOrIban;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
@@ -29,7 +28,6 @@ public class StoreCreateRequest {
   @ValidRibOrIban(message = "Le format ou la clé algorithmique du RIB/IBAN est invalide")
   private String rib;
 
-  @NotNull(message = "L'identifiant du partenaire propriétaire est obligatoire")
   @Positive(message = "L'identifiant du partenaire propriétaire doit être un identifiant valide")
   private Long userId;
 

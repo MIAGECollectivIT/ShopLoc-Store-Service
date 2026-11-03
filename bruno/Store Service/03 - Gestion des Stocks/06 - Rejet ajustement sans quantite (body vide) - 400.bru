@@ -1,0 +1,29 @@
+meta {
+  name: 06 - Rejet ajustement sans quantite (body vide) - 400
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 400
+  res.body.error: eq "Bad Request"
+}
+

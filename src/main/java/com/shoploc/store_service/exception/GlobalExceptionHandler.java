@@ -99,7 +99,11 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
   }
 
-  @ExceptionHandler({ProductNotFoundException.class, StoreNotFoundException.class})
+  @ExceptionHandler({
+    ProductNotFoundException.class,
+    StoreNotFoundException.class,
+    ProductImageNotFoundException.class
+  })
   public ResponseEntity<Map<String, Object>> handleNotFoundExceptions(RuntimeException ex) {
     Map<String, Object> body = new HashMap<>();
     body.put("timestamp", Instant.now().toString());

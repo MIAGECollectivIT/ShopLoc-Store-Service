@@ -6,9 +6,12 @@ import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.exception.InsufficientStockException;
+import com.shoploc.store_service.exception.InvalidFileException;
+import com.shoploc.store_service.exception.ProductImageNotFoundException;
 import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
+import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.List;
 import org.slf4j.Logger;
@@ -150,8 +153,77 @@ public class ProductService {
             .findByIdAndStoreId(productId, storeId)
             .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
 
+    if (product.getImageUrl() != null && !product.getImageUrl().isBlank()) {
+      imageStorageService.deleteImage(product.getImageUrl());
+    }
+
     productRepository.delete(product);
     log.info("Produit id={} supprimé avec succès du commerce {}", productId, storeId);
+  }
+
+  @Transactional
+  public ProductResponse updateProductImage(
+      Long storeId,
+      Long productId,
+      MultipartFile image,
+      Long authenticatedUserId,
+      String userRole) {
+    Store store = findStoreOrThrow(storeId);
+    validateStoreOwnership(store, authenticatedUserId, userRole);
+
+    if (image == null || image.isEmpty()) {
+      throw new InvalidFileException("Le fichier image ne peut pas être vide");
+    }
+
+    Product product =
+        productRepository
+            .findByIdAndStoreId(productId, storeId)
+            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+
+    if (product.getImageUrl() != null && !product.getImageUrl().isBlank()) {
+      imageStorageService.deleteImage(product.getImageUrl());
+    }
+
+    String newImageUrl = imageStorageService.uploadProductImage(image);
+    product.setImageUrl(newImageUrl);
+
+    Product saved = productRepository.save(product);
+    log.info("Photo du produit id={} mise à jour sur S3 : {}", productId, newImageUrl);
+    return ProductResponse.fromEntity(saved);
+  }
+
+  @Transactional
+  public ProductResponse updateProductImageUrl(
+      Long storeId, Long productId, String imageUrl, Long authenticatedUserId, String userRole) {
+    Store store = findStoreOrThrow(storeId);
+    validateStoreOwnership(store, authenticatedUserId, userRole);
+
+    Product product =
+        productRepository
+            .findByIdAndStoreId(productId, storeId)
+            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+
+    product.setImageUrl(imageUrl);
+    Product saved = productRepository.save(product);
+    log.info("URL de photo du produit id={} mise à jour : {}", productId, imageUrl);
+    return ProductResponse.fromEntity(saved);
+  }
+
+  @Transactional(readOnly = true)
+  public ImageResource getProductImage(Long storeId, Long productId) {
+    verifyStoreExists(storeId);
+    Product product =
+        productRepository
+            .findByIdAndStoreId(productId, storeId)
+            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+
+    if (product.getImageUrl() == null || product.getImageUrl().isBlank()) {
+      throw new ProductImageNotFoundException(storeId, productId);
+    }
+
+    return imageStorageService
+        .downloadImage(product.getImageUrl())
+        .orElseThrow(() -> new ProductImageNotFoundException(storeId, productId));
   }
 
   @Transactional

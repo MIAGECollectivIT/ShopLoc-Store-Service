@@ -12,11 +12,15 @@ import com.shoploc.store_service.dto.StockUpdateRequest;
 import com.shoploc.store_service.exception.FileStorageException;
 import com.shoploc.store_service.exception.InsufficientStockException;
 import com.shoploc.store_service.exception.InvalidFileException;
+import com.shoploc.store_service.exception.ProductImageNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
+import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -348,5 +352,113 @@ class ProductControllerTest {
                     store.getId(), product.getId(), request, validImage, servletRequest))
         .isInstanceOf(FileStorageException.class)
         .hasMessageContaining("MinIO");
+  }
+
+  @Test
+  @DisplayName("Streaming image produit - Doit renvoyer les octets avec bon Content-Type")
+  void shouldGetProductImageSuccessfully() {
+    Product product =
+        productRepository.save(
+            new Product(
+                store.getId(),
+                "REF-IMG-STREAM",
+                "Article Visuel",
+                "Desc",
+                new BigDecimal("5.00"),
+                "https://cdn.shoploc.fr/product-images/stream.png",
+                3));
+
+    byte[] expectedBytes = new byte[] {0x12, 0x34, 0x56};
+    when(imageStorageService.downloadImage("https://cdn.shoploc.fr/product-images/stream.png"))
+        .thenReturn(Optional.of(new ImageResource(expectedBytes, "image/png")));
+
+    ResponseEntity<byte[]> response =
+        productController.getProductImage(store.getId(), product.getId());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isEqualTo(expectedBytes);
+    assertThat(response.getHeaders().getContentType().toString()).isEqualTo("image/png");
+    assertThat(response.getHeaders().getCacheControl()).contains("max-age=86400");
+  }
+
+  @Test
+  @DisplayName("Streaming image produit absente - Doit lever ProductImageNotFoundException")
+  void shouldThrowWhenProductHasNoImage() {
+    Product product =
+        productRepository.save(
+            new Product(
+                store.getId(),
+                "REF-NO-IMG",
+                "Article Sans Visuel",
+                "Desc",
+                new BigDecimal("5.00"),
+                null,
+                3));
+
+    assertThatThrownBy(() -> productController.getProductImage(store.getId(), product.getId()))
+        .isInstanceOf(ProductImageNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("Patch image produit multipart - Upload et persistance en base")
+  void shouldPatchProductImageMultipart() {
+    Product product =
+        productRepository.save(
+            new Product(
+                store.getId(),
+                "REF-PATCH-IMG",
+                "Article A",
+                "Desc",
+                new BigDecimal("5.00"),
+                null,
+                3));
+
+    MockMultipartFile imageFile =
+        new MockMultipartFile("image", "new-art.png", "image/png", new byte[] {1, 2, 3});
+    when(imageStorageService.uploadProductImage(any()))
+        .thenReturn("https://cdn.shoploc.fr/product-images/new-art.png");
+
+    MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
+    ResponseEntity<ProductResponse> response =
+        productController.updateProductImageMultipart(
+            store.getId(), product.getId(), imageFile, servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody().getImageUrl())
+        .isEqualTo("https://cdn.shoploc.fr/product-images/new-art.png");
+
+    Product updated = productRepository.findById(product.getId()).orElseThrow();
+    assertThat(updated.getImageUrl())
+        .isEqualTo("https://cdn.shoploc.fr/product-images/new-art.png");
+  }
+
+  @Test
+  @DisplayName("Patch image produit JSON - Mise à jour par URL directe")
+  void shouldPatchProductImageJson() {
+    Product product =
+        productRepository.save(
+            new Product(
+                store.getId(),
+                "REF-PATCH-JSON",
+                "Article B",
+                "Desc",
+                new BigDecimal("5.00"),
+                null,
+                3));
+
+    MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
+    ResponseEntity<ProductResponse> response =
+        productController.updateProductImageJson(
+            store.getId(),
+            product.getId(),
+            Map.of("imageUrl", "https://cdn.shoploc.fr/product-images/custom.jpg"),
+            servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody().getImageUrl())
+        .isEqualTo("https://cdn.shoploc.fr/product-images/custom.jpg");
+
+    Product updated = productRepository.findById(product.getId()).orElseThrow();
+    assertThat(updated.getImageUrl()).isEqualTo("https://cdn.shoploc.fr/product-images/custom.jpg");
   }
 }

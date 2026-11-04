@@ -1,0 +1,30 @@
+meta {
+  name: 14 - Rejet modification image produit avec role CLIENT - 403
+  type: http
+  seq: 14
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/image
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "imageUrl": "https://cdn.shoploc.fr/products/hacked.jpg"
+  }
+}
+
+assert {
+  res.status: eq 403
+}
+

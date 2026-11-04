@@ -1,0 +1,31 @@
+meta {
+  name: 12 - Modifier l image d un produit avec URL directe (JSON) - 200
+  type: http
+  seq: 12
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/image
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "imageUrl": "https://cdn.shoploc.fr/products/baguette-custom.jpg"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.imageUrl: eq "https://cdn.shoploc.fr/products/baguette-custom.jpg"
+}
+

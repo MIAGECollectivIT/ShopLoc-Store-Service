@@ -18,4 +18,3 @@ public class ImageResource {
     return contentType;
   }
 }
-

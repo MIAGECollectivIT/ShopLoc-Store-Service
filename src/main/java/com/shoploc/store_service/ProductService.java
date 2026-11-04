@@ -194,11 +194,7 @@ public class ProductService {
 
   @Transactional
   public ProductResponse updateProductImageUrl(
-      Long storeId,
-      Long productId,
-      String imageUrl,
-      Long authenticatedUserId,
-      String userRole) {
+      Long storeId, Long productId, String imageUrl, Long authenticatedUserId, String userRole) {
     Store store = findStoreOrThrow(storeId);
     validateStoreOwnership(store, authenticatedUserId, userRole);
 

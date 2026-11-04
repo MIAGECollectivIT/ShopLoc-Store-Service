@@ -28,8 +28,8 @@ public class S3ImageStorageService implements ImageStorageService {
 
   private static final Logger log = LoggerFactory.getLogger(S3ImageStorageService.class);
 
-  private static final List<String> ALLOWED_CONTENT_TYPES = Arrays.asList("image/jpeg", "image/png", "image/webp",
-      "image/gif", "image/svg+xml");
+  private static final List<String> ALLOWED_CONTENT_TYPES =
+      Arrays.asList("image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml");
 
   private final S3Client s3Client;
   private final String storeBucketName;
@@ -46,18 +46,16 @@ public class S3ImageStorageService implements ImageStorageService {
       @Value("${s3.public-base-url:}") String publicBaseUrl) {
     this.s3Client = s3Client;
     this.storeBucketName = storeBucketName;
-    this.productsBucketName = (productsBucketName != null && !productsBucketName.isBlank())
-        ? productsBucketName
-        : "product-images";
+    this.productsBucketName =
+        (productsBucketName != null && !productsBucketName.isBlank())
+            ? productsBucketName
+            : "product-images";
     this.endpoint = endpoint.replaceAll("/+$", "");
     this.publicBaseUrl = (publicBaseUrl != null) ? publicBaseUrl.replaceAll("/+$", "") : "";
   }
 
   public S3ImageStorageService(
-      S3Client s3Client,
-      String storeBucketName,
-      String endpoint,
-      String publicBaseUrl) {
+      S3Client s3Client, String storeBucketName, String endpoint, String publicBaseUrl) {
     this(s3Client, storeBucketName, "product-images", endpoint, publicBaseUrl);
   }
 
@@ -88,11 +86,12 @@ public class S3ImageStorageService implements ImageStorageService {
     String s3Key = UUID.randomUUID() + extension;
 
     try {
-      PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-          .bucket(targetBucket)
-          .key(s3Key)
-          .contentType(contentType)
-          .build();
+      PutObjectRequest putObjectRequest =
+          PutObjectRequest.builder()
+              .bucket(targetBucket)
+              .key(s3Key)
+              .contentType(contentType)
+              .build();
 
       s3Client.putObject(
           putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
@@ -118,7 +117,8 @@ public class S3ImageStorageService implements ImageStorageService {
     }
 
     try {
-      GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(ref.bucket()).key(ref.key()).build();
+      GetObjectRequest getObjectRequest =
+          GetObjectRequest.builder().bucket(ref.bucket()).key(ref.key()).build();
       ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
       String contentType = objectBytes.response().contentType();
       if (contentType == null || contentType.isBlank()) {
@@ -148,7 +148,8 @@ public class S3ImageStorageService implements ImageStorageService {
       if (ref.key().isBlank()) {
         return;
       }
-      DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder().bucket(ref.bucket()).key(ref.key()).build();
+      DeleteObjectRequest deleteRequest =
+          DeleteObjectRequest.builder().bucket(ref.bucket()).key(ref.key()).build();
       s3Client.deleteObject(deleteRequest);
       log.info("Image S3 supprimée : bucket={}, key={}", ref.bucket(), ref.key());
     } catch (Exception e) {
@@ -181,17 +182,12 @@ public class S3ImageStorageService implements ImageStorageService {
   }
 
   private String guessContentType(String filename) {
-    if (filename == null)
-      return "image/jpeg";
+    if (filename == null) return "image/jpeg";
     String lower = filename.toLowerCase();
-    if (lower.endsWith(".png"))
-      return "image/png";
-    if (lower.endsWith(".webp"))
-      return "image/webp";
-    if (lower.endsWith(".gif"))
-      return "image/gif";
-    if (lower.endsWith(".svg"))
-      return "image/svg+xml";
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".gif")) return "image/gif";
+    if (lower.endsWith(".svg")) return "image/svg+xml";
     return "image/jpeg";
   }
 

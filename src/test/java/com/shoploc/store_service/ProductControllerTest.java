@@ -387,7 +387,13 @@ class ProductControllerTest {
     Product product =
         productRepository.save(
             new Product(
-                store.getId(), "REF-NO-IMG", "Article Sans Visuel", "Desc", new BigDecimal("5.00"), null, 3));
+                store.getId(),
+                "REF-NO-IMG",
+                "Article Sans Visuel",
+                "Desc",
+                new BigDecimal("5.00"),
+                null,
+                3));
 
     assertThatThrownBy(() -> productController.getProductImage(store.getId(), product.getId()))
         .isInstanceOf(ProductImageNotFoundException.class);
@@ -399,7 +405,13 @@ class ProductControllerTest {
     Product product =
         productRepository.save(
             new Product(
-                store.getId(), "REF-PATCH-IMG", "Article A", "Desc", new BigDecimal("5.00"), null, 3));
+                store.getId(),
+                "REF-PATCH-IMG",
+                "Article A",
+                "Desc",
+                new BigDecimal("5.00"),
+                null,
+                3));
 
     MockMultipartFile imageFile =
         new MockMultipartFile("image", "new-art.png", "image/png", new byte[] {1, 2, 3});
@@ -416,7 +428,8 @@ class ProductControllerTest {
         .isEqualTo("https://cdn.shoploc.fr/product-images/new-art.png");
 
     Product updated = productRepository.findById(product.getId()).orElseThrow();
-    assertThat(updated.getImageUrl()).isEqualTo("https://cdn.shoploc.fr/product-images/new-art.png");
+    assertThat(updated.getImageUrl())
+        .isEqualTo("https://cdn.shoploc.fr/product-images/new-art.png");
   }
 
   @Test
@@ -425,7 +438,13 @@ class ProductControllerTest {
     Product product =
         productRepository.save(
             new Product(
-                store.getId(), "REF-PATCH-JSON", "Article B", "Desc", new BigDecimal("5.00"), null, 3));
+                store.getId(),
+                "REF-PATCH-JSON",
+                "Article B",
+                "Desc",
+                new BigDecimal("5.00"),
+                null,
+                3));
 
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
     ResponseEntity<ProductResponse> response =

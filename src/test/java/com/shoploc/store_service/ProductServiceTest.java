@@ -413,7 +413,8 @@ class ProductServiceTest {
         productService.updateProductImageUrl(
             1L, 10L, "https://cdn.shoploc.fr/product-images/custom.png", 100L, "MERCHANT");
 
-    assertThat(response.getImageUrl()).isEqualTo("https://cdn.shoploc.fr/product-images/custom.png");
+    assertThat(response.getImageUrl())
+        .isEqualTo("https://cdn.shoploc.fr/product-images/custom.png");
     verify(productRepository).save(sampleProduct);
   }
 

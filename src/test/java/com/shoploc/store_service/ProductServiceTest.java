@@ -13,9 +13,11 @@ import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.exception.InsufficientStockException;
+import com.shoploc.store_service.exception.ProductImageNotFoundException;
 import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
+import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.math.BigDecimal;
 import java.util.List;
@@ -377,5 +379,67 @@ class ProductServiceTest {
     assertThatThrownBy(() -> productService.updateStock(1L, 10L, request, null, "SERVICE"))
         .isInstanceOf(InsufficientStockException.class)
         .hasMessageContaining("Stock insuffisant");
+  }
+
+  @Test
+  @DisplayName("updateProductImage upload vers S3 et met à jour l'entité")
+  void shouldUpdateProductImageSuccessfully() {
+    sampleProduct.setImageUrl("https://cdn.shoploc.fr/product-images/old.png");
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    MockMultipartFile newImage =
+        new MockMultipartFile("image", "new.jpg", "image/jpeg", new byte[] {1, 2, 3});
+    when(imageStorageService.uploadProductImage(newImage))
+        .thenReturn("https://cdn.shoploc.fr/product-images/new.jpg");
+
+    ProductResponse response =
+        productService.updateProductImage(1L, 10L, newImage, 100L, "MERCHANT");
+
+    assertThat(response.getImageUrl()).isEqualTo("https://cdn.shoploc.fr/product-images/new.jpg");
+    verify(imageStorageService).deleteImage("https://cdn.shoploc.fr/product-images/old.png");
+    verify(productRepository).save(sampleProduct);
+  }
+
+  @Test
+  @DisplayName("updateProductImageUrl met à jour l'URL directement")
+  void shouldUpdateProductImageUrlDirectly() {
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    ProductResponse response =
+        productService.updateProductImageUrl(
+            1L, 10L, "https://cdn.shoploc.fr/product-images/custom.png", 100L, "MERCHANT");
+
+    assertThat(response.getImageUrl()).isEqualTo("https://cdn.shoploc.fr/product-images/custom.png");
+    verify(productRepository).save(sampleProduct);
+  }
+
+  @Test
+  @DisplayName("getProductImage renvoie le flux binaire de l'image S3")
+  void shouldGetProductImageResource() {
+    sampleProduct.setImageUrl("https://cdn.shoploc.fr/product-images/pic.png");
+    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+    when(imageStorageService.downloadImage("https://cdn.shoploc.fr/product-images/pic.png"))
+        .thenReturn(Optional.of(new ImageResource(new byte[] {4, 5, 6}, "image/png")));
+
+    ImageResource resource = productService.getProductImage(1L, 10L);
+
+    assertThat(resource.getBytes()).isEqualTo(new byte[] {4, 5, 6});
+    assertThat(resource.getContentType()).isEqualTo("image/png");
+  }
+
+  @Test
+  @DisplayName("getProductImage sans imageUrl enregistrée lève ProductImageNotFoundException")
+  void shouldThrowWhenProductImageIsNull() {
+    sampleProduct.setImageUrl(null);
+    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
+
+    assertThatThrownBy(() -> productService.getProductImage(1L, 10L))
+        .isInstanceOf(ProductImageNotFoundException.class);
   }
 }

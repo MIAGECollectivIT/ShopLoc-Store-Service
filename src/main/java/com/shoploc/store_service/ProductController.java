@@ -6,12 +6,15 @@ import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
 import com.shoploc.store_service.security.RequiresRole;
 import com.shoploc.store_service.security.RoleInterceptor;
+import com.shoploc.store_service.storage.ImageResource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -52,6 +55,19 @@ public class ProductController {
       @PathVariable Long storeId, @PathVariable Long productId) {
     ProductResponse product = productService.getProductById(storeId, productId);
     return ResponseEntity.ok(product);
+  }
+
+  @GetMapping("/{productId}/image")
+  @Operation(
+      summary =
+          "Récupérer l'image binaire d'un produit hébergée sur S3 (avec Cache-Control - Accès public)")
+  public ResponseEntity<byte[]> getProductImage(
+      @PathVariable Long storeId, @PathVariable Long productId) {
+    ImageResource resource = productService.getProductImage(storeId, productId);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(resource.getContentType()))
+        .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+        .body(resource.getBytes());
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -159,6 +175,45 @@ public class ProductController {
     ProductResponse response =
         productService.updateStock(
             storeId, productId, request, authenticatedDbId, authenticatedRole);
+    return ResponseEntity.ok(response);
+  }
+
+  @PatchMapping(value = "/{productId}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @RequiresRole({"MERCHANT", "ADMIN"})
+  @Operation(
+      summary =
+          "Mettre à jour la photo d'un produit (upload multipart vers S3) - Réservé aux commerçants et administrateurs")
+  public ResponseEntity<ProductResponse> updateProductImageMultipart(
+      @PathVariable Long storeId,
+      @PathVariable Long productId,
+      @RequestPart("image") MultipartFile image,
+      HttpServletRequest servletRequest) {
+    Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
+    String authenticatedRole = extractAuthenticatedRole(servletRequest);
+
+    ProductResponse response =
+        productService.updateProductImage(
+            storeId, productId, image, authenticatedDbId, authenticatedRole);
+    return ResponseEntity.ok(response);
+  }
+
+  @PatchMapping(value = "/{productId}/image", consumes = MediaType.APPLICATION_JSON_VALUE)
+  @RequiresRole({"MERCHANT", "ADMIN"})
+  @Operation(
+      summary =
+          "Mettre à jour l'image d'un produit via URL JSON - Réservé aux commerçants et administrateurs")
+  public ResponseEntity<ProductResponse> updateProductImageJson(
+      @PathVariable Long storeId,
+      @PathVariable Long productId,
+      @RequestBody Map<String, String> body,
+      HttpServletRequest servletRequest) {
+    Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
+    String authenticatedRole = extractAuthenticatedRole(servletRequest);
+
+    String imageUrl = body != null ? body.get("imageUrl") : null;
+    ProductResponse response =
+        productService.updateProductImageUrl(
+            storeId, productId, imageUrl, authenticatedDbId, authenticatedRole);
     return ResponseEntity.ok(response);
   }
 

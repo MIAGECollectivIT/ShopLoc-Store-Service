@@ -26,7 +26,7 @@ bruno/Store Service/
 │   ├── 09 - Rejet creation magasin tentative IDOR - 403.bru
 │   └── 10 - Rejet creation avec IBAN invalide - 400.bru
 │
-├── 02 - Catalogue Produits/   # Catalogue Click & Collect (Story SLE-58)
+├── 02 - Catalogue Produits/   # Catalogue Click & Collect (Story SLE-58 & SLE-143)
 │   ├── 01 - Creer un produit (MERCHANT - JSON) - 201.bru
 │   ├── 02 - Creer un produit avec photo S3 (multipart) - 201.bru
 │   ├── 03 - Creer un produit (ADMIN) - 201.bru
@@ -35,7 +35,10 @@ bruno/Store Service/
 │   ├── 06 - Consulter un produit par ID (Public) - 200.bru
 │   ├── 07 - Mettre a jour un produit (MERCHANT - JSON) - 200.bru
 │   ├── 08 - Supprimer un produit (MERCHANT) - 204.bru
-│   └── 09 - Consulter un produit supprime - 404.bru
+│   ├── 09 - Consulter un produit supprime - 404.bru
+│   ├── 10 - Consulter l image binaire S3 d un produit (Public) - 200.bru
+│   ├── 11 - Modifier l image d un produit avec photo S3 (multipart) - 200.bru
+│   └── 12 - Modifier l image d un produit avec URL directe (JSON) - 200.bru
 │
 ├── 03 - Gestion des Stocks/   # Décrémentation et réapprovisionnement atomique
 │   ├── 01 - Ajuster le stock - Commande Click & Collect (SERVICE) - 200.bru
@@ -57,7 +60,9 @@ bruno/Store Service/
     ├── 09 - Rejet suppression par role CLIENT - 403.bru
     ├── 10 - Rejet ajustement stock par role CLIENT - 403.bru
     ├── 11 - Rejet tentative spoofing header X-User-Role ADMIN - 403.bru
-    └── 12 - Rejet creation produit magasin inexistant - 404.bru
+    ├── 12 - Rejet creation produit magasin inexistant - 404.bru
+    ├── 13 - Rejet consultation image produit sans visuel - 404.bru
+    └── 14 - Rejet modification image produit avec role CLIENT - 403.bru
 ```
 
 ---

@@ -1,0 +1,15 @@
+meta {
+  name: 13 - Rejet consultation image produit sans visuel - 404
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/999999/image
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 404
+}

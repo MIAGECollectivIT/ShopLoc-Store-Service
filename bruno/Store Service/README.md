@@ -11,8 +11,13 @@ bruno/Store Service/
 ├── bruno.json
 ├── opencollection.yml
 ├── environments/
-│   ├── Local.bru              # Configuration pour localhost:8080
+│   ├── Local.bru              # Configuration pour localhost:8080 & Users sur 8081
 │   └── Dev.bru                # Configuration pour https://dev.shop-loc.fr
+│
+├── 00 - Authentification (Users Service)/ # Connexion automatique pour alimenter les tokens
+│   ├── 01 - Connexion Commercant (Suzanne) - 200.bru
+│   ├── 02 - Connexion Administrateur (Marius) - 200.bru
+│   └── 03 - Connexion Client (Pierre) - 200.bru
 │
 ├── 01 - Magasins (Stores)/    # Endpoints et gestion des commerces
 │   ├── 01 - Creer un magasin (MERCHANT) - 201.bru
@@ -74,8 +79,18 @@ bruno/Store Service/
 3. En haut à droite, sélectionnez l'environnement :
    - `Local` pour pointer vers `http://localhost:8080`.
    - `Dev` pour pointer vers `https://dev.shop-loc.fr`.
-4. Renseignez vos jetons JWT de test dans les variables d'environnement (`merchantToken`, `adminToken`, `clientToken`, `serviceToken`).
+4. Ouvrez le dossier **`00 - Authentification (Users Service)`**, remplacez `USER` et `PASSWORD` par vos identifiants dans la requête choisie (Commerçant, Admin ou Client) et cliquez sur **Send** : le token JWT est **automatiquement injecté** dans les variables d'environnement (`merchantToken`, `adminToken`, `clientToken`).
 5. Cliquez sur **Run** sur un dossier pour exécuter toute la suite de tests fonctionnels avec assertions automatisées (`res.status`, `res.body`).
+
+> [!IMPORTANT]
+> **Sécurité des identifiants & Git (`skip-worktree`) :**
+> Les fichiers de requêtes d'authentification contiennent par défaut `"email": "USER"` et `"password": "PASSWORD"` dans le dépôt distant.
+> Afin d'éviter que vos identifiants ou mots de passe de test ne soient accidentellement commités lorsque vous les modifiez dans Bruno, ces fichiers sont marqués avec la directive `skip-worktree` de Git :
+> ```bash
+> git update-index --skip-worktree "bruno/Store Service/00 - Authentification (Users Service)/"*
+> ```
+> **Conséquence :** Vos identifiants locaux restent sur votre machine pour faire fonctionner Bruno, mais **Git ne prendra jamais en compte les mises à jour de mots de passe / emails** (`git status` reste propre et rien ne fuite dans les commits).
+> *(Pour réactiver temporairement le suivi Git si vous souhaitez faire évoluer le template : `git update-index --no-skip-worktree <fichier>`)*.
 
 ## 💻 Exécution en ligne de commande (CLI)
 

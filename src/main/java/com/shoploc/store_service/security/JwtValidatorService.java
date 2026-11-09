@@ -59,7 +59,7 @@ public class JwtValidatorService {
     if (keyToUse != null && !keyToUse.isBlank()) {
       parseConfiguredKey(keyToUse);
     } else {
-      // Tentative de récupération dynamique de la clé publique depuis users-service au démarrage
+      // Attempt dynamic retrieval of public key from users-service at startup
       fetchPublicKeyFromUsersService();
     }
   }
@@ -75,7 +75,7 @@ public class JwtValidatorService {
         return;
       }
     } catch (Exception ignored) {
-      // Pas une clé RSA valide en Base64, repli sur HMAC
+      // Not a valid Base64 RSA key, fallback to HMAC
     }
 
     byte[] keyBytes;
@@ -151,7 +151,7 @@ public class JwtValidatorService {
       throw new UnauthorizedException("Jeton JWT invalide ou expiré : " + ex.getMessage(), ex);
     }
 
-    // Vérification de la révocation du jeton
+    // Token revocation check
     String jti = claims.getId();
     if (jti != null && isJtiRevoked(jti)) {
       throw new UnauthorizedException("Jeton JWT révoqué. Veuillez vous reconnecter.");
@@ -162,7 +162,7 @@ public class JwtValidatorService {
 
   private boolean isJtiRevoked(String jti) {
     long now = System.currentTimeMillis();
-    // Évite le piège du cache vide : rafraîchissement uniquement selon le TTL
+    // Avoid empty cache pitfall: refresh strictly according to TTL
     if (now - lastRevocationFetchTime > REVOCATION_CACHE_TTL_MS) {
       refreshRevokedTokens();
     }

@@ -90,13 +90,13 @@ class ProductStockConcurrencyIntegrationTest {
                 } catch (InsufficientStockException ex) {
                   failureCount.incrementAndGet();
                 } catch (Exception ex) {
-                  // Erreur inattendue
+                  // Unexpected error
                   ex.printStackTrace();
                 }
               }));
     }
 
-    // Attendre que tous les threads soient prêts et les libérer simultanément
+    // Wait for all threads to be ready and release them simultaneously
     readyLatch.await();
     startLatch.countDown();
 

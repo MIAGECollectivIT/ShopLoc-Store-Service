@@ -68,7 +68,7 @@ class StoreValidationTest {
             "10 rue Nationale",
             null,
             "Boulangerie",
-            "FR7630006000011234567890188", // Clé erronée
+            "FR7630006000011234567890188", // Invalid check digits
             1L);
 
     Set<ConstraintViolation<StoreCreateRequest>> violations = validator.validate(request);

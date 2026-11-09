@@ -337,7 +337,7 @@ class ProductSecurityIntegrationTest {
   @DisplayName(
       "PATCH /v1/stores/{storeId}/products/{productId}/stock avec token expiré doit renvoyer 401 Unauthorized")
   void shouldDenyPatchStockWithExpiredToken() throws Exception {
-    // Token expiré il y a 10 secondes
+    // Token expired 10 seconds ago
     String expiredToken = createToken("SERVICE", null, -10000L);
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
 
@@ -430,7 +430,7 @@ class ProductSecurityIntegrationTest {
         .andExpect(status().isForbidden());
   }
 
-  // --- TESTS ANTI-USURPATION & SÉCURITÉ : HEADER SPOOFING ---
+  // --- ANTI-SPOOFING & SECURITY TESTS: HEADER SPOOFING ---
 
   @Test
   @DisplayName(

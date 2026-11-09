@@ -17,8 +17,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
   Optional<Product> findByIdAndStoreId(Long id, Long storeId);
 
   /**
-   * Verrouille la ligne produit en base (SELECT ... FOR UPDATE) pour sérialiser les modifications
-   * concurrentes de stock et empêcher tout risque de survente (overselling).
+   * Locks the product row in the database (SELECT ... FOR UPDATE) to serialize concurrent stock
+   * modifications and prevent overselling risks.
    */
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("SELECT p FROM Product p WHERE p.id = :id AND p.storeId = :storeId")

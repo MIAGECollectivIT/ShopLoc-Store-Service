@@ -228,7 +228,7 @@ class ProductControllerTest {
             new Product(
                 store.getId(), "REF-STK", "Biscuit", "Desc", new BigDecimal("2.00"), null, 20));
 
-    // Décrémenter de 5 unités (achat Click & Collect)
+    // Decrement by 5 units (Click & Collect purchase)
     StockUpdateRequest stockReq = StockUpdateRequest.ofDelta(-5);
     MockHttpServletRequest servletRequest = createMockRequest("SERVICE", null);
 
@@ -268,7 +268,7 @@ class ProductControllerTest {
             new Product(
                 store.getId(), "REF-RUPTURE", "Café", "Desc", new BigDecimal("5.00"), null, 3));
 
-    // Retrait de 5 alors qu'il n'en reste que 3
+    // Deduct 5 when only 3 remain
     StockUpdateRequest stockReq = StockUpdateRequest.ofDelta(-5);
     MockHttpServletRequest servletRequest = createMockRequest("SERVICE", null);
 
@@ -279,7 +279,7 @@ class ProductControllerTest {
         .isInstanceOf(InsufficientStockException.class);
   }
 
-  // --- TESTS VALIDATION FICHIER & REJET S3 MINIO ---
+  // --- FILE VALIDATION & S3 MINIO REJECTION TESTS ---
 
   @Test
   @DisplayName("Création produit avec fichier non supporté (PDF) - Doit lever InvalidFileException")

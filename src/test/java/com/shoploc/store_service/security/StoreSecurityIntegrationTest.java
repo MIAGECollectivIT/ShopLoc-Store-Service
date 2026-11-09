@@ -216,7 +216,7 @@ class StoreSecurityIntegrationTest {
             102L);
     when(storeService.createStore(any(StoreCreateRequest.class))).thenReturn(store);
 
-    // userId est null dans la requête du formulaire Front
+    // userId is null in Front-end form request
     StoreCreateRequest requestWithoutUserId =
         new StoreCreateRequest(
             "Boulangerie Sans UserId",
@@ -243,11 +243,11 @@ class StoreSecurityIntegrationTest {
   @DisplayName(
       "POST /v1/stores par un MERCHANT tentant d'usurper un autre userId -> doit renvoyer 403 Forbidden (Anti-IDOR)")
   void shouldDenyStoreCreationWhenMerchantTriesToSpoofAnotherUserId() throws Exception {
-    // Le commerçant connecté a dbId = 102L
+    // The authenticated merchant has dbId = 102L
     String merchantToken =
         generateTestToken("MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), 102L);
 
-    // Mais il tente de soumettre un userId = 999L
+    // But attempts to submit userId = 999L
     StoreCreateRequest request =
         new StoreCreateRequest(
             "Boulangerie Artisanale",

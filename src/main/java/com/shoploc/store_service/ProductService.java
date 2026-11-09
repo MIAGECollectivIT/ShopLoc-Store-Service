@@ -306,12 +306,12 @@ public class ProductService {
 
   private void validateStockUpdateAuthorization(
       Store store, Long authenticatedUserId, String userRole) {
-    // Les rôles SERVICE et ADMIN peuvent modifier le stock de tout commerce
+    // SERVICE and ADMIN roles can modify stock for any store
     if ("SERVICE".equalsIgnoreCase(userRole) || "ADMIN".equalsIgnoreCase(userRole)) {
       return;
     }
 
-    // Le commerçant ne peut modifier que le stock de son propre commerce
+    // The merchant can only modify stock for their own store
     if ("MERCHANT".equalsIgnoreCase(userRole)) {
       if (authenticatedUserId == null || !store.getUserId().equals(authenticatedUserId)) {
         throw new AccessDeniedException(

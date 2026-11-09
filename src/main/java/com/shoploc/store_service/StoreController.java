@@ -110,8 +110,7 @@ public class StoreController {
     }
 
     if ("MERCHANT".equalsIgnoreCase(role)) {
-      // Un commerçant ne peut créer un magasin que pour son propre compte (protection
-      // anti-usurpation IDOR)
+      // A merchant can only create a store for their own account (IDOR prevention)
       if (authenticatedDbId == null || authenticatedDbId <= 0) {
         throw new AccessDeniedException(
             "Identifiant commerçant introuvable dans le jeton d'authentification");
@@ -124,13 +123,12 @@ public class StoreController {
       }
       request.setUserId(authenticatedDbId);
     } else if ("ADMIN".equalsIgnoreCase(role)) {
-      // Un administrateur peut spécifier un identifiant partenaire propriétaire ou créer pour
-      // lui-même
+      // An administrator can specify an owner partner ID or create for themselves
       if (request.getUserId() == null || request.getUserId() <= 0) {
         request.setUserId(authenticatedDbId);
       }
     } else {
-      // Autre contexte (ex: test ou sans session servletRequest)
+      // Other context (e.g., test or without servletRequest session)
       if (request.getUserId() == null || request.getUserId() <= 0) {
         request.setUserId(authenticatedDbId);
       }

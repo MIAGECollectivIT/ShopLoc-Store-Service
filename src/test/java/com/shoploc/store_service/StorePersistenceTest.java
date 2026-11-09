@@ -101,7 +101,7 @@ class StorePersistenceTest {
   }
 
   @Test
-  @DisplayName("Devrait générer automatiquement un UID non nul à la persistance et permettre la recherche par UID")
+  @DisplayName("Should generate UID automatically on persist and allow query by UID")
   void shouldGenerateUidAutomaticallyAndFindStoreByUid() {
     Store store =
         new Store(

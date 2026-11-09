@@ -460,4 +460,60 @@ class ProductControllerTest {
     Product updated = productRepository.findById(product.getId()).orElseThrow();
     assertThat(updated.getImageUrl()).isEqualTo("https://cdn.shoploc.fr/product-images/custom.jpg");
   }
+
+  @Test
+  @DisplayName("GET /v1/stores/{storeUid}/products - Should retrieve products using store UUID")
+  void shouldGetProductsByStoreUid() {
+    productRepository.save(
+        new Product(
+            store.getId(),
+            "REF-UID-PROD",
+            "Produit par UID",
+            "Description",
+            new BigDecimal("3.50"),
+            null,
+            12));
+
+    ResponseEntity<List<ProductResponse>> response =
+        productController.getProducts(store.getUid().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody())
+        .extracting(ProductResponse::getName)
+        .contains("Produit par UID");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{storeUid}/products/{productId} - Should retrieve product using store UUID")
+  void shouldGetProductByStoreUid() {
+    Product product =
+        productRepository.save(
+            new Product(
+                store.getId(),
+                "REF-UID-SINGLE",
+                "Produit Unique UID",
+                "Description",
+                new BigDecimal("4.20"),
+                null,
+                5));
+
+    ResponseEntity<ProductResponse> response =
+        productController.getProduct(store.getUid().toString(), product.getId());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getName()).isEqualTo("Produit Unique UID");
+  }
+
+  @Test
+  @DisplayName("Product endpoints should throw StoreNotFoundException when storeId is invalid or blank")
+  void shouldThrowWhenStoreIdIsBlankOrInvalid() {
+    assertThatThrownBy(() -> productController.getProducts((String) null))
+        .isInstanceOf(StoreNotFoundException.class);
+    assertThatThrownBy(() -> productController.getProducts("   "))
+        .isInstanceOf(StoreNotFoundException.class);
+    assertThatThrownBy(() -> productController.getProducts("invalid-store-uid-or-id"))
+        .isInstanceOf(StoreNotFoundException.class);
+  }
 }

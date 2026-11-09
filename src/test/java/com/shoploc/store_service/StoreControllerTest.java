@@ -8,6 +8,7 @@ import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
 import com.shoploc.store_service.exception.UserServiceUnavailableException;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,7 +90,8 @@ class StoreControllerTest {
             "FR7630006000011234567890189",
             300L);
 
-    ResponseEntity<StoreResponse> response = storeController.createStore(request);
+    ResponseEntity<StoreResponse> response =
+        storeController.createStore(request, (HttpServletRequest) null);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     StoreResponse body = response.getBody();
@@ -125,7 +127,7 @@ class StoreControllerTest {
         new org.springframework.mock.web.MockMultipartFile(
             "image", "vitrine.jpg", "image/jpeg", new byte[] {1, 2, 3, 4});
 
-    ResponseEntity<StoreResponse> response = storeController.createStore(request, mockFile);
+    ResponseEntity<StoreResponse> response = storeController.createStore(request, mockFile, null);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     StoreResponse body = response.getBody();
@@ -152,7 +154,7 @@ class StoreControllerTest {
             "FR7630006000011234567890189",
             999L);
 
-    assertThatThrownBy(() -> storeController.createStore(request))
+    assertThatThrownBy(() -> storeController.createStore(request, (HttpServletRequest) null))
         .isInstanceOf(com.shoploc.store_service.exception.UserNotFoundException.class)
         .hasMessageContaining("999");
 
@@ -175,7 +177,7 @@ class StoreControllerTest {
             "FR7630006000011234567890189",
             500L);
 
-    assertThatThrownBy(() -> storeController.createStore(request))
+    assertThatThrownBy(() -> storeController.createStore(request, (HttpServletRequest) null))
         .isInstanceOf(UserServiceUnavailableException.class);
   }
 }

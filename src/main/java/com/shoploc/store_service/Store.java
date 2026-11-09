@@ -35,12 +35,6 @@ public class Store {
 
   public Store() {}
 
-  public Store(String name, String address, String url) {
-    this.name = name;
-    this.address = address;
-    this.url = url;
-  }
-
   public Store(String name, String address, String url, String category, String rib, Long userId) {
     this.name = name;
     this.address = address;

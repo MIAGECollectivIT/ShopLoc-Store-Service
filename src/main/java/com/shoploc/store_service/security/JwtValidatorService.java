@@ -49,7 +49,7 @@ public class JwtValidatorService {
   private Key verificationKey;
   private final Set<String> cachedRevokedJtis =
       Collections.newSetFromMap(new ConcurrentHashMap<>());
-  private volatile long lastRevocationFetchTime = 0;
+  private volatile long lastRevocationFetchTime;
 
   @PostConstruct
   public void init() {

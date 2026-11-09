@@ -8,6 +8,4 @@ import org.springframework.stereotype.Repository;
 public interface StoreRepository extends JpaRepository<Store, Long> {
 
   List<Store> findByUserId(Long userId);
-
-  List<Store> findByCategory(String category);
 }

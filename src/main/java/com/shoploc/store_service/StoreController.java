@@ -72,11 +72,6 @@ public class StoreController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
-  public ResponseEntity<StoreResponse> createStore(
-      StoreCreateRequest request, MultipartFile image) {
-    return createStore(request, image, null);
-  }
-
   @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
@@ -88,10 +83,6 @@ public class StoreController {
     Store createdStore = storeService.createStore(request);
     StoreResponse response = StoreResponse.fromEntity(createdStore);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
-  }
-
-  public ResponseEntity<StoreResponse> createStore(StoreCreateRequest request) {
-    return createStore(request, (HttpServletRequest) null);
   }
 
   private void resolveAndValidateUserId(
@@ -122,13 +113,8 @@ public class StoreController {
                 + ")");
       }
       request.setUserId(authenticatedDbId);
-    } else if ("ADMIN".equalsIgnoreCase(role)) {
-      // An administrator can specify an owner partner ID or create for themselves
-      if (request.getUserId() == null || request.getUserId() <= 0) {
-        request.setUserId(authenticatedDbId);
-      }
     } else {
-      // Other context (e.g., test or without servletRequest session)
+      // Administrator or test/internal context without servletRequest session
       if (request.getUserId() == null || request.getUserId() <= 0) {
         request.setUserId(authenticatedDbId);
       }

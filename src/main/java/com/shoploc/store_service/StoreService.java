@@ -60,17 +60,4 @@ public class StoreService {
   public Store createStore(StoreCreateRequest request) {
     return createStore(request, null);
   }
-
-  public Store createStore(Store store) {
-    Long userId = store.getUserId();
-    if (userId != null && !userClient.userExists(userId)) {
-      throw new UserNotFoundException(userId);
-    }
-
-    Store savedStore = storeRepository.save(store);
-    if (userId != null) {
-      userClient.linkStoreToUser(userId, savedStore.getId());
-    }
-    return savedStore;
-  }
 }

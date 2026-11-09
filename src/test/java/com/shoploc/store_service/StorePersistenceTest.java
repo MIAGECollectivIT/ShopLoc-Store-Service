@@ -81,8 +81,8 @@ class StorePersistenceTest {
   void shouldCreateStoreViaServiceWithVerifiedUser() {
     when(userClient.userExists(99L)).thenReturn(true);
 
-    Store store =
-        new Store(
+    com.shoploc.store_service.dto.StoreCreateRequest request =
+        new com.shoploc.store_service.dto.StoreCreateRequest(
             "Librairie du Furet",
             "15 Grand Place, 59000 Lille",
             "https://example.com/furet.jpg",
@@ -90,7 +90,7 @@ class StorePersistenceTest {
             "FR7630006000011234567890189",
             99L);
 
-    Store created = storeService.createStore(store);
+    Store created = storeService.createStore(request);
 
     assertThat(created.getId()).isNotNull();
     assertThat(created.getUserId()).isEqualTo(99L);

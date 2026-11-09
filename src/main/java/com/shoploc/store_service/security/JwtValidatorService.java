@@ -51,6 +51,9 @@ public class JwtValidatorService {
       Collections.newSetFromMap(new ConcurrentHashMap<>());
   private volatile long lastRevocationFetchTime;
 
+  private final HttpClient httpClient =
+      HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
+
   @PostConstruct
   public void init() {
     String keyToUse =
@@ -96,7 +99,6 @@ public class JwtValidatorService {
       return;
     }
     try {
-      HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
       String endpoint = usersServiceUrl.replaceAll("/+$", "") + "/v1/auth/public-key";
       HttpRequest request =
           HttpRequest.newBuilder()
@@ -104,7 +106,8 @@ public class JwtValidatorService {
               .timeout(Duration.ofSeconds(2))
               .GET()
               .build();
-      HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response =
+          this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() == 200) {
         JsonNode root = objectMapper.readTree(response.body());
         JsonNode pubKeyNode = root.get("publicKey");
@@ -175,7 +178,6 @@ public class JwtValidatorService {
     }
     lastRevocationFetchTime = System.currentTimeMillis();
     try {
-      HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
       String endpoint = usersServiceUrl.replaceAll("/+$", "") + "/v1/auth/revoked-tokens";
       HttpRequest request =
           HttpRequest.newBuilder()
@@ -183,7 +185,8 @@ public class JwtValidatorService {
               .timeout(Duration.ofSeconds(2))
               .GET()
               .build();
-      HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response =
+          this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() == 200) {
         Set<String> newRevoked = new HashSet<>();
         JsonNode root = objectMapper.readTree(response.body());

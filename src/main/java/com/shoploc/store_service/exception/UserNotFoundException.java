@@ -2,6 +2,8 @@ package com.shoploc.store_service.exception;
 
 public class UserNotFoundException extends RuntimeException {
 
+  private static final long serialVersionUID = 1L;
+
   private final Long userId;
 
   public UserNotFoundException(Long userId) {

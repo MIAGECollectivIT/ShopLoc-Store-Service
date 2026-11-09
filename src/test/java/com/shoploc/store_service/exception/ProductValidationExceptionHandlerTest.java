@@ -49,8 +49,7 @@ class ProductValidationExceptionHandlerTest {
   }
 
   @Test
-  @DisplayName(
-      "Validation POST produit vide -> doit renvoyer 400 avec la map fieldErrors détaillée")
+  @DisplayName("POST empty product validation -> should return 400 with detailed fieldErrors map")
   void shouldReturnDetailedFieldErrorsOnEmptyProductPost() throws Exception {
     mockMvc
         .perform(
@@ -67,7 +66,7 @@ class ProductValidationExceptionHandlerTest {
 
   @Test
   @DisplayName(
-      "Validation POST produit avec prix et stock négatifs -> doit renvoyer 400 avec messages précis")
+      "POST product validation with negative price and stock -> should return 400 with specific messages")
   void shouldReturnDetailedFieldErrorsOnNegativePriceAndStock() throws Exception {
     ProductCreateRequest invalidRequest =
         new ProductCreateRequest("REF-123", "Pomme", "Desc", new BigDecimal("-2.50"), null, -5);
@@ -86,7 +85,7 @@ class ProductValidationExceptionHandlerTest {
 
   @Test
   @DisplayName(
-      "Validation PUT produit avec référence et nom blancs -> doit renvoyer 400 avec fieldErrors")
+      "PUT product validation with blank reference and name -> should return 400 with fieldErrors")
   void shouldReturnDetailedFieldErrorsOnBlankPutFields() throws Exception {
     ProductUpdateRequest invalidRequest =
         new ProductUpdateRequest("   ", "   ", "Desc", new BigDecimal("-1.00"), null, -2);
@@ -108,7 +107,7 @@ class ProductValidationExceptionHandlerTest {
 
   @Test
   @DisplayName(
-      "Validation PATCH stock avec quantité absolue négative -> doit renvoyer 400 avec fieldErrors.newQuantity")
+      "PATCH stock validation with negative absolute quantity -> should return 400 with fieldErrors.newQuantity")
   void shouldReturnFieldErrorOnNegativeAbsoluteStock() throws Exception {
     StockUpdateRequest invalidStock = StockUpdateRequest.ofAbsolute(-10);
 
@@ -125,8 +124,7 @@ class ProductValidationExceptionHandlerTest {
   }
 
   @Test
-  @DisplayName(
-      "GlobalExceptionHandler : vérification directe des réponses d'exception métier catalogue")
+  @DisplayName("GlobalExceptionHandler: direct verification of catalog domain exception responses")
   void shouldVerifyDirectHandlerResponses() {
     ResponseEntity<Map<String, Object>> notFoundResp =
         exceptionHandler.handleNotFoundExceptions(new ProductNotFoundException(1L, 99L));

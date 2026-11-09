@@ -49,7 +49,10 @@ public class JwtValidatorService {
   private Key verificationKey;
   private final Set<String> cachedRevokedJtis =
       Collections.newSetFromMap(new ConcurrentHashMap<>());
-  private volatile long lastRevocationFetchTime = 0;
+  private volatile long lastRevocationFetchTime;
+
+  private final HttpClient httpClient =
+      HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
 
   @PostConstruct
   public void init() {
@@ -59,7 +62,7 @@ public class JwtValidatorService {
     if (keyToUse != null && !keyToUse.isBlank()) {
       parseConfiguredKey(keyToUse);
     } else {
-      // Tentative de récupération dynamique de la clé publique depuis users-service au démarrage
+      // Attempt dynamic retrieval of public key from users-service at startup
       fetchPublicKeyFromUsersService();
     }
   }
@@ -75,7 +78,7 @@ public class JwtValidatorService {
         return;
       }
     } catch (Exception ignored) {
-      // Pas une clé RSA valide en Base64, repli sur HMAC
+      // Not a valid Base64 RSA key, fallback to HMAC
     }
 
     byte[] keyBytes;
@@ -96,7 +99,6 @@ public class JwtValidatorService {
       return;
     }
     try {
-      HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
       String endpoint = usersServiceUrl.replaceAll("/+$", "") + "/v1/auth/public-key";
       HttpRequest request =
           HttpRequest.newBuilder()
@@ -104,7 +106,8 @@ public class JwtValidatorService {
               .timeout(Duration.ofSeconds(2))
               .GET()
               .build();
-      HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response =
+          this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() == 200) {
         JsonNode root = objectMapper.readTree(response.body());
         JsonNode pubKeyNode = root.get("publicKey");
@@ -151,7 +154,7 @@ public class JwtValidatorService {
       throw new UnauthorizedException("Jeton JWT invalide ou expiré : " + ex.getMessage(), ex);
     }
 
-    // Vérification de la révocation du jeton
+    // Token revocation check
     String jti = claims.getId();
     if (jti != null && isJtiRevoked(jti)) {
       throw new UnauthorizedException("Jeton JWT révoqué. Veuillez vous reconnecter.");
@@ -162,7 +165,7 @@ public class JwtValidatorService {
 
   private boolean isJtiRevoked(String jti) {
     long now = System.currentTimeMillis();
-    // Évite le piège du cache vide : rafraîchissement uniquement selon le TTL
+    // Avoid empty cache pitfall: refresh strictly according to TTL
     if (now - lastRevocationFetchTime > REVOCATION_CACHE_TTL_MS) {
       refreshRevokedTokens();
     }
@@ -175,7 +178,6 @@ public class JwtValidatorService {
     }
     lastRevocationFetchTime = System.currentTimeMillis();
     try {
-      HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
       String endpoint = usersServiceUrl.replaceAll("/+$", "") + "/v1/auth/revoked-tokens";
       HttpRequest request =
           HttpRequest.newBuilder()
@@ -183,7 +185,8 @@ public class JwtValidatorService {
               .timeout(Duration.ofSeconds(2))
               .GET()
               .build();
-      HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response =
+          this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() == 200) {
         Set<String> newRevoked = new HashSet<>();
         JsonNode root = objectMapper.readTree(response.body());

@@ -14,9 +14,9 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * Intercepteur Spring MVC vérifiant l'authenticité du jeton JWT Bearer et la conformité des rôles
- * utilisateurs pour les opérations protégées. Permet l'accès public en lecture aux endpoints non
- * annotés avec @RequiresRole.
+ * Spring MVC interceptor validating JWT Bearer token authenticity and checking user role
+ * authorization for protected operations. Allows public read access for endpoints not annotated
+ * with @RequiresRole.
  */
 @Component
 public class RoleInterceptor implements HandlerInterceptor {
@@ -64,14 +64,14 @@ public class RoleInterceptor implements HandlerInterceptor {
 
     String authHeader = request.getHeader(AUTH_HEADER);
 
-    // Si aucun jeton n'est fourni
+    // If no token is provided
     if (authHeader == null
         || !authHeader.regionMatches(true, 0, TOKEN_PREFIX, 0, TOKEN_PREFIX.length())) {
       if (requiresRole != null) {
         throw new UnauthorizedException(
             "En-tête d'autorisation manquant ou invalide. Un jeton Bearer JWT est requis.");
       }
-      // Consultation publique autorisée
+      // Public access allowed
       return true;
     }
 
@@ -88,8 +88,8 @@ public class RoleInterceptor implements HandlerInterceptor {
       claims = jwtValidatorService.validateAndExtractClaims(token);
     } catch (UnauthorizedException ex) {
       if (requiresRole == null) {
-        // Sur un endpoint public (catalogue/détail), un jeton expiré ou révoqué ne doit pas
-        // empêcher la visite
+        // On a public endpoint (catalog/detail), an expired or revoked token must not prevent
+        // viewing
         log.debug(
             "Jeton invalide/expiré sur endpoint public {}. Traitement en mode visiteur anonyme : {}",
             path,

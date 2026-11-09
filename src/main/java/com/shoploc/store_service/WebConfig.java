@@ -23,12 +23,12 @@ public class WebConfig implements WebMvcConfigurer {
   @Override
   public void addCorsMappings(CorsRegistry registry) {
     registry
-        .addMapping("/**") // S'applique à toutes les routes de l'API
+        .addMapping("/**") // Applies to all API routes
         .allowedOrigins(
             "http://localhost:3000", // React / Next.js
             "http://localhost:5173", // Vite / Vue / React
             "http://localhost:4200" // Angular
-            // Tu peux aussi mettre "*" pour tout autoriser en phase de dev local
+            // Wildcard "*" can also be used for local dev
             )
         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
         .allowedHeaders("*")

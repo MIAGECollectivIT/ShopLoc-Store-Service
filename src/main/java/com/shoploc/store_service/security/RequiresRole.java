@@ -5,9 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Annotation déclarant un ou plusieurs rôles autorisés pour accéder à une opération du contrôleur.
- */
+/** Annotation declaring one or more authorized roles to access a controller operation. */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RequiresRole {

@@ -28,7 +28,7 @@ class HttpUserClientTest {
   }
 
   @Test
-  @DisplayName("userExists - Devrait retourner true si l'utilisateur existe (200 OK)")
+  @DisplayName("userExists - Should return true when user exists (200 OK)")
   void shouldReturnTrueWhenUserExists() {
     mockServer
         .expect(requestTo("http://mock-users-service/v1/users/42"))
@@ -42,7 +42,7 @@ class HttpUserClientTest {
   }
 
   @Test
-  @DisplayName("userExists - Devrait retourner false si l'utilisateur n'existe pas (404 Not Found)")
+  @DisplayName("userExists - Should return false when user does not exist (404 Not Found)")
   void shouldReturnFalseWhenUserNotFound() {
     mockServer
         .expect(requestTo("http://mock-users-service/v1/users/99"))
@@ -56,7 +56,7 @@ class HttpUserClientTest {
   }
 
   @Test
-  @DisplayName("userExists - Devrait lever UserServiceUnavailableException en cas d'erreur 500")
+  @DisplayName("userExists - Should throw UserServiceUnavailableException on 500 server error")
   void shouldThrowExceptionWhenUsersServiceFails() {
     mockServer
         .expect(requestTo("http://mock-users-service/v1/users/500"))
@@ -70,7 +70,7 @@ class HttpUserClientTest {
   }
 
   @Test
-  @DisplayName("linkStoreToUser - Devrait envoyer une requête POST /v1/users/stores")
+  @DisplayName("linkStoreToUser - Should send a POST /v1/users/stores request")
   void shouldSendPostRequestToLinkStoreToUser() {
     mockServer
         .expect(requestTo("http://mock-users-service/v1/users/stores"))

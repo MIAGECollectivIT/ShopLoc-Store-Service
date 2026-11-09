@@ -48,7 +48,7 @@ class ProductPersistenceTest {
   }
 
   @Test
-  @DisplayName("Devrait persister un produit avec tous ses champs et timestamps automatiques")
+  @DisplayName("Should persist product with all fields and automatic timestamps")
   void shouldPersistProductWithAllFieldsAndTimestamps() {
     Product product =
         new Product(
@@ -75,7 +75,7 @@ class ProductPersistenceTest {
 
   @Test
   @DisplayName(
-      "Devrait interdire deux produits ayant la même référence dans le même magasin (unicité composite)")
+      "Should prevent two products from having the same reference in the same store (composite uniqueness)")
   void shouldRejectDuplicateReferenceInSameStore() {
     Product p1 =
         new Product(
@@ -103,7 +103,7 @@ class ProductPersistenceTest {
   }
 
   @Test
-  @DisplayName("Devrait autoriser la même référence dans deux magasins différents")
+  @DisplayName("Should allow the same reference in two different stores")
   void shouldAllowSameReferenceInDifferentStores() {
     Product p1 =
         new Product(
@@ -133,7 +133,7 @@ class ProductPersistenceTest {
   }
 
   @Test
-  @DisplayName("Devrait supprimer un produit et vérifier l'isolation du catalogue magasin")
+  @DisplayName("Should delete a product and verify store catalog isolation")
   void shouldDeleteProductAndVerifyStoreCatalogIsolation() {
     Product p1 =
         new Product(
@@ -155,7 +155,7 @@ class ProductPersistenceTest {
   }
 
   @Test
-  @DisplayName("Devrait mettre à jour updatedAt lors d'une modification du produit")
+  @DisplayName("Should update updatedAt timestamp when modifying a product")
   void shouldUpdateTimestampOnModification() throws InterruptedException {
     Product product =
         new Product(

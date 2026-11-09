@@ -14,6 +14,7 @@ public final class RibIbanHelper {
       Pattern.compile("^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$");
   private static final Pattern FRENCH_RIB_PATTERN =
       Pattern.compile("^[0-9]{5}[0-9]{5}[A-Z0-9]{11}[0-9]{2}$");
+  private static final Pattern WHITESPACE_OR_HYPHEN = Pattern.compile("[\\s-]+");
 
   private RibIbanHelper() {}
 
@@ -22,8 +23,8 @@ public final class RibIbanHelper {
     if (raw == null) {
       return null;
     }
-    String stripped = raw.replaceAll("[\\s-]+", "");
-    return stripped.toUpperCase();
+    String stripped = WHITESPACE_OR_HYPHEN.matcher(raw).replaceAll("");
+    return stripped.toUpperCase(java.util.Locale.ROOT);
   }
 
   public static boolean isValidRibOrIban(String raw) {

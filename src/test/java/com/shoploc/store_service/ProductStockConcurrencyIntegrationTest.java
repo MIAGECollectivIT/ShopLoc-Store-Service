@@ -59,7 +59,7 @@ class ProductStockConcurrencyIntegrationTest {
 
   @Test
   @DisplayName(
-      "Concurrence : 15 requêtes concurrentes de décrément (-1) sur un stock initial de 10 -> exactement 10 réussites, 5 rejets, stock final = 0")
+      "Concurrency: 15 concurrent decrement requests (-1) on an initial stock of 10 -> exactly 10 successes, 5 rejections, final stock = 0")
   void shouldHandleConcurrentDecrementsWithoutOverselling() throws Exception {
     int totalRequests = 15;
     int expectedSuccesses = 10;
@@ -90,13 +90,13 @@ class ProductStockConcurrencyIntegrationTest {
                 } catch (InsufficientStockException ex) {
                   failureCount.incrementAndGet();
                 } catch (Exception ex) {
-                  // Erreur inattendue
+                  // Unexpected error
                   ex.printStackTrace();
                 }
               }));
     }
 
-    // Attendre que tous les threads soient prêts et les libérer simultanément
+    // Wait for all threads to be ready and release them simultaneously
     readyLatch.await();
     startLatch.countDown();
 
@@ -114,7 +114,7 @@ class ProductStockConcurrencyIntegrationTest {
 
   @Test
   @DisplayName(
-      "Concurrence : 10 requêtes concurrentes d'incrément (+2) sur stock initial 0 -> stock final = 20")
+      "Concurrency: 10 concurrent increment requests (+2) on an initial stock of 0 -> final stock = 20")
   void shouldHandleConcurrentIncrementsWithoutLostUpdate() throws Exception {
     product.setStockQuantity(0);
     productRepository.save(product);

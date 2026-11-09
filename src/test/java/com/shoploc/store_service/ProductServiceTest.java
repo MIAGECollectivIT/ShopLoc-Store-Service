@@ -68,7 +68,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("getProductsByStore doit renvoyer la liste des produits du magasin")
+  @DisplayName("getProductsByStore should return product list for store")
   void shouldReturnProductsForStore() {
     when(storeRepository.existsById(1L)).thenReturn(true);
     when(productRepository.findByStoreId(1L)).thenReturn(List.of(sampleProduct));
@@ -80,7 +80,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("getProductsByStore sur commerce inexistant doit lancer StoreNotFoundException")
+  @DisplayName("getProductsByStore on non-existent store should throw StoreNotFoundException")
   void shouldThrowWhenStoreNotFoundOnGetProducts() {
     when(storeRepository.existsById(999L)).thenReturn(false);
 
@@ -89,7 +89,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("getProductById doit retourner le produit s'il existe dans le magasin")
+  @DisplayName("getProductById should return product when it exists in store")
   void shouldReturnProductById() {
     when(storeRepository.existsById(1L)).thenReturn(true);
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
@@ -100,7 +100,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("getProductById sur produit inexistant doit lancer ProductNotFoundException")
+  @DisplayName("getProductById on non-existent product should throw ProductNotFoundException")
   void shouldThrowWhenProductNotFoundById() {
     when(storeRepository.existsById(1L)).thenReturn(true);
     when(productRepository.findByIdAndStoreId(999L, 1L)).thenReturn(Optional.empty());
@@ -111,7 +111,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("createProduct avec rôle MERCHANT sur son magasin doit réussir")
+  @DisplayName("createProduct with MERCHANT role on owned store should succeed")
   void shouldCreateProductForMerchantOwner() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.existsByStoreIdAndReference(1L, "REF-002")).thenReturn(false);
@@ -136,7 +136,7 @@ class ProductServiceTest {
 
   @Test
   @DisplayName(
-      "createProduct avec rôle MERCHANT sur le magasin d'un autre commerçant doit lever AccessDeniedException")
+      "createProduct with MERCHANT role on another merchant's store should throw AccessDeniedException")
   void shouldDenyCreateProductForNonOwnerMerchant() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
 
@@ -150,7 +150,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("createProduct avec rôle ADMIN sur n'importe quel magasin doit réussir")
+  @DisplayName("createProduct with ADMIN role on any store should succeed")
   void shouldAllowAdminToCreateProductOnAnyStore() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.existsByStoreIdAndReference(1L, "REF-003")).thenReturn(false);
@@ -172,7 +172,7 @@ class ProductServiceTest {
 
   @Test
   @DisplayName(
-      "createProduct avec référence existante dans le même magasin doit lever ProductReferenceAlreadyExistsException")
+      "createProduct with existing reference in same store should throw ProductReferenceAlreadyExistsException")
   void shouldThrowWhenReferenceAlreadyExistsInStore() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.existsByStoreIdAndReference(1L, "REF-001")).thenReturn(true);
@@ -186,7 +186,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("createProduct avec image multipart doit appeler imageStorageService")
+  @DisplayName("createProduct with multipart image should call imageStorageService")
   void shouldUploadImageWhenProvided() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.existsByStoreIdAndReference(1L, "REF-IMG")).thenReturn(false);
@@ -205,7 +205,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateProduct conservant sa propre référence ne doit pas lever de conflit")
+  @DisplayName("updateProduct keeping own reference should not raise conflict")
   void shouldAllowUpdateProductKeepingOwnReference() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
@@ -232,7 +232,7 @@ class ProductServiceTest {
 
   @Test
   @DisplayName(
-      "updateProduct avec référence déjà prise par un autre produit doit lever ProductReferenceAlreadyExistsException")
+      "updateProduct with reference already used by another product should throw ProductReferenceAlreadyExistsException")
   void shouldThrowWhenUpdateReferenceConflictsWithOtherProduct() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
@@ -251,7 +251,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateProduct sur produit inexistant doit lever ProductNotFoundException")
+  @DisplayName("updateProduct on non-existent product should throw ProductNotFoundException")
   void shouldThrowWhenUpdatingNonExistentProduct() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(999L, 1L)).thenReturn(Optional.empty());
@@ -265,7 +265,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateProduct par un commerçant non gérant doit lever AccessDeniedException")
+  @DisplayName("updateProduct by non-managing merchant should throw AccessDeniedException")
   void shouldDenyUpdateProductForNonOwnerMerchant() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
 
@@ -278,7 +278,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("deleteProduct sur produit inexistant doit lever ProductNotFoundException")
+  @DisplayName("deleteProduct on non-existent product should throw ProductNotFoundException")
   void shouldThrowWhenDeletingNonExistentProduct() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(999L, 1L)).thenReturn(Optional.empty());
@@ -288,7 +288,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("deleteProduct par un commerçant non propriétaire doit lever AccessDeniedException")
+  @DisplayName("deleteProduct by non-owner merchant should throw AccessDeniedException")
   void shouldDenyDeleteProductForNonOwner() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
 
@@ -299,7 +299,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("deleteProduct par le commerçant propriétaire doit supprimer l'entité")
+  @DisplayName("deleteProduct by owner merchant should delete entity")
   void shouldDeleteProductSuccessfully() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
@@ -310,7 +310,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateStock avec rôle SERVICE doit être autorisé sans contrainte d'utilisateur")
+  @DisplayName("updateStock with SERVICE role should be allowed without user constraint")
   void shouldAllowServiceRoleToUpdateStock() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
@@ -326,7 +326,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateStock avec valeur absolue newQuantity doit écraser le stock disponible")
+  @DisplayName("updateStock with absolute value newQuantity should overwrite available stock")
   void shouldSetAbsoluteStockQuantity() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
@@ -341,7 +341,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateStock sans aucun champ doit lever IllegalArgumentException")
+  @DisplayName("updateStock without any field should throw IllegalArgumentException")
   void shouldThrowWhenNoStockUpdateFieldProvided() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
@@ -355,7 +355,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateStock par un commerçant non gérant doit lever AccessDeniedException")
+  @DisplayName("updateStock by non-managing merchant should throw AccessDeniedException")
   void shouldDenyStockUpdateForNonOwnerMerchant() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
 
@@ -368,7 +368,7 @@ class ProductServiceTest {
 
   @Test
   @DisplayName(
-      "updateStock avec décrément supérieur au stock disponible doit lever InsufficientStockException")
+      "updateStock with decrement exceeding available stock should throw InsufficientStockException")
   void shouldThrowWhenStockBecomesNegative() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
@@ -382,7 +382,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateProductImage upload vers S3 et met à jour l'entité")
+  @DisplayName("updateProductImage uploads to S3 and updates entity")
   void shouldUpdateProductImageSuccessfully() {
     sampleProduct.setImageUrl("https://cdn.shoploc.fr/product-images/old.png");
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
@@ -403,7 +403,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("updateProductImageUrl met à jour l'URL directement")
+  @DisplayName("updateProductImageUrl updates URL directly")
   void shouldUpdateProductImageUrlDirectly() {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
@@ -419,7 +419,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("getProductImage renvoie le flux binaire de l'image S3")
+  @DisplayName("getProductImage returns binary stream of S3 image")
   void shouldGetProductImageResource() {
     sampleProduct.setImageUrl("https://cdn.shoploc.fr/product-images/pic.png");
     when(storeRepository.existsById(1L)).thenReturn(true);
@@ -434,7 +434,7 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("getProductImage sans imageUrl enregistrée lève ProductImageNotFoundException")
+  @DisplayName("getProductImage without stored imageUrl throws ProductImageNotFoundException")
   void shouldThrowWhenProductImageIsNull() {
     sampleProduct.setImageUrl(null);
     when(storeRepository.existsById(1L)).thenReturn(true);

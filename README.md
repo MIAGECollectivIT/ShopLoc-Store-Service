@@ -155,20 +155,30 @@ application:
 ├── src/
 │   ├── main/
 │   │   ├── java/                # Java Spring Boot source code
-│   │   │   └── fr/miage/collectivit/storeservice/
-│   │   │       ├── config/
-│   │   │       │   └── OpenApiConfig.java          # Swagger & OpenAPI authentication setup
-│   │   │       ├── controller/
-│   │   │       │   └── StoreStatusController.java  # Sample endpoint with OpenAPI annotations
+│   │   │   └── com/shoploc/store_service/
+│   │   │       ├── client/                         # External HTTP clients (Users Service)
+│   │   │       ├── config/                         # OpenAPI, RestClient & Spring configs
+│   │   │       ├── dto/                            # Data Transfer Objects & validations
+│   │   │       ├── exception/                      # Domain exceptions & error handlers
+│   │   │       ├── security/                       # JWT validation & role authorization
+│   │   │       ├── storage/                        # S3 / MinIO image storage services
+│   │   │       ├── validation/                     # RIB / IBAN algorithmic validators
+│   │   │       ├── Product.java                    # Product catalog entity
+│   │   │       ├── ProductController.java          # Catalog & stock management REST controller
+│   │   │       ├── ProductRepository.java          # Product JPA repository
+│   │   │       ├── ProductService.java             # Product catalog business logic
+│   │   │       ├── Store.java                      # Store entity
+│   │   │       ├── StoreController.java            # Store management REST controller
+│   │   │       ├── StoreRepository.java            # Store JPA repository
+│   │   │       ├── StoreService.java               # Store business logic
+│   │   │       ├── WebConfig.java                  # CORS & interceptor registry
 │   │   │       └── StoreServiceApplication.java    # Application entrypoint
 │   │   └── resources/
+│   │       ├── db/                                 # Flyway database migrations
 │   │       └── application.yaml                    # Application, OpenAPI & security configuration
 │   └── test/
 │       └── java/                # Unit & integration tests
-│           └── fr/miage/collectivit/storeservice/
-│               ├── controller/
-│               │   └── StoreStatusControllerTest.java
-│               └── StoreServiceApplicationTests.java
+│           └── com/shoploc/store_service/
 ├── docker-compose.yml           # Local multi-container development orchestration
 ├── Dockerfile                   # Multi-stage container image definition
 ├── mvnw                         # Maven Wrapper script (Linux / macOS)
@@ -215,23 +225,22 @@ A pre-commit hook runs automatically before every commit to format code with Spo
 
 ## 7. Starting The Service
 
-### Lancer les conteneurs en local
+### Start Containers Locally
 
-````bash
-
+```bash
 docker compose up --build -d backend
-````
+```
 
-### Routes
+### Endpoints
 
 - GET http://localhost:8080/v1/stores
 - GET http://localhost:8080/v1/stores/{id}
+- GET http://localhost:8080/v1/stores/{storeId}/products
+- GET http://localhost:8080/v1/stores/{storeId}/products/{productId}
 
 
-### Couper les conteneurs
+### Stop Containers
 
 ```bash
-
 docker compose down -v
-
 ```

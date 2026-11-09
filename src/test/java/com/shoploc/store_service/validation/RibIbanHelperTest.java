@@ -19,7 +19,7 @@ class RibIbanHelperTest {
         "30006 00001 12345678901 89", // Valid 23-char French RIB with spaces
         "DE89370400440532013000" // Valid German IBAN
       })
-  @DisplayName("Devrait valider les RIB et IBAN valides")
+  @DisplayName("Should validate valid RIB and IBAN numbers")
   void shouldValidateCorrectRibAndIban(String value) {
     assertThat(RibIbanHelper.isValidRibOrIban(value)).isTrue();
   }
@@ -36,13 +36,13 @@ class RibIbanHelperTest {
         "", // Empty
         "   " // Whitespace only
       })
-  @DisplayName("Devrait rejeter les RIB et IBAN invalides")
+  @DisplayName("Should reject invalid RIB and IBAN numbers")
   void shouldRejectInvalidRibAndIban(String value) {
     assertThat(RibIbanHelper.isValidRibOrIban(value)).isFalse();
   }
 
   @Test
-  @DisplayName("Devrait rejeter un RIB/IBAN null")
+  @DisplayName("Should reject null RIB/IBAN")
   void shouldRejectNull() {
     assertThat(RibIbanHelper.isValidRibOrIban(null)).isFalse();
   }

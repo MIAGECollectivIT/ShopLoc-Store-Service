@@ -113,9 +113,9 @@ class ProductLifecycleE2EIntegrationTest {
 
   @Test
   @DisplayName(
-      "Scénario E2E complet du cycle de vie d'un produit Click & Collect (Création -> Consultation -> Vente -> Rupture -> Réappro -> MAJ -> Suppression)")
+      "Complete E2E lifecycle scenario of a Click & Collect product (Creation -> Consultation -> Sale -> Out of stock -> Restock -> Update -> Deletion)")
   void shouldExecuteCompleteProductLifecycle() throws Exception {
-    // 1. Le commerçant crée un produit avec un stock initial de 10
+    // 1. The merchant creates a product with an initial stock of 10
     ProductCreateRequest createRequest =
         new ProductCreateRequest(
             "REF-E2E-ECLAIR",
@@ -141,7 +141,7 @@ class ProductLifecycleE2EIntegrationTest {
     JsonNode createdJson = objectMapper.readTree(createResult.getResponse().getContentAsString());
     Long productId = createdJson.get("id").asLong();
 
-    // 2. Le client consulte la vitrine publique du magasin (sans token)
+    // 2. The client browses the public storefront (without token)
     mockMvc
         .perform(get("/v1/stores/" + store.getId() + "/products"))
         .andExpect(status().isOk())
@@ -149,7 +149,7 @@ class ProductLifecycleE2EIntegrationTest {
         .andExpect(jsonPath("$[0].id").value(productId))
         .andExpect(jsonPath("$[0].stockQuantity").value(10));
 
-    // 3. Le client consulte le détail du produit
+    // 3. The client views product details
     mockMvc
         .perform(
             get("/v1/stores/" + store.getId() + "/products/" + productId)
@@ -158,7 +158,7 @@ class ProductLifecycleE2EIntegrationTest {
         .andExpect(jsonPath("$.name").value("Éclair au Chocolat"))
         .andExpect(jsonPath("$.price").value(3.50));
 
-    // 4. Commande 1 : sales-service décrémente le stock de 3 via PATCH stock (rôle SERVICE)
+    // 4. Order 1: sales-service decrements stock by 3 via PATCH stock (SERVICE role)
     StockUpdateRequest order1 = StockUpdateRequest.ofDelta(-3);
     mockMvc
         .perform(
@@ -169,7 +169,7 @@ class ProductLifecycleE2EIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.stockQuantity").value(7));
 
-    // 5. Commande 2 : sales-service décrémente les 7 restants -> stock tombe à 0 (Rupture)
+    // 5. Order 2: sales-service decrements the remaining 7 -> stock drops to 0 (Out of stock)
     StockUpdateRequest order2 = StockUpdateRequest.ofDelta(-7);
     mockMvc
         .perform(
@@ -180,8 +180,8 @@ class ProductLifecycleE2EIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.stockQuantity").value(0));
 
-    // 6. Commande 3 : sales-service tente de commander 1 exemplaire de plus -> Rejet immédiat (400
-    // Bad Request)
+    // 6. Order 3: sales-service attempts to order 1 more item -> Immediate rejection (400 Bad
+    // Request)
     StockUpdateRequest order3 = StockUpdateRequest.ofDelta(-1);
     mockMvc
         .perform(
@@ -198,7 +198,7 @@ class ProductLifecycleE2EIntegrationTest {
                         + productId
                         + " (actuel: 0, demandé: -1)"));
 
-    // 7. Le commerçant se fait réapprovisionner de 15 articles (+15)
+    // 7. The merchant restocks 15 items (+15)
     StockUpdateRequest restock = StockUpdateRequest.ofDelta(15);
     mockMvc
         .perform(
@@ -209,7 +209,7 @@ class ProductLifecycleE2EIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.stockQuantity").value(15));
 
-    // 8. Le commerçant met à jour le prix et la description
+    // 8. The merchant updates price and description
     ProductUpdateRequest updateReq =
         new ProductUpdateRequest(
             "REF-E2E-ECLAIR",
@@ -229,20 +229,20 @@ class ProductLifecycleE2EIntegrationTest {
         .andExpect(jsonPath("$.name").value("Éclair au Chocolat Valrhona"))
         .andExpect(jsonPath("$.price").value(3.80));
 
-    // 9. Le commerçant supprime l'article du catalogue
+    // 9. The merchant deletes the item from the catalog
     mockMvc
         .perform(
             delete("/v1/stores/" + store.getId() + "/products/" + productId)
                 .header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isNoContent());
 
-    // 10. La consultation de l'article supprimé doit renvoyer 404 Not Found
+    // 10. Accessing the deleted item must return 404 Not Found
     mockMvc
         .perform(get("/v1/stores/" + store.getId() + "/products/" + productId))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.status").value(404));
 
-    // Et le catalogue du magasin doit être vide
+    // And the store catalog must be empty
     mockMvc
         .perform(get("/v1/stores/" + store.getId() + "/products"))
         .andExpect(status().isOk())

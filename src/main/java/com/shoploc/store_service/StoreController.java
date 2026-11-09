@@ -72,11 +72,6 @@ public class StoreController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
-  public ResponseEntity<StoreResponse> createStore(
-      StoreCreateRequest request, MultipartFile image) {
-    return createStore(request, image, null);
-  }
-
   @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
@@ -88,10 +83,6 @@ public class StoreController {
     Store createdStore = storeService.createStore(request);
     StoreResponse response = StoreResponse.fromEntity(createdStore);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
-  }
-
-  public ResponseEntity<StoreResponse> createStore(StoreCreateRequest request) {
-    return createStore(request, (HttpServletRequest) null);
   }
 
   private void resolveAndValidateUserId(
@@ -110,8 +101,7 @@ public class StoreController {
     }
 
     if ("MERCHANT".equalsIgnoreCase(role)) {
-      // Un commerçant ne peut créer un magasin que pour son propre compte (protection
-      // anti-usurpation IDOR)
+      // A merchant can only create a store for their own account (IDOR prevention)
       if (authenticatedDbId == null || authenticatedDbId <= 0) {
         throw new AccessDeniedException(
             "Identifiant commerçant introuvable dans le jeton d'authentification");
@@ -123,14 +113,8 @@ public class StoreController {
                 + ")");
       }
       request.setUserId(authenticatedDbId);
-    } else if ("ADMIN".equalsIgnoreCase(role)) {
-      // Un administrateur peut spécifier un identifiant partenaire propriétaire ou créer pour
-      // lui-même
-      if (request.getUserId() == null || request.getUserId() <= 0) {
-        request.setUserId(authenticatedDbId);
-      }
     } else {
-      // Autre contexte (ex: test ou sans session servletRequest)
+      // Administrator or test/internal context without servletRequest session
       if (request.getUserId() == null || request.getUserId() <= 0) {
         request.setUserId(authenticatedDbId);
       }

@@ -99,7 +99,7 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores sans authentification -> doit renvoyer 401 Unauthorized")
+  @DisplayName("POST /v1/stores without authentication -> should return 401 Unauthorized")
   void shouldDenyStoreCreationWhenAuthMissing() throws Exception {
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -122,7 +122,7 @@ class StoreSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "POST /v1/stores avec X-User-Role: ADMIN sans JWT -> doit renvoyer 401 Unauthorized (pas de bypass)")
+      "POST /v1/stores with X-User-Role: ADMIN without JWT -> should return 401 Unauthorized (no bypass)")
   void shouldDenyStoreCreationWhenXUserRoleBypassAttempted() throws Exception {
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -144,7 +144,7 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores avec JWT rôle CLIENT -> doit renvoyer 403 Forbidden")
+  @DisplayName("POST /v1/stores with CLIENT role JWT -> should return 403 Forbidden")
   void shouldDenyStoreCreationWhenJwtRoleIsClient() throws Exception {
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -168,7 +168,7 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores avec JWT rôle MERCHANT -> doit autoriser la création (201 Created)")
+  @DisplayName("POST /v1/stores with MERCHANT role JWT -> should allow creation (201 Created)")
   void shouldAllowStoreCreationWhenJwtRoleIsMerchant() throws Exception {
     Store store =
         new Store(
@@ -204,7 +204,7 @@ class StoreSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "POST /v1/stores avec JWT MERCHANT et userId omis (null) -> doit auto-assigner l'identifiant du token (201 Created)")
+      "POST /v1/stores with MERCHANT JWT and omitted (null) userId -> should auto-assign token ID (201 Created)")
   void shouldAllowStoreCreationWhenMerchantOmitsUserIdInBody() throws Exception {
     Store store =
         new Store(
@@ -216,7 +216,7 @@ class StoreSecurityIntegrationTest {
             102L);
     when(storeService.createStore(any(StoreCreateRequest.class))).thenReturn(store);
 
-    // userId est null dans la requête du formulaire Front
+    // userId is null in Front-end form request
     StoreCreateRequest requestWithoutUserId =
         new StoreCreateRequest(
             "Boulangerie Sans UserId",
@@ -241,13 +241,13 @@ class StoreSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "POST /v1/stores par un MERCHANT tentant d'usurper un autre userId -> doit renvoyer 403 Forbidden (Anti-IDOR)")
+      "POST /v1/stores by MERCHANT attempting to spoof another userId -> should return 403 Forbidden (Anti-IDOR)")
   void shouldDenyStoreCreationWhenMerchantTriesToSpoofAnotherUserId() throws Exception {
-    // Le commerçant connecté a dbId = 102L
+    // The authenticated merchant has dbId = 102L
     String merchantToken =
         generateTestToken("MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), 102L);
 
-    // Mais il tente de soumettre un userId = 999L
+    // But attempts to submit userId = 999L
     StoreCreateRequest request =
         new StoreCreateRequest(
             "Boulangerie Artisanale",
@@ -270,7 +270,7 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores avec JWT rôle ADMIN -> doit autoriser la création (201 Created)")
+  @DisplayName("POST /v1/stores with ADMIN role JWT -> should allow creation (201 Created)")
   void shouldAllowStoreCreationWhenJwtRoleIsAdmin() throws Exception {
     Store store =
         new Store(
@@ -305,7 +305,7 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores avec token révoqué -> doit renvoyer 401 Unauthorized")
+  @DisplayName("POST /v1/stores with revoked token -> should return 401 Unauthorized")
   void shouldDenyStoreCreationWithRevokedToken() throws Exception {
     String revokedJti = "revoked-uuid-" + UUID.randomUUID();
     jwtValidatorService.addRevokedJtiForTest(revokedJti);
@@ -331,7 +331,7 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores avec JWT valide -> doit renvoyer 200 OK")
+  @DisplayName("GET /v1/stores with valid JWT -> should return 200 OK")
   void shouldAllowStoreConsultationWithValidJwt() throws Exception {
     when(storeService.getAllStores()).thenReturn(Collections.emptyList());
     String token = generateTestToken("CLIENT", "user@shoploc.fr");
@@ -341,7 +341,7 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores sans JWT -> doit renvoyer 200 OK (consultation publique autorisée)")
+  @DisplayName("GET /v1/stores without JWT -> should return 200 OK (public access allowed)")
   void shouldAllowStoreConsultationWithoutToken() throws Exception {
     when(storeService.getAllStores()).thenReturn(Collections.emptyList());
     mockMvc.perform(get("/v1/stores")).andExpect(status().isOk());
@@ -349,7 +349,7 @@ class StoreSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/stores avec JWT révoqué -> doit renvoyer 200 OK (dégradation gracieuse en visiteur anonyme)")
+      "GET /v1/stores with revoked JWT -> should return 200 OK (graceful degradation to anonymous visitor)")
   void shouldAllowStoreConsultationEvenWithRevokedToken() throws Exception {
     when(storeService.getAllStores()).thenReturn(Collections.emptyList());
     String revokedJti = "revoked-visitor-" + UUID.randomUUID();
@@ -363,7 +363,7 @@ class StoreSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{id} sans JWT -> doit renvoyer 200 OK (consultation publique du détail)")
+      "GET /v1/stores/{id} without JWT -> should return 200 OK (public detail consultation)")
   void shouldAllowStoreDetailConsultationWithoutToken() throws Exception {
     Store store =
         new Store(

@@ -4,13 +4,10 @@ import jakarta.validation.constraints.Min;
 
 public class StockUpdateRequest {
 
-  /**
-   * Delta d'ajustement relatif (ex: -1, -5 pour décrémenter lors d'un achat, +10 pour
-   * réapprovisionnement).
-   */
+  /** Relative adjustment delta (e.g. -1, -5 to decrement upon purchase, +10 for replenishment). */
   private Integer quantityDelta;
 
-  /** Nouvelle quantité absolue (ex: 50). Doit être positive ou nulle. */
+  /** New absolute quantity (e.g. 50). Must be positive or zero. */
   @Min(value = 0, message = "La nouvelle quantité doit être supérieure ou égale à 0")
   private Integer newQuantity;
 

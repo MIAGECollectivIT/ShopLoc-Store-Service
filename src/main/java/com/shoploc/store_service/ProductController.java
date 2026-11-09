@@ -212,8 +212,7 @@ public class ProductController {
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
-    productService.deleteProduct(
-        resolvedStoreId, productId, authenticatedDbId, authenticatedRole);
+    productService.deleteProduct(resolvedStoreId, productId, authenticatedDbId, authenticatedRole);
     return ResponseEntity.noContent().build();
   }
 
@@ -243,10 +242,7 @@ public class ProductController {
   }
 
   public ResponseEntity<ProductResponse> updateStock(
-      Long storeId,
-      Long productId,
-      StockUpdateRequest request,
-      HttpServletRequest servletRequest) {
+      Long storeId, Long productId, StockUpdateRequest request, HttpServletRequest servletRequest) {
     return updateStock(String.valueOf(storeId), productId, request, servletRequest);
   }
 
@@ -271,10 +267,7 @@ public class ProductController {
   }
 
   public ResponseEntity<ProductResponse> updateProductImageMultipart(
-      Long storeId,
-      Long productId,
-      MultipartFile image,
-      HttpServletRequest servletRequest) {
+      Long storeId, Long productId, MultipartFile image, HttpServletRequest servletRequest) {
     return updateProductImageMultipart(String.valueOf(storeId), productId, image, servletRequest);
   }
 
@@ -300,10 +293,7 @@ public class ProductController {
   }
 
   public ResponseEntity<ProductResponse> updateProductImageJson(
-      Long storeId,
-      Long productId,
-      Map<String, String> body,
-      HttpServletRequest servletRequest) {
+      Long storeId, Long productId, Map<String, String> body, HttpServletRequest servletRequest) {
     return updateProductImageJson(String.valueOf(storeId), productId, body, servletRequest);
   }
 

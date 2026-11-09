@@ -53,13 +53,7 @@ public class Store {
   }
 
   public Store(
-      UUID uid,
-      String name,
-      String address,
-      String url,
-      String category,
-      String rib,
-      Long userId) {
+      UUID uid, String name, String address, String url, String category, String rib, Long userId) {
     this.uid = uid != null ? uid : UUID.randomUUID();
     this.name = name;
     this.address = address;

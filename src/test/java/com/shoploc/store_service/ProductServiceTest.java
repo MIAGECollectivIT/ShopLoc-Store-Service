@@ -459,7 +459,8 @@ class ProductServiceTest {
   @DisplayName("resolveStoreId with valid UUID string should resolve to store id")
   void shouldResolveUuidStoreId() {
     UUID uid = UUID.randomUUID();
-    Store store = new Store(uid, "Store", "Addr", "http://url", "Cat", "FR7630006000011234567890189", 100L);
+    Store store =
+        new Store(uid, "Store", "Addr", "http://url", "Cat", "FR7630006000011234567890189", 100L);
     store.setId(42L);
     when(storeRepository.findByUid(uid)).thenReturn(Optional.of(store));
 
@@ -497,7 +498,8 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("resolveStoreId with invalid non-numeric non-UUID string should throw StoreNotFoundException")
+  @DisplayName(
+      "resolveStoreId with invalid non-numeric non-UUID string should throw StoreNotFoundException")
   void shouldThrowWhenIdentifierIsInvalidFormat() {
     assertThatThrownBy(() -> productService.resolveStoreId("invalid-identifier-format"))
         .isInstanceOf(StoreNotFoundException.class);

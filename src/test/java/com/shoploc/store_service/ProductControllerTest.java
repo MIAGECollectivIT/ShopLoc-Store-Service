@@ -479,13 +479,12 @@ class ProductControllerTest {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody())
-        .extracting(ProductResponse::getName)
-        .contains("Produit par UID");
+    assertThat(response.getBody()).extracting(ProductResponse::getName).contains("Produit par UID");
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{storeUid}/products/{productId} - Should retrieve product using store UUID")
+  @DisplayName(
+      "GET /v1/stores/{storeUid}/products/{productId} - Should retrieve product using store UUID")
   void shouldGetProductByStoreUid() {
     Product product =
         productRepository.save(
@@ -507,7 +506,8 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("Product endpoints should throw StoreNotFoundException when storeId is invalid or blank")
+  @DisplayName(
+      "Product endpoints should throw StoreNotFoundException when storeId is invalid or blank")
   void shouldThrowWhenStoreIdIsBlankOrInvalid() {
     assertThatThrownBy(() -> productController.getProducts((String) null))
         .isInstanceOf(StoreNotFoundException.class);

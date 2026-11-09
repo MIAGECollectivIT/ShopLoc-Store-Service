@@ -194,8 +194,7 @@ class StoreControllerTest {
                 "FR7630006000011234567890189",
                 501L));
 
-    ResponseEntity<StoreResponse> response =
-        storeController.getStoreById(store.getId().toString());
+    ResponseEntity<StoreResponse> response = storeController.getStoreById(store.getId().toString());
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -238,11 +237,11 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{identifier} - Should return 404 when identifier is invalid or blank")
+  @DisplayName(
+      "GET /v1/stores/{identifier} - Should return 404 when identifier is invalid or blank")
   void shouldReturnNotFoundWhenIdentifierIsInvalidOrBlank() {
     assertThat(storeController.getStoreById("invalid-id-or-uuid").getStatusCode())
         .isEqualTo(HttpStatus.NOT_FOUND);
-    assertThat(storeController.getStoreById("   ").getStatusCode())
-        .isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(storeController.getStoreById("   ").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
   }
 }

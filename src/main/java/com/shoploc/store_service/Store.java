@@ -11,59 +11,92 @@ import jakarta.persistence.Table;
 @Table(name = "shops")
 public class Store {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @Column(nullable = false, length = 255)
-    private String name;
+  @Column(nullable = false, length = 255)
+  private String name;
 
-    @Column(nullable = false, length = 255)
-    private String address;
+  @Column(nullable = false, length = 255)
+  private String address;
 
-    @Column(length = 500)
-    private String url;
+  @Column(length = 500)
+  private String url;
 
-    // Constructeur vide requis par JPA/Hibernate
-    public Store() {
-    }
+  @Column(nullable = false, length = 255)
+  private String category;
 
-    public Store(String name, String address, String url) {
-        this.name = name;
-        this.address = address;
-        this.url = url;
-    }
+  @Column(nullable = false, length = 34)
+  private String rib;
 
-    // Getters et Setters
-    public Long getId() {
-        return id;
-    }
+  @Column(name = "user_id", nullable = false)
+  private Long userId;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+  public Store() {}
 
-    public String getName() {
-        return name;
-    }
+  public Store(String name, String address, String url, String category, String rib, Long userId) {
+    this.name = name;
+    this.address = address;
+    this.url = url;
+    this.category = category;
+    this.rib = rib;
+    this.userId = userId;
+  }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+  public Long getId() {
+    return id;
+  }
 
-    public String getAddress() {
-        return address;
-    }
+  public void setId(Long id) {
+    this.id = id;
+  }
 
-    public void setAddress(String address) {
-        this.address = address;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public String getUrl() {
-        return url;
-    }
+  public void setName(String name) {
+    this.name = name;
+  }
 
-    public void setUrl(String url) {
-        this.url = url;
-    }
+  public String getAddress() {
+    return address;
+  }
+
+  public void setAddress(String address) {
+    this.address = address;
+  }
+
+  public String getUrl() {
+    return url;
+  }
+
+  public void setUrl(String url) {
+    this.url = url;
+  }
+
+  public String getCategory() {
+    return category;
+  }
+
+  public void setCategory(String category) {
+    this.category = category;
+  }
+
+  public String getRib() {
+    return rib;
+  }
+
+  public void setRib(String rib) {
+    this.rib = rib;
+  }
+
+  public Long getUserId() {
+    return userId;
+  }
+
+  public void setUserId(Long userId) {
+    this.userId = userId;
+  }
 }

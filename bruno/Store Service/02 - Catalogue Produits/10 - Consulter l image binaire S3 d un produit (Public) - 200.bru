@@ -1,0 +1,18 @@
+meta {
+  name: 10 - Consulter l image binaire S3 d un produit (Public) - 200
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products/{{productId}}/image
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.headers["content-type"]: matches image/
+  res.headers["cache-control"]: contains max-age=86400
+}
+

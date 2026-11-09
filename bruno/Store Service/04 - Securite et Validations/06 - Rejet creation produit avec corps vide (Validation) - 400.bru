@@ -1,0 +1,31 @@
+meta {
+  name: 06 - Rejet creation produit avec corps vide (Validation) - 400
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/v1/stores/{{storeId}}/products
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 400
+  res.body.fieldErrors.reference: isDefined
+  res.body.fieldErrors.name: isDefined
+  res.body.fieldErrors.price: isDefined
+}
+

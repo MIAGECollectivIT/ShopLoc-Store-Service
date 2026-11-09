@@ -1,0 +1,36 @@
+meta {
+  name: 02 - Creer un magasin (ADMIN) pour un commercant - 201
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/v1/stores
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Boucherie Centrale",
+    "address": "25 Place Rihour, 59000 Lille",
+    "category": "Boucherie",
+    "rib": "FR7630006000011234567890189",
+    "userId": 10
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.name: eq "Boucherie Centrale"
+  res.body.userId: eq 10
+}
+

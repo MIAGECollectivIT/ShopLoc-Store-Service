@@ -1,27 +1,63 @@
 package com.shoploc.store_service;
 
-import org.springframework.stereotype.Service;
+import com.shoploc.store_service.client.UserClient;
+import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.exception.UserNotFoundException;
+import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class StoreService {
 
-    private final StoreRepository storeRepository;
+  private final StoreRepository storeRepository;
+  private final UserClient userClient;
+  private final ImageStorageService imageStorageService;
 
-    public StoreService(StoreRepository storeRepository) {
-        this.storeRepository = storeRepository;
+  public StoreService(
+      StoreRepository storeRepository,
+      UserClient userClient,
+      ImageStorageService imageStorageService) {
+    this.storeRepository = storeRepository;
+    this.userClient = userClient;
+    this.imageStorageService = imageStorageService;
+  }
+
+  public List<Store> getAllStores() {
+    return storeRepository.findAll();
+  }
+
+  public Optional<Store> getStoreById(Long id) {
+    return storeRepository.findById(id);
+  }
+
+  public List<Store> getStoresByUserId(Long userId) {
+    return storeRepository.findByUserId(userId);
+  }
+
+  public Store createStore(StoreCreateRequest request, MultipartFile image) {
+    Long userId = request.getUserId();
+    if (!userClient.userExists(userId)) {
+      throw new UserNotFoundException(userId);
     }
 
-    public List<Store> getAllStores() {
-        return storeRepository.findAll();
+    Store storeToSave = request.toEntity();
+
+    if (image != null && !image.isEmpty()) {
+      String imageUrl = imageStorageService.uploadStoreImage(image);
+      storeToSave.setUrl(imageUrl);
     }
 
-    public Optional<Store> getStoreById(Long id) {
-        return storeRepository.findById(id);
-    }
+    Store savedStore = storeRepository.save(storeToSave);
 
-    public Store createStore(Store store) {
-        return storeRepository.save(store);
-    }
+    userClient.linkStoreToUser(userId, savedStore.getId());
+
+    return savedStore;
+  }
+
+  public Store createStore(StoreCreateRequest request) {
+    return createStore(request, null);
+  }
 }

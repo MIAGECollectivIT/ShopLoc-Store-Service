@@ -1,0 +1,18 @@
+meta {
+  name: 05 - Consulter un magasin par ID (Public) - 200
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/v1/stores/{{storeId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{storeId}}
+  res.body.name: isDefined
+}
+

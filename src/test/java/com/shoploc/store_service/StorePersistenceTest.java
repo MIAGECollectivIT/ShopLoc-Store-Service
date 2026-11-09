@@ -23,8 +23,7 @@ class StorePersistenceTest {
   @MockitoBean private UserClient userClient;
 
   @Test
-  @DisplayName(
-      "Devrait persister un magasin avec nom, catégorie, RIB et liaison à un identifiant utilisateur")
+  @DisplayName("Should persist store with name, category, RIB, and link to a user ID")
   void shouldPersistStoreWithCategoryRibAndUserId() {
     Store store =
         new Store(
@@ -46,7 +45,7 @@ class StorePersistenceTest {
 
   @Test
   @DisplayName(
-      "Devrait autoriser un même partenaire (userId) à posséder plusieurs établissements distincts (relation n:1)")
+      "Should allow the same partner (userId) to own multiple distinct stores (n:1 relation)")
   void shouldAllowOneUserToOwnMultipleStores() {
     Store store1 =
         new Store(
@@ -78,7 +77,7 @@ class StorePersistenceTest {
   }
 
   @Test
-  @DisplayName("Devrait créer un store via StoreService après vérification du partenaire")
+  @DisplayName("Should create store via StoreService after partner verification")
   void shouldCreateStoreViaServiceWithVerifiedUser() {
     when(userClient.userExists(99L)).thenReturn(true);
 

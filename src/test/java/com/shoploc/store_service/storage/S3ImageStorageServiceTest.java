@@ -39,7 +39,7 @@ class S3ImageStorageServiceTest {
   }
 
   @Test
-  @DisplayName("Upload réussi d'une image JPEG valide")
+  @DisplayName("Successful upload of a valid JPEG image")
   void shouldUploadValidJpegImage() {
     MockMultipartFile file =
         new MockMultipartFile("image", "store-front.jpg", "image/jpeg", new byte[] {1, 2, 3, 4});
@@ -59,7 +59,7 @@ class S3ImageStorageServiceTest {
   }
 
   @Test
-  @DisplayName("Upload avec fallback sur endpoint interne si publicBaseUrl est vide")
+  @DisplayName("Upload fallback to internal endpoint when publicBaseUrl is empty")
   void shouldFallbackToInternalEndpointWhenPublicBaseUrlEmpty() {
     S3ImageStorageService localService =
         new S3ImageStorageService(s3Client, "store-images", "http://minio:9000", "");
@@ -74,7 +74,7 @@ class S3ImageStorageServiceTest {
   }
 
   @Test
-  @DisplayName("Échoue si le fichier est nul ou vide")
+  @DisplayName("Fails when file is null or empty")
   void shouldFailWhenFileIsEmpty() {
     MockMultipartFile emptyFile =
         new MockMultipartFile("image", "empty.jpg", "image/jpeg", new byte[0]);
@@ -88,7 +88,7 @@ class S3ImageStorageServiceTest {
   }
 
   @Test
-  @DisplayName("Échoue si le format n'est pas une image supportée (ex: PDF ou texte)")
+  @DisplayName("Fails when content type is not an allowed image format (e.g. PDF or text)")
   void shouldFailWhenContentTypeIsNotSupported() {
     MockMultipartFile pdfFile =
         new MockMultipartFile("image", "document.pdf", "application/pdf", new byte[] {1, 2, 3});
@@ -99,7 +99,7 @@ class S3ImageStorageServiceTest {
   }
 
   @Test
-  @DisplayName("Lève FileStorageException si S3 renvoie une erreur")
+  @DisplayName("Throws FileStorageException when S3 throws an error")
   void shouldThrowFileStorageExceptionWhenS3Fails() {
     MockMultipartFile file =
         new MockMultipartFile("image", "store.png", "image/png", new byte[] {1, 2, 3});

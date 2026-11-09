@@ -113,7 +113,7 @@ class ProductLifecycleE2EIntegrationTest {
 
   @Test
   @DisplayName(
-      "Scénario E2E complet du cycle de vie d'un produit Click & Collect (Création -> Consultation -> Vente -> Rupture -> Réappro -> MAJ -> Suppression)")
+      "Complete E2E lifecycle scenario of a Click & Collect product (Creation -> Consultation -> Sale -> Out of stock -> Restock -> Update -> Deletion)")
   void shouldExecuteCompleteProductLifecycle() throws Exception {
     // 1. The merchant creates a product with an initial stock of 10
     ProductCreateRequest createRequest =

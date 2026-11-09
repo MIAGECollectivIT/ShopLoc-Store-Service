@@ -68,7 +68,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{storeId}/products - Devrait retourner la liste des produits")
+  @DisplayName("GET /v1/stores/{storeId}/products - Should return products list")
   void shouldReturnProductsList() {
     productRepository.save(
         new Product(
@@ -87,8 +87,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/stores/{storeId}/products/{productId} - Devrait retourner le produit unitaire")
+  @DisplayName("GET /v1/stores/{storeId}/products/{productId} - Should return single product")
   void shouldReturnSingleProduct() {
     Product product =
         productRepository.save(
@@ -110,7 +109,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("GET sur magasin inexistant - Devrait lever StoreNotFoundException")
+  @DisplayName("GET on non-existent store - Should throw StoreNotFoundException")
   void shouldThrowWhenStoreNotFound() {
     assertThatThrownBy(() -> productController.getProducts(9999L))
         .isInstanceOf(StoreNotFoundException.class);
@@ -118,7 +117,7 @@ class ProductControllerTest {
 
   @Test
   @DisplayName(
-      "POST /v1/stores/{storeId}/products (JSON) - Devrait créer un produit avec stock initial")
+      "POST /v1/stores/{storeId}/products (JSON) - Should create product with initial stock")
   void shouldCreateProductJson() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -137,7 +136,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{storeId}/products (Multipart) - Devrait uploader l'image vers S3")
+  @DisplayName("POST /v1/stores/{storeId}/products (Multipart) - Should upload image to S3")
   void shouldCreateProductMultipartWithImage() {
     when(imageStorageService.uploadProductImage(any()))
         .thenReturn("https://minio.shoploc.fr/products/miel.png");
@@ -161,7 +160,7 @@ class ProductControllerTest {
 
   @Test
   @DisplayName(
-      "POST avec référence en doublon - Devrait lever ProductReferenceAlreadyExistsException")
+      "POST with duplicate reference - Should throw ProductReferenceAlreadyExistsException")
   void shouldThrowWhenDuplicateReference() {
     productRepository.save(
         new Product(
@@ -178,7 +177,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("PUT /v1/stores/{storeId}/products/{productId} - Devrait mettre à jour le produit")
+  @DisplayName("PUT /v1/stores/{storeId}/products/{productId} - Should update product")
   void shouldUpdateProduct() {
     Product product =
         productRepository.save(
@@ -203,7 +202,7 @@ class ProductControllerTest {
 
   @Test
   @DisplayName(
-      "DELETE /v1/stores/{storeId}/products/{productId} - Devrait supprimer l'article (204 No Content)")
+      "DELETE /v1/stores/{storeId}/products/{productId} - Should delete item (204 No Content)")
   void shouldDeleteProduct() {
     Product product =
         productRepository.save(
@@ -221,7 +220,7 @@ class ProductControllerTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/stores/{storeId}/products/{productId}/stock - Devrait ajuster le stock (delta)")
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock - Should update stock (delta)")
   void shouldUpdateStockWithDelta() {
     Product product =
         productRepository.save(
@@ -242,7 +241,7 @@ class ProductControllerTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/stores/{storeId}/products/{productId}/stock - Devrait ajuster le stock (valeur absolue)")
+      "PATCH /v1/stores/{storeId}/products/{productId}/stock - Should update stock (absolute value)")
   void shouldUpdateStockWithAbsoluteValue() {
     Product product =
         productRepository.save(
@@ -260,8 +259,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "PATCH stock au-delà de la réserve disponible - Devrait lever InsufficientStockException")
+  @DisplayName("PATCH stock below available inventory - Should throw InsufficientStockException")
   void shouldThrowWhenStockGoesBelowZero() {
     Product product =
         productRepository.save(
@@ -282,7 +280,8 @@ class ProductControllerTest {
   // --- FILE VALIDATION & S3 MINIO REJECTION TESTS ---
 
   @Test
-  @DisplayName("Création produit avec fichier non supporté (PDF) - Doit lever InvalidFileException")
+  @DisplayName(
+      "Product creation with unsupported file format (PDF) - Should throw InvalidFileException")
   void shouldRejectUnsupportedFileFormatOnProductCreation() {
     MockMultipartFile invalidFile =
         new MockMultipartFile("image", "facture.pdf", "application/pdf", new byte[] {1, 2, 3});
@@ -303,7 +302,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("Création produit avec panne stockage S3 MinIO - Doit lever FileStorageException")
+  @DisplayName("Product creation with S3 MinIO storage failure - Should throw FileStorageException")
   void shouldThrowFileStorageExceptionWhenS3UnavailableOnCreation() {
     MockMultipartFile validImage =
         new MockMultipartFile("image", "photo.png", "image/png", new byte[] {1, 2, 3});
@@ -326,7 +325,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("Mise à jour produit avec panne stockage S3 MinIO - Doit lever FileStorageException")
+  @DisplayName("Product update with S3 MinIO storage failure - Should throw FileStorageException")
   void shouldThrowFileStorageExceptionWhenS3UnavailableOnUpdate() {
     Product product =
         productRepository.save(
@@ -355,7 +354,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("Streaming image produit - Doit renvoyer les octets avec bon Content-Type")
+  @DisplayName("Product image streaming - Should return bytes with correct Content-Type")
   void shouldGetProductImageSuccessfully() {
     Product product =
         productRepository.save(
@@ -382,7 +381,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("Streaming image produit absente - Doit lever ProductImageNotFoundException")
+  @DisplayName("Product image streaming when absent - Should throw ProductImageNotFoundException")
   void shouldThrowWhenProductHasNoImage() {
     Product product =
         productRepository.save(
@@ -400,7 +399,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("Patch image produit multipart - Upload et persistance en base")
+  @DisplayName("Multipart product image patch - Upload and database persistence")
   void shouldPatchProductImageMultipart() {
     Product product =
         productRepository.save(
@@ -433,7 +432,7 @@ class ProductControllerTest {
   }
 
   @Test
-  @DisplayName("Patch image produit JSON - Mise à jour par URL directe")
+  @DisplayName("JSON product image patch - Direct URL update")
   void shouldPatchProductImageJson() {
     Product product =
         productRepository.save(

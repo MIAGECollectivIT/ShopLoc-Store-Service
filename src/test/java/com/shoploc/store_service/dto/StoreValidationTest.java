@@ -22,7 +22,7 @@ class StoreValidationTest {
   }
 
   @Test
-  @DisplayName("Devrait valider une requête complète et valide")
+  @DisplayName("Should validate a complete and valid request")
   void shouldValidateValidRequest() {
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -38,7 +38,7 @@ class StoreValidationTest {
   }
 
   @Test
-  @DisplayName("Devrait refuser un nom vide")
+  @DisplayName("Should reject blank name")
   void shouldRejectBlankName() {
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -49,7 +49,7 @@ class StoreValidationTest {
   }
 
   @Test
-  @DisplayName("Devrait refuser une catégorie vide")
+  @DisplayName("Should reject blank category")
   void shouldRejectBlankCategory() {
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -60,7 +60,7 @@ class StoreValidationTest {
   }
 
   @Test
-  @DisplayName("Devrait refuser un RIB invalide algorithmiquement")
+  @DisplayName("Should reject algorithmically invalid RIB")
   void shouldRejectInvalidRib() {
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -76,8 +76,7 @@ class StoreValidationTest {
   }
 
   @Test
-  @DisplayName(
-      "Devrait autoriser un userId null (car injecté depuis le JWT) mais refuser un négatif")
+  @DisplayName("Should allow null userId (injected from JWT) but reject negative values")
   void shouldAllowNullUserIdAndRejectNegative() {
     StoreCreateRequest requestNullUser =
         new StoreCreateRequest(

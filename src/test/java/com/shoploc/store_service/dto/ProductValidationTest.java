@@ -23,7 +23,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest valide ne doit lever aucune violation")
+  @DisplayName("Valid ProductCreateRequest should not produce any violation")
   void shouldPassWhenProductCreateRequestIsValid() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -39,8 +39,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName(
-      "ProductCreateRequest avec stock initial null doit être valide (prend la valeur par défaut 0)")
+  @DisplayName("ProductCreateRequest with null initial stock should be valid (defaults to 0)")
   void shouldPassWhenStockQuantityIsNull() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -57,7 +56,7 @@ class ProductValidationTest {
 
   @Test
   @DisplayName(
-      "ProductCreateRequest avec prix nul (0.00 €) doit être valide (articles promotionnels)")
+      "ProductCreateRequest with zero price (0.00 EUR) should be valid (promotional items)")
   void shouldPassWhenPriceIsZero() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -68,7 +67,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest avec référence vide doit échouer")
+  @DisplayName("ProductCreateRequest with blank reference should fail")
   void shouldFailWhenReferenceIsBlank() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -79,7 +78,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest avec référence dépassant 100 caractères doit échouer")
+  @DisplayName("ProductCreateRequest with reference exceeding 100 characters should fail")
   void shouldFailWhenReferenceExceeds100Chars() {
     String longRef = "R".repeat(101);
     ProductCreateRequest request =
@@ -90,7 +89,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest avec nom vide doit échouer")
+  @DisplayName("ProductCreateRequest with blank name should fail")
   void shouldFailWhenNameIsBlank() {
     ProductCreateRequest request =
         new ProductCreateRequest("REF-01", "", "Description", new BigDecimal("1.20"), null, 10);
@@ -100,7 +99,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest avec nom dépassant 255 caractères doit échouer")
+  @DisplayName("ProductCreateRequest with name exceeding 255 characters should fail")
   void shouldFailWhenNameExceeds255Chars() {
     String longName = "A".repeat(256);
     ProductCreateRequest request =
@@ -112,7 +111,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest avec prix négatif doit échouer")
+  @DisplayName("ProductCreateRequest with negative price should fail")
   void shouldFailWhenPriceIsNegative() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -123,7 +122,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductCreateRequest avec stock négatif doit échouer")
+  @DisplayName("ProductCreateRequest with negative stock should fail")
   void shouldFailWhenStockIsNegative() {
     ProductCreateRequest request =
         new ProductCreateRequest(
@@ -134,7 +133,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductUpdateRequest valide ne doit lever aucune violation")
+  @DisplayName("Valid ProductUpdateRequest should not produce any violation")
   void shouldPassWhenProductUpdateRequestIsValid() {
     ProductUpdateRequest request =
         new ProductUpdateRequest(
@@ -150,7 +149,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("ProductUpdateRequest avec référence vide ou nom vide doit échouer")
+  @DisplayName("ProductUpdateRequest with blank reference or name should fail")
   void shouldFailWhenProductUpdateRequestHasBlankFields() {
     ProductUpdateRequest request =
         new ProductUpdateRequest("", "   ", "Desc", new BigDecimal("-1.00"), null, -5);
@@ -163,7 +162,8 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("StockUpdateRequest avec delta positif ou négatif ne doit lever aucune violation")
+  @DisplayName(
+      "StockUpdateRequest with positive or negative delta should not produce any violation")
   void shouldPassWhenDeltaIsProvided() {
     StockUpdateRequest reqPositive = StockUpdateRequest.ofDelta(10);
     StockUpdateRequest reqNegative = StockUpdateRequest.ofDelta(-5);
@@ -173,7 +173,7 @@ class ProductValidationTest {
   }
 
   @Test
-  @DisplayName("StockUpdateRequest avec nouvelle quantité négative doit échouer")
+  @DisplayName("StockUpdateRequest with negative newQuantity should fail")
   void shouldFailWhenStockNewQuantityIsNegative() {
     StockUpdateRequest request = new StockUpdateRequest(null, -10);
 

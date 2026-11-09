@@ -31,7 +31,7 @@ class StoreControllerTest {
   @MockitoBean private com.shoploc.store_service.storage.ImageStorageService imageStorageService;
 
   @Test
-  @DisplayName("GET /v1/stores - Devrait retourner tous les établissements")
+  @DisplayName("GET /v1/stores - Should return all stores")
   void shouldReturnAllStores() {
     storeRepository.save(
         new Store(
@@ -49,7 +49,7 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores?userId={userId} - Devrait filtrer les établissements du partenaire")
+  @DisplayName("GET /v1/stores?userId={userId} - Should filter partner stores")
   void shouldFilterStoresByUserId() {
     storeRepository.save(
         new Store(
@@ -76,8 +76,7 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/stores - Devrait créer un établissement avec succès lorsque le partenaire existe")
+  @DisplayName("POST /v1/stores - Should successfully create store when partner exists")
   void shouldCreateStoreWhenUserExists() {
     when(userClient.userExists(300L)).thenReturn(true);
 
@@ -107,7 +106,7 @@ class StoreControllerTest {
 
   @Test
   @DisplayName(
-      "POST /v1/stores (multipart) - Devrait téléverser l'image et assigner l'URL générée au commerce")
+      "POST /v1/stores (multipart) - Should upload image and assign generated URL to store")
   void shouldCreateStoreWithUploadedImageWhenMultipartProvided() {
     when(userClient.userExists(301L)).thenReturn(true);
     when(imageStorageService.uploadStoreImage(any()))
@@ -140,7 +139,7 @@ class StoreControllerTest {
 
   @Test
   @DisplayName(
-      "POST /v1/stores - Devrait échouer avec UserNotFoundException si le partenaire n'existe pas")
+      "POST /v1/stores - Should fail with UserNotFoundException when partner does not exist")
   void shouldFailWhenUserDoesNotExist() {
     when(userClient.userExists(999L)).thenReturn(false);
 
@@ -162,7 +161,7 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores - Devrait échouer si le service utilisateur est indisponible")
+  @DisplayName("POST /v1/stores - Should fail when users service is unavailable")
   void shouldFailWhenUserServiceIsUnavailable() {
     when(userClient.userExists(500L))
         .thenThrow(new UserServiceUnavailableException("Service down"));

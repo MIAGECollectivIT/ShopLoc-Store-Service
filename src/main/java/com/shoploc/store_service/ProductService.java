@@ -14,6 +14,7 @@ import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -273,6 +274,30 @@ public class ProductService {
         currentStock,
         targetStock);
     return ProductResponse.fromEntity(saved);
+  }
+
+  public Long resolveStoreId(String storeIdentifier) {
+    if (storeIdentifier == null || storeIdentifier.isBlank()) {
+      throw new StoreNotFoundException(storeIdentifier);
+    }
+    String trimmed = storeIdentifier.trim();
+    try {
+      UUID uid = UUID.fromString(trimmed);
+      return storeRepository
+          .findByUid(uid)
+          .map(Store::getId)
+          .orElseThrow(() -> new StoreNotFoundException(storeIdentifier));
+    } catch (IllegalArgumentException e) {
+      try {
+        Long id = Long.parseLong(trimmed);
+        if (!storeRepository.existsById(id)) {
+          throw new StoreNotFoundException(storeIdentifier);
+        }
+        return id;
+      } catch (NumberFormatException nfe) {
+        throw new StoreNotFoundException(storeIdentifier);
+      }
+    }
   }
 
   private void verifyStoreExists(Long storeId) {

@@ -180,4 +180,68 @@ class StoreControllerTest {
     assertThatThrownBy(() -> storeController.createStore(request, (HttpServletRequest) null))
         .isInstanceOf(UserServiceUnavailableException.class);
   }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier} - Should retrieve store by technical numeric ID")
+  void shouldGetStoreByNumericId() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Superette Centrale",
+                "8 rue Principale",
+                "https://img.com/superette.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                501L));
+
+    ResponseEntity<StoreResponse> response = storeController.getStoreById(store.getId().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getId()).isEqualTo(store.getId());
+    assertThat(response.getBody().getUid()).isEqualTo(store.getUid());
+    assertThat(response.getBody().getName()).isEqualTo("Superette Centrale");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier} - Should retrieve store by UUID uid")
+  void shouldGetStoreByUid() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Superette UID",
+                "9 rue Principale",
+                "https://img.com/superette-uid.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                502L));
+
+    ResponseEntity<StoreResponse> response =
+        storeController.getStoreById(store.getUid().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getId()).isEqualTo(store.getId());
+    assertThat(response.getBody().getUid()).isEqualTo(store.getUid());
+    assertThat(response.getBody().getName()).isEqualTo("Superette UID");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier} - Should return 404 when store not found by uid")
+  void shouldReturnNotFoundWhenStoreNotFoundByUid() {
+    java.util.UUID randomUid = java.util.UUID.randomUUID();
+
+    ResponseEntity<StoreResponse> response = storeController.getStoreById(randomUid.toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{identifier} - Should return 404 when identifier is invalid or blank")
+  void shouldReturnNotFoundWhenIdentifierIsInvalidOrBlank() {
+    assertThat(storeController.getStoreById("invalid-id-or-uuid").getStatusCode())
+        .isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(storeController.getStoreById("   ").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+  }
 }

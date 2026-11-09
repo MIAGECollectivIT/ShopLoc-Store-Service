@@ -44,10 +44,11 @@ public class StoreController {
     return responseList;
   }
 
-  @GetMapping("/{storeId}")
-  @Operation(summary = "Récupère un commerce par son identifiant (accès public)")
-  public ResponseEntity<StoreResponse> getStoreById(@PathVariable Long storeId) {
-    Optional<Store> storeOptional = storeService.getStoreById(storeId);
+  @GetMapping("/{identifier}")
+  @Operation(
+      summary = "Récupère un commerce par son identifiant numérique ou son uid UUID (accès public)")
+  public ResponseEntity<StoreResponse> getStoreById(@PathVariable String identifier) {
+    Optional<Store> storeOptional = resolveStore(identifier);
     if (storeOptional.isEmpty()) {
       return ResponseEntity.notFound().build();
     }
@@ -55,6 +56,28 @@ public class StoreController {
     Store store = storeOptional.get();
     StoreResponse response = StoreResponse.fromEntity(store);
     return ResponseEntity.ok(response);
+  }
+
+  public ResponseEntity<StoreResponse> getStoreById(Long storeId) {
+    return getStoreById(String.valueOf(storeId));
+  }
+
+  private Optional<Store> resolveStore(String identifier) {
+    if (identifier == null || identifier.isBlank()) {
+      return Optional.empty();
+    }
+    String trimmed = identifier.trim();
+    try {
+      java.util.UUID uid = java.util.UUID.fromString(trimmed);
+      return storeService.getStoreByUid(uid);
+    } catch (IllegalArgumentException e) {
+      try {
+        Long id = Long.parseLong(trimmed);
+        return storeService.getStoreById(id);
+      } catch (NumberFormatException nfe) {
+        return Optional.empty();
+      }
+    }
   }
 
   @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)

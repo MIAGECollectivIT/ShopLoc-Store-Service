@@ -22,6 +22,7 @@ import com.shoploc.store_service.storage.ImageStorageService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -442,5 +443,65 @@ class ProductServiceTest {
 
     assertThatThrownBy(() -> productService.getProductImage(1L, 10L))
         .isInstanceOf(ProductImageNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("resolveStoreId with valid numeric ID should return store id when store exists")
+  void shouldResolveNumericStoreId() {
+    when(storeRepository.existsById(1L)).thenReturn(true);
+
+    Long storeId = productService.resolveStoreId("1");
+
+    assertThat(storeId).isEqualTo(1L);
+  }
+
+  @Test
+  @DisplayName("resolveStoreId with valid UUID string should resolve to store id")
+  void shouldResolveUuidStoreId() {
+    UUID uid = UUID.randomUUID();
+    Store store =
+        new Store(uid, "Store", "Addr", "http://url", "Cat", "FR7630006000011234567890189", 100L);
+    store.setId(42L);
+    when(storeRepository.findByUid(uid)).thenReturn(Optional.of(store));
+
+    Long storeId = productService.resolveStoreId(uid.toString());
+
+    assertThat(storeId).isEqualTo(42L);
+  }
+
+  @Test
+  @DisplayName("resolveStoreId with unknown UUID string should throw StoreNotFoundException")
+  void shouldThrowWhenUuidNotFound() {
+    UUID uid = UUID.randomUUID();
+    when(storeRepository.findByUid(uid)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> productService.resolveStoreId(uid.toString()))
+        .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("resolveStoreId with unknown numeric ID should throw StoreNotFoundException")
+  void shouldThrowWhenNumericIdNotFound() {
+    when(storeRepository.existsById(999L)).thenReturn(false);
+
+    assertThatThrownBy(() -> productService.resolveStoreId("999"))
+        .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("resolveStoreId with null or blank string should throw StoreNotFoundException")
+  void shouldThrowWhenIdentifierIsBlank() {
+    assertThatThrownBy(() -> productService.resolveStoreId(null))
+        .isInstanceOf(StoreNotFoundException.class);
+    assertThatThrownBy(() -> productService.resolveStoreId("   "))
+        .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName(
+      "resolveStoreId with invalid non-numeric non-UUID string should throw StoreNotFoundException")
+  void shouldThrowWhenIdentifierIsInvalidFormat() {
+    assertThatThrownBy(() -> productService.resolveStoreId("invalid-identifier-format"))
+        .isInstanceOf(StoreNotFoundException.class);
   }
 }

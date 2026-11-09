@@ -5,7 +5,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import java.util.UUID;
 
 @Entity
 @Table(name = "shops")
@@ -14,6 +16,9 @@ public class Store {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  @Column(name = "uid", nullable = false, unique = true)
+  private UUID uid;
 
   @Column(nullable = false, length = 255)
   private String name;
@@ -33,9 +38,12 @@ public class Store {
   @Column(name = "user_id", nullable = false)
   private Long userId;
 
-  public Store() {}
+  public Store() {
+    this.uid = UUID.randomUUID();
+  }
 
   public Store(String name, String address, String url, String category, String rib, Long userId) {
+    this();
     this.name = name;
     this.address = address;
     this.url = url;
@@ -44,12 +52,38 @@ public class Store {
     this.userId = userId;
   }
 
+  public Store(
+      UUID uid, String name, String address, String url, String category, String rib, Long userId) {
+    this.uid = uid != null ? uid : UUID.randomUUID();
+    this.name = name;
+    this.address = address;
+    this.url = url;
+    this.category = category;
+    this.rib = rib;
+    this.userId = userId;
+  }
+
+  @PrePersist
+  public void prePersist() {
+    if (this.uid == null) {
+      this.uid = UUID.randomUUID();
+    }
+  }
+
   public Long getId() {
     return id;
   }
 
   public void setId(Long id) {
     this.id = id;
+  }
+
+  public UUID getUid() {
+    return uid;
+  }
+
+  public void setUid(UUID uid) {
+    this.uid = uid;
   }
 
   public String getName() {

@@ -99,4 +99,27 @@ class StorePersistenceTest {
     assertThat(storesForUser).hasSize(1);
     assertThat(storesForUser.get(0).getName()).isEqualTo("Librairie du Furet");
   }
+
+  @Test
+  @DisplayName("Devrait générer automatiquement un UID non nul à la persistance et permettre la recherche par UID")
+  void shouldGenerateUidAutomaticallyAndFindStoreByUid() {
+    Store store =
+        new Store(
+            "Pharmacie du Centre",
+            "10 Rue de la Paix, 75002 Paris",
+            "https://example.com/pharmacie.jpg",
+            "Santé",
+            "FR7630006000011234567890189",
+            105L);
+
+    Store savedStore = storeRepository.save(store);
+
+    assertThat(savedStore.getUid()).isNotNull();
+    assertThat(storeRepository.findByUid(savedStore.getUid())).isPresent();
+    assertThat(storeRepository.findByUid(savedStore.getUid()).get().getName())
+        .isEqualTo("Pharmacie du Centre");
+    assertThat(storeService.getStoreByUid(savedStore.getUid())).isPresent();
+    assertThat(storeService.getStoreByUid(savedStore.getUid()).get().getName())
+        .isEqualTo("Pharmacie du Centre");
+  }
 }

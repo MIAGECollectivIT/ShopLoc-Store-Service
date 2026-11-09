@@ -180,4 +180,60 @@ class StoreControllerTest {
     assertThatThrownBy(() -> storeController.createStore(request, (HttpServletRequest) null))
         .isInstanceOf(UserServiceUnavailableException.class);
   }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier} - Devrait récupérer un commerce par son ID technique numérique")
+  void shouldGetStoreByNumericId() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Superette Centrale",
+                "8 rue Principale",
+                "https://img.com/superette.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                501L));
+
+    ResponseEntity<StoreResponse> response =
+        storeController.getStoreById(store.getId().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getId()).isEqualTo(store.getId());
+    assertThat(response.getBody().getUid()).isEqualTo(store.getUid());
+    assertThat(response.getBody().getName()).isEqualTo("Superette Centrale");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier} - Devrait récupérer un commerce par son UID UUID")
+  void shouldGetStoreByUid() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Superette UID",
+                "9 rue Principale",
+                "https://img.com/superette-uid.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                502L));
+
+    ResponseEntity<StoreResponse> response =
+        storeController.getStoreById(store.getUid().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getId()).isEqualTo(store.getId());
+    assertThat(response.getBody().getUid()).isEqualTo(store.getUid());
+    assertThat(response.getBody().getName()).isEqualTo("Superette UID");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier} - Devrait retourner 404 si UID inconnu")
+  void shouldReturnNotFoundWhenStoreNotFoundByUid() {
+    java.util.UUID randomUid = java.util.UUID.randomUUID();
+
+    ResponseEntity<StoreResponse> response = storeController.getStoreById(randomUid.toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+  }
 }

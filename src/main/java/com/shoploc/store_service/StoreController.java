@@ -4,6 +4,7 @@ import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.security.RequiresRole;
+import com.shoploc.store_service.storage.ImageResource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,7 +12,9 @@ import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -62,6 +65,22 @@ public class StoreController {
     return getStoreById(String.valueOf(storeId));
   }
 
+  @GetMapping("/{identifier}/image")
+  @Operation(
+      summary =
+          "Récupérer l'image binaire de la devanture d'un commerce hébergée sur S3 (avec Cache-Control - Accès public)")
+  public ResponseEntity<byte[]> getStoreImage(@PathVariable String identifier) {
+    ImageResource resource = storeService.getStoreImage(identifier);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(resource.getContentType()))
+        .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+        .body(resource.getBytes());
+  }
+
+  public ResponseEntity<byte[]> getStoreImage(Long storeId) {
+    return getStoreImage(String.valueOf(storeId));
+  }
+
   private Optional<Store> resolveStore(String identifier) {
     if (identifier == null || identifier.isBlank()) {
       return Optional.empty();
@@ -80,7 +99,7 @@ public class StoreController {
     }
   }
 
-  @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
       summary =
@@ -95,7 +114,7 @@ public class StoreController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
-  @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+  @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
       summary =

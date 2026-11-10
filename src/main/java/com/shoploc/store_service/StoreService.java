@@ -2,12 +2,16 @@ package com.shoploc.store_service;
 
 import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.exception.StoreImageNotFoundException;
+import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.exception.UserNotFoundException;
+import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -61,6 +65,25 @@ public class StoreService {
 
   public List<Store> getStoresByUserId(Long userId) {
     return storeRepository.findByUserId(userId);
+  }
+
+  @Transactional(readOnly = true)
+  public ImageResource getStoreImage(String identifier) {
+    Store store =
+        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+
+    if (store.getUrl() == null || store.getUrl().isBlank()) {
+      throw new StoreImageNotFoundException(store.getId());
+    }
+
+    return imageStorageService
+        .downloadImage(store.getUrl())
+        .orElseThrow(() -> new StoreImageNotFoundException(store.getId()));
+  }
+
+  @Transactional(readOnly = true)
+  public ImageResource getStoreImage(Long storeId) {
+    return getStoreImage(String.valueOf(storeId));
   }
 
   public Store createStore(StoreCreateRequest request, MultipartFile image) {

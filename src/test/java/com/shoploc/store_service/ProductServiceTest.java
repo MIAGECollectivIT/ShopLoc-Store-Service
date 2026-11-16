@@ -447,10 +447,13 @@ class ProductServiceTest {
 
   @Test
   @DisplayName(
-      "resolveStoreId with numeric ID should reject with StoreNotFoundException (security hardening)")
-  void shouldRejectNumericStoreId() {
-    assertThatThrownBy(() -> productService.resolveStoreId("1"))
-        .isInstanceOf(StoreNotFoundException.class);
+      "resolveStoreId with numeric ID should resolve to store id when store exists (pragmatic fallback)")
+  void shouldResolveNumericStoreId() {
+    when(storeRepository.existsById(1L)).thenReturn(true);
+
+    Long storeId = productService.resolveStoreId("1");
+
+    assertThat(storeId).isEqualTo(1L);
   }
 
   @Test

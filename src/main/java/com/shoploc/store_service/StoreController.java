@@ -83,7 +83,12 @@ public class StoreController {
       java.util.UUID uid = java.util.UUID.fromString(trimmed);
       return storeService.getStoreByUid(uid);
     } catch (IllegalArgumentException e) {
-      return Optional.empty();
+      try {
+        Long id = Long.parseLong(trimmed);
+        return storeService.getStoreById(id);
+      } catch (NumberFormatException nfe) {
+        return Optional.empty();
+      }
     }
   }
 

@@ -503,7 +503,7 @@ class ProductControllerTest {
 
   @Test
   @DisplayName(
-      "Product endpoints should throw StoreNotFoundException when storeId is invalid or blank or numeric")
+      "Product endpoints should throw StoreNotFoundException when storeId is invalid or blank or unknown numeric")
   void shouldThrowWhenStoreIdIsBlankOrInvalid() {
     assertThatThrownBy(() -> productController.getProducts((String) null))
         .isInstanceOf(StoreNotFoundException.class);
@@ -511,7 +511,16 @@ class ProductControllerTest {
         .isInstanceOf(StoreNotFoundException.class);
     assertThatThrownBy(() -> productController.getProducts("invalid-store-uid-or-id"))
         .isInstanceOf(StoreNotFoundException.class);
-    assertThatThrownBy(() -> productController.getProducts(store.getId().toString()))
+    assertThatThrownBy(() -> productController.getProducts("999999"))
         .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("Product endpoints should resolve store by numeric ID as fallback")
+  void shouldGetProductsByNumericStoreIdFallback() {
+    ResponseEntity<List<ProductResponse>> response =
+        productController.getProducts(store.getId().toString());
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
   }
 }

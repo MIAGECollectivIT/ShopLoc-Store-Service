@@ -49,7 +49,7 @@ public class StoreController {
 
   @GetMapping("/{identifier}")
   @Operation(
-      summary = "Récupère un commerce par son identifiant numérique ou son uid UUID (accès public)")
+      summary = "Récupère un commerce par son uid UUID (accès public - ID technique numérique refusé)")
   public ResponseEntity<StoreResponse> getStoreById(@PathVariable String identifier) {
     Optional<Store> storeOptional = resolveStore(identifier);
     if (storeOptional.isEmpty()) {
@@ -59,10 +59,6 @@ public class StoreController {
     Store store = storeOptional.get();
     StoreResponse response = StoreResponse.fromEntity(store);
     return ResponseEntity.ok(response);
-  }
-
-  public ResponseEntity<StoreResponse> getStoreById(Long storeId) {
-    return getStoreById(String.valueOf(storeId));
   }
 
   @GetMapping("/{identifier}/image")
@@ -77,10 +73,6 @@ public class StoreController {
         .body(resource.getBytes());
   }
 
-  public ResponseEntity<byte[]> getStoreImage(Long storeId) {
-    return getStoreImage(String.valueOf(storeId));
-  }
-
   private Optional<Store> resolveStore(String identifier) {
     if (identifier == null || identifier.isBlank()) {
       return Optional.empty();
@@ -90,12 +82,7 @@ public class StoreController {
       java.util.UUID uid = java.util.UUID.fromString(trimmed);
       return storeService.getStoreByUid(uid);
     } catch (IllegalArgumentException e) {
-      try {
-        Long id = Long.parseLong(trimmed);
-        return storeService.getStoreById(id);
-      } catch (NumberFormatException nfe) {
-        return Optional.empty();
-      }
+      return Optional.empty();
     }
   }
 

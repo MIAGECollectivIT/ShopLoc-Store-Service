@@ -54,12 +54,7 @@ public class StoreService {
       UUID uid = UUID.fromString(trimmed);
       return storeRepository.findByUid(uid);
     } catch (IllegalArgumentException e) {
-      try {
-        Long id = Long.parseLong(trimmed);
-        return storeRepository.findById(id);
-      } catch (NumberFormatException nfe) {
-        return Optional.empty();
-      }
+      return Optional.empty();
     }
   }
 
@@ -81,10 +76,6 @@ public class StoreService {
         .orElseThrow(() -> new StoreImageNotFoundException(store.getId()));
   }
 
-  @Transactional(readOnly = true)
-  public ImageResource getStoreImage(Long storeId) {
-    return getStoreImage(String.valueOf(storeId));
-  }
 
   public Store createStore(StoreCreateRequest request, MultipartFile image) {
     Long userId = request.getUserId();

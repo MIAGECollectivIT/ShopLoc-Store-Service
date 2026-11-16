@@ -1,10 +1,12 @@
 package com.shoploc.store_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.shoploc.store_service.Store;
 import java.util.UUID;
 
 public class StoreResponse {
 
+  @JsonIgnore
   private Long id;
   private UUID uid;
   private String name;
@@ -56,6 +58,7 @@ public class StoreResponse {
         store.getUserId());
   }
 
+  @JsonIgnore
   public Long getId() {
     return id;
   }

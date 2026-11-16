@@ -363,8 +363,9 @@ class StoreSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{id} without JWT -> should return 200 OK (public detail consultation)")
+      "GET /v1/stores/{uid} without JWT -> should return 200 OK without exposing numeric database ID")
   void shouldAllowStoreDetailConsultationWithoutToken() throws Exception {
+    UUID uid = UUID.randomUUID();
     Store store =
         new Store(
             "Boutique Publique",
@@ -374,11 +375,23 @@ class StoreSecurityIntegrationTest {
             "FR7630006000011234567890189",
             1L);
     ReflectionTestUtils.setField(store, "id", 1L);
-    when(storeService.getStoreById(1L)).thenReturn(Optional.of(store));
+    ReflectionTestUtils.setField(store, "uid", uid);
+    when(storeService.getStoreByUid(uid)).thenReturn(Optional.of(store));
 
     mockMvc
-        .perform(get("/v1/stores/1"))
+        .perform(get("/v1/stores/" + uid))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.name").value("Boutique Publique"));
+        .andExpect(jsonPath("$.name").value("Boutique Publique"))
+        .andExpect(jsonPath("$.uid").value(uid.toString()))
+        .andExpect(jsonPath("$.id").doesNotExist());
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{id} with numeric ID -> should return 404 Not Found (security hardening: reject numeric DB IDs)")
+  void shouldRejectNumericStoreId() throws Exception {
+    mockMvc
+        .perform(get("/v1/stores/1"))
+        .andExpect(status().isNotFound());
   }
 }

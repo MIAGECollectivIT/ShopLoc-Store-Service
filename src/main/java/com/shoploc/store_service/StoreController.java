@@ -1,5 +1,7 @@
 package com.shoploc.store_service;
 
+import com.shoploc.store_service.dto.StoreAbsenceRequest;
+import com.shoploc.store_service.dto.StoreAbsenceResponse;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreResponse;
@@ -14,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -150,6 +153,79 @@ public class StoreController {
     String userRole = extractAuthenticatedUserRole(servletRequest);
     Store updatedStore =
         storeService.updateStoreImage(identifier, image, authenticatedUserId, userRole);
+    return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
+  }
+
+  @GetMapping("/{identifier}/absences")
+  @Operation(summary = "Consulter la liste des absences d'un commerce (SLE-54)")
+  public ResponseEntity<List<StoreAbsenceResponse>> getStoreAbsences(
+      @PathVariable String identifier) {
+    Store store =
+        storeService
+            .getStoreByIdOrUid(identifier)
+            .orElseThrow(
+                () -> new com.shoploc.store_service.exception.StoreNotFoundException(identifier));
+    List<StoreAbsenceResponse> responses =
+        store.getAbsences().stream()
+            .map(StoreAbsenceResponse::fromEntity)
+            .collect(Collectors.toList());
+    return ResponseEntity.ok(responses);
+  }
+
+  @PostMapping("/{identifier}/absences")
+  @RequiresRole({"ADMIN", "MERCHANT"})
+  @Operation(summary = "Ajouter une absence à la liste d'un commerce (SLE-54)")
+  public ResponseEntity<StoreResponse> addStoreAbsence(
+      @PathVariable String identifier,
+      @Valid @RequestBody StoreAbsenceRequest request,
+      HttpServletRequest servletRequest) {
+    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    String userRole = extractAuthenticatedUserRole(servletRequest);
+    Store updatedStore =
+        storeService.addStoreAbsence(identifier, request, authenticatedUserId, userRole);
+    return ResponseEntity.status(HttpStatus.CREATED).body(StoreResponse.fromEntity(updatedStore));
+  }
+
+  @PutMapping("/{identifier}/absences/{absenceId}")
+  @RequiresRole({"ADMIN", "MERCHANT"})
+  @Operation(summary = "Modifier une absence spécifique d'un commerce (SLE-54)")
+  public ResponseEntity<StoreResponse> updateStoreAbsence(
+      @PathVariable String identifier,
+      @PathVariable Long absenceId,
+      @Valid @RequestBody StoreAbsenceRequest request,
+      HttpServletRequest servletRequest) {
+    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    String userRole = extractAuthenticatedUserRole(servletRequest);
+    Store updatedStore =
+        storeService.updateStoreAbsence(
+            identifier, absenceId, request, authenticatedUserId, userRole);
+    return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
+  }
+
+  @DeleteMapping("/{identifier}/absences/{absenceId}")
+  @RequiresRole({"ADMIN", "MERCHANT"})
+  @Operation(summary = "Supprimer une absence spécifique d'un commerce (SLE-54)")
+  public ResponseEntity<StoreResponse> deleteStoreAbsenceById(
+      @PathVariable String identifier,
+      @PathVariable Long absenceId,
+      HttpServletRequest servletRequest) {
+    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    String userRole = extractAuthenticatedUserRole(servletRequest);
+    Store updatedStore =
+        storeService.deleteStoreAbsenceById(identifier, absenceId, authenticatedUserId, userRole);
+    return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
+  }
+
+  @DeleteMapping("/{identifier}/absence")
+  @RequiresRole({"ADMIN", "MERCHANT"})
+  @Operation(
+      summary =
+          "Supprimer ou réinitialiser toutes les absences d'un commerce (SLE-54) - Réservé aux administrateurs et commerçants propriétaires")
+  public ResponseEntity<StoreResponse> deleteStoreAbsence(
+      @PathVariable String identifier, HttpServletRequest servletRequest) {
+    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    String userRole = extractAuthenticatedUserRole(servletRequest);
+    Store updatedStore = storeService.clearStoreAbsence(identifier, authenticatedUserId, userRole);
     return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
   }
 

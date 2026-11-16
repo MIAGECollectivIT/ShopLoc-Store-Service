@@ -28,6 +28,10 @@ public class StorePatchRequest {
   @Size(max = 255, message = "Le motif d'absence ne doit pas dépasser 255 caractères")
   private String absenceReason;
 
+  private Boolean clearAbsence;
+
+  private java.util.List<StoreAbsenceRequest> absences;
+
   public StorePatchRequest() {}
 
   public StorePatchRequest(
@@ -121,5 +125,21 @@ public class StorePatchRequest {
 
   public void setAbsenceReason(String absenceReason) {
     this.absenceReason = absenceReason;
+  }
+
+  public Boolean getClearAbsence() {
+    return clearAbsence;
+  }
+
+  public void setClearAbsence(Boolean clearAbsence) {
+    this.clearAbsence = clearAbsence;
+  }
+
+  public java.util.List<StoreAbsenceRequest> getAbsences() {
+    return absences;
+  }
+
+  public void setAbsences(java.util.List<StoreAbsenceRequest> absences) {
+    this.absences = absences;
   }
 }

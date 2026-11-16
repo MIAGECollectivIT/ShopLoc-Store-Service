@@ -5,10 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 import com.shoploc.store_service.client.UserClient;
+import com.shoploc.store_service.dto.StoreAbsenceRequest;
+import com.shoploc.store_service.dto.StoreAbsenceResponse;
 import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreResponse;
 import com.shoploc.store_service.exception.UserServiceUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -422,5 +426,227 @@ class StoreControllerTest {
         .isEqualTo("https://cdn.shoploc.fr/store-images/new.jpg");
     verify(imageStorageService).deleteImage("https://cdn.shoploc.fr/store-images/old.jpg");
     verify(imageStorageService).uploadStoreImage(imageFile);
+  }
+
+  @Test
+  void testDeleteStoreAbsence_success() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Absence",
+                "25 rue Absence",
+                "https://cdn.shoploc.fr/store-images/img.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                605L));
+    store.setAbsenceStartDate(Instant.parse("2026-08-01T00:00:00Z"));
+    store.setAbsenceEndDate(Instant.parse("2026-08-15T00:00:00Z"));
+    store.setAbsenceReason("Conges");
+    store = storeRepository.save(store);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(605L);
+
+    ResponseEntity<StoreResponse> response =
+        storeController.deleteStoreAbsence(store.getUid().toString(), servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getAbsenceStartDate()).isNull();
+    assertThat(response.getBody().getAbsenceEndDate()).isNull();
+    assertThat(response.getBody().getAbsenceReason()).isNull();
+  }
+
+  @Test
+  void testPatchStore_clearAbsenceViaPatch() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Absence Patch",
+                "30 rue Absence",
+                "https://cdn.shoploc.fr/store-images/img.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                606L));
+    store.setAbsenceStartDate(Instant.parse("2026-08-01T00:00:00Z"));
+    store.setAbsenceEndDate(Instant.parse("2026-08-15T00:00:00Z"));
+    store.setAbsenceReason("Conges");
+    store = storeRepository.save(store);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(606L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setClearAbsence(true);
+
+    ResponseEntity<StoreResponse> response =
+        storeController.patchStore(store.getUid().toString(), patchReq, servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getAbsenceStartDate()).isNull();
+    assertThat(response.getBody().getAbsenceEndDate()).isNull();
+    assertThat(response.getBody().getAbsenceReason()).isNull();
+  }
+
+  @Test
+  @DisplayName("POST /v1/stores/{id}/absences - Should add an absence to store's list")
+  void testAddStoreAbsence_success() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Multi Absence",
+                "40 rue Absence",
+                "https://cdn.shoploc.fr/img.jpg",
+                "Boulangerie",
+                "FR7630006000011234567890189",
+                701L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(701L);
+
+    StoreAbsenceRequest req =
+        new StoreAbsenceRequest(
+            Instant.parse("2026-08-01T00:00:00Z"),
+            Instant.parse("2026-08-15T00:00:00Z"),
+            "Fermeture estivale");
+
+    ResponseEntity<StoreResponse> response =
+        storeController.addStoreAbsence(store.getUid().toString(), req, servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getAbsences()).hasSize(1);
+    assertThat(response.getBody().getAbsences().get(0).getReason()).isEqualTo("Fermeture estivale");
+    assertThat(response.getBody().getAbsences().get(0).getDurationDays()).isEqualTo(14L);
+  }
+
+  @Test
+  @DisplayName("PUT /v1/stores/{id}/absences/{absenceId} - Should update specific absence in list")
+  void testUpdateStoreAbsence_success() {
+    Store store =
+        new Store(
+            "Commerce Update Absence",
+            "50 rue Absence",
+            "https://cdn.shoploc.fr/img.jpg",
+            "Fleuriste",
+            "FR7630006000011234567890189",
+            702L);
+    store = storeRepository.save(store);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(702L);
+
+    StoreAbsenceRequest addReq =
+        new StoreAbsenceRequest(
+            Instant.parse("2026-12-24T00:00:00Z"),
+            Instant.parse("2026-12-26T00:00:00Z"),
+            "Fetes de fin d'annee");
+    ResponseEntity<StoreResponse> addResp =
+        storeController.addStoreAbsence(store.getUid().toString(), addReq, servletRequest);
+    Long absenceId = addResp.getBody().getAbsences().get(0).getId();
+
+    StoreAbsenceRequest updateReq =
+        new StoreAbsenceRequest(
+            Instant.parse("2026-12-24T00:00:00Z"),
+            Instant.parse("2026-12-28T00:00:00Z"),
+            "Vacances de fin d'annee prolongees");
+
+    ResponseEntity<StoreResponse> updateResp =
+        storeController.updateStoreAbsence(
+            store.getUid().toString(), absenceId, updateReq, servletRequest);
+
+    assertThat(updateResp.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(updateResp.getBody().getAbsences()).hasSize(1);
+    assertThat(updateResp.getBody().getAbsences().get(0).getReason())
+        .isEqualTo("Vacances de fin d'annee prolongees");
+    assertThat(updateResp.getBody().getAbsences().get(0).getDurationDays()).isEqualTo(4L);
+  }
+
+  @Test
+  @DisplayName("DELETE /v1/stores/{id}/absences/{absenceId} - Should delete one absence from list")
+  void testDeleteStoreAbsenceById_success() {
+    Store store =
+        new Store(
+            "Commerce Delete One Absence",
+            "60 rue Absence",
+            "https://cdn.shoploc.fr/img.jpg",
+            "Epicerie",
+            "FR7630006000011234567890189",
+            703L);
+    store = storeRepository.save(store);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(703L);
+
+    // Add first absence
+    storeController.addStoreAbsence(
+        store.getUid().toString(),
+        new StoreAbsenceRequest(
+            Instant.parse("2026-05-01T00:00:00Z"),
+            Instant.parse("2026-05-03T00:00:00Z"),
+            "Pont du 1er mai"),
+        servletRequest);
+
+    // Add second absence
+    ResponseEntity<StoreResponse> resp2 =
+        storeController.addStoreAbsence(
+            store.getUid().toString(),
+            new StoreAbsenceRequest(
+                Instant.parse("2026-08-01T00:00:00Z"),
+                Instant.parse("2026-08-15T00:00:00Z"),
+                "Fermeture estivale"),
+            servletRequest);
+
+    assertThat(resp2.getBody().getAbsences()).hasSize(2);
+    Long firstAbsenceId = resp2.getBody().getAbsences().get(0).getId();
+
+    // Delete the first absence
+    ResponseEntity<StoreResponse> deleteResp =
+        storeController.deleteStoreAbsenceById(
+            store.getUid().toString(), firstAbsenceId, servletRequest);
+
+    assertThat(deleteResp.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(deleteResp.getBody().getAbsences()).hasSize(1);
+    assertThat(deleteResp.getBody().getAbsences().get(0).getReason())
+        .isEqualTo("Fermeture estivale");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{id}/absences - Should retrieve list of absences")
+  void testGetStoreAbsences_success() {
+    Store store =
+        new Store(
+            "Commerce Get Absences",
+            "70 rue Absence",
+            "https://cdn.shoploc.fr/img.jpg",
+            "Coiffure",
+            "FR7630006000011234567890189",
+            704L);
+    store = storeRepository.save(store);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(704L);
+
+    storeController.addStoreAbsence(
+        store.getUid().toString(),
+        new StoreAbsenceRequest(
+            Instant.parse("2026-07-10T00:00:00Z"),
+            Instant.parse("2026-07-20T00:00:00Z"),
+            "Inventaire annuel"),
+        servletRequest);
+
+    ResponseEntity<List<StoreAbsenceResponse>> resp =
+        storeController.getStoreAbsences(store.getUid().toString());
+
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(resp.getBody()).hasSize(1);
+    assertThat(resp.getBody().get(0).getReason()).isEqualTo("Inventaire annuel");
   }
 }

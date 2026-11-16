@@ -20,6 +20,7 @@ public class StoreResponse {
   private String absenceReason;
   private Boolean isCurrentlyAbsent;
   private Long absenceDurationDays;
+  private java.util.List<StoreAbsenceResponse> absences = new java.util.ArrayList<>();
 
   public StoreResponse() {}
 
@@ -68,6 +69,12 @@ public class StoreResponse {
     response.setAbsenceReason(store.getAbsenceReason());
     response.setIsCurrentlyAbsent(store.isCurrentlyAbsent());
     response.setAbsenceDurationDays(store.getAbsenceDurationDays());
+    if (store.getAbsences() != null) {
+      response.setAbsences(
+          store.getAbsences().stream()
+              .map(StoreAbsenceResponse::fromEntity)
+              .collect(java.util.stream.Collectors.toList()));
+    }
     return response;
   }
 
@@ -181,5 +188,13 @@ public class StoreResponse {
 
   public void setAbsenceDurationDays(Long absenceDurationDays) {
     this.absenceDurationDays = absenceDurationDays;
+  }
+
+  public java.util.List<StoreAbsenceResponse> getAbsences() {
+    return absences;
+  }
+
+  public void setAbsences(java.util.List<StoreAbsenceResponse> absences) {
+    this.absences = absences;
   }
 }

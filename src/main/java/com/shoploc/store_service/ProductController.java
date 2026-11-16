@@ -17,16 +17,7 @@ import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -42,18 +33,28 @@ public class ProductController {
     this.productService = productService;
   }
 
+  private Long parseOrResolveStoreId(String storeId) {
+    if (storeId == null || storeId.isBlank()) {
+      throw new com.shoploc.store_service.exception.StoreNotFoundException(storeId);
+    }
+    String trimmed = storeId.trim();
+    return productService.resolveStoreId(trimmed);
+  }
+
   @GetMapping
   @Operation(summary = "Récupérer le catalogue de produits d'un commerce (Accès public)")
-  public ResponseEntity<List<ProductResponse>> getProducts(@PathVariable Long storeId) {
-    List<ProductResponse> products = productService.getProductsByStore(storeId);
+  public ResponseEntity<List<ProductResponse>> getProducts(@PathVariable String storeId) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
+    List<ProductResponse> products = productService.getProductsByStore(resolvedStoreId);
     return ResponseEntity.ok(products);
   }
 
   @GetMapping("/{productId}")
   @Operation(summary = "Récupérer la fiche unitaire d'un produit (Accès public)")
   public ResponseEntity<ProductResponse> getProduct(
-      @PathVariable Long storeId, @PathVariable Long productId) {
-    ProductResponse product = productService.getProductById(storeId, productId);
+      @PathVariable String storeId, @PathVariable Long productId) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
+    ProductResponse product = productService.getProductById(resolvedStoreId, productId);
     return ResponseEntity.ok(product);
   }
 
@@ -62,8 +63,9 @@ public class ProductController {
       summary =
           "Récupérer l'image binaire d'un produit hébergée sur S3 (avec Cache-Control - Accès public)")
   public ResponseEntity<byte[]> getProductImage(
-      @PathVariable Long storeId, @PathVariable Long productId) {
-    ImageResource resource = productService.getProductImage(storeId, productId);
+      @PathVariable String storeId, @PathVariable Long productId) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
+    ImageResource resource = productService.getProductImage(resolvedStoreId, productId);
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType(resource.getContentType()))
         .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
@@ -76,15 +78,17 @@ public class ProductController {
       summary =
           "Ajouter un produit au catalogue avec photo S3 (multipart/form-data) - Réservé aux commerçants et administrateurs")
   public ResponseEntity<ProductResponse> createProduct(
-      @PathVariable Long storeId,
+      @PathVariable String storeId,
       @Valid @RequestPart("product") ProductCreateRequest request,
       @RequestPart(value = "image", required = false) MultipartFile image,
       HttpServletRequest servletRequest) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     ProductResponse response =
-        productService.createProduct(storeId, request, image, authenticatedDbId, authenticatedRole);
+        productService.createProduct(
+            resolvedStoreId, request, image, authenticatedDbId, authenticatedRole);
     URI location = URI.create("/v1/stores/" + storeId + "/products/" + response.getId());
     return ResponseEntity.created(location).body(response);
   }
@@ -95,14 +99,16 @@ public class ProductController {
       summary =
           "Ajouter un produit au catalogue sans photo ou avec URL directe (application/json) - Réservé aux commerçants et administrateurs")
   public ResponseEntity<ProductResponse> createProductJson(
-      @PathVariable Long storeId,
+      @PathVariable String storeId,
       @Valid @RequestBody ProductCreateRequest request,
       HttpServletRequest servletRequest) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     ProductResponse response =
-        productService.createProduct(storeId, request, null, authenticatedDbId, authenticatedRole);
+        productService.createProduct(
+            resolvedStoreId, request, null, authenticatedDbId, authenticatedRole);
     URI location = URI.create("/v1/stores/" + storeId + "/products/" + response.getId());
     return ResponseEntity.created(location).body(response);
   }
@@ -113,17 +119,18 @@ public class ProductController {
       summary =
           "Mettre à jour un produit existant avec nouvelle photo S3 (multipart/form-data) - Réservé aux commerçants et administrateurs")
   public ResponseEntity<ProductResponse> updateProduct(
-      @PathVariable Long storeId,
+      @PathVariable String storeId,
       @PathVariable Long productId,
       @Valid @RequestPart("product") ProductUpdateRequest request,
       @RequestPart(value = "image", required = false) MultipartFile image,
       HttpServletRequest servletRequest) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     ProductResponse response =
         productService.updateProduct(
-            storeId, productId, request, image, authenticatedDbId, authenticatedRole);
+            resolvedStoreId, productId, request, image, authenticatedDbId, authenticatedRole);
     return ResponseEntity.ok(response);
   }
 
@@ -133,16 +140,17 @@ public class ProductController {
       summary =
           "Mettre à jour un produit existant en JSON (application/json) - Réservé aux commerçants et administrateurs")
   public ResponseEntity<ProductResponse> updateProductJson(
-      @PathVariable Long storeId,
+      @PathVariable String storeId,
       @PathVariable Long productId,
       @Valid @RequestBody ProductUpdateRequest request,
       HttpServletRequest servletRequest) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     ProductResponse response =
         productService.updateProduct(
-            storeId, productId, request, null, authenticatedDbId, authenticatedRole);
+            resolvedStoreId, productId, request, null, authenticatedDbId, authenticatedRole);
     return ResponseEntity.ok(response);
   }
 
@@ -151,11 +159,14 @@ public class ProductController {
   @Operation(
       summary = "Supprimer un produit du catalogue - Réservé aux commerçants et administrateurs")
   public ResponseEntity<Void> deleteProduct(
-      @PathVariable Long storeId, @PathVariable Long productId, HttpServletRequest servletRequest) {
+      @PathVariable String storeId,
+      @PathVariable Long productId,
+      HttpServletRequest servletRequest) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
-    productService.deleteProduct(storeId, productId, authenticatedDbId, authenticatedRole);
+    productService.deleteProduct(resolvedStoreId, productId, authenticatedDbId, authenticatedRole);
     return ResponseEntity.noContent().build();
   }
 
@@ -165,16 +176,17 @@ public class ProductController {
       summary =
           "Ajuster le stock physique disponible (delta ou valeur absolue) - Réservé aux commerçants, admins et services internes (M2M)")
   public ResponseEntity<ProductResponse> updateStock(
-      @PathVariable Long storeId,
+      @PathVariable String storeId,
       @PathVariable Long productId,
       @Valid @RequestBody StockUpdateRequest request,
       HttpServletRequest servletRequest) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     ProductResponse response =
         productService.updateStock(
-            storeId, productId, request, authenticatedDbId, authenticatedRole);
+            resolvedStoreId, productId, request, authenticatedDbId, authenticatedRole);
     return ResponseEntity.ok(response);
   }
 
@@ -184,16 +196,17 @@ public class ProductController {
       summary =
           "Mettre à jour la photo d'un produit (upload multipart vers S3) - Réservé aux commerçants et administrateurs")
   public ResponseEntity<ProductResponse> updateProductImageMultipart(
-      @PathVariable Long storeId,
+      @PathVariable String storeId,
       @PathVariable Long productId,
       @RequestPart("image") MultipartFile image,
       HttpServletRequest servletRequest) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     ProductResponse response =
         productService.updateProductImage(
-            storeId, productId, image, authenticatedDbId, authenticatedRole);
+            resolvedStoreId, productId, image, authenticatedDbId, authenticatedRole);
     return ResponseEntity.ok(response);
   }
 
@@ -203,17 +216,18 @@ public class ProductController {
       summary =
           "Mettre à jour l'image d'un produit via URL JSON - Réservé aux commerçants et administrateurs")
   public ResponseEntity<ProductResponse> updateProductImageJson(
-      @PathVariable Long storeId,
+      @PathVariable String storeId,
       @PathVariable Long productId,
       @RequestBody Map<String, String> body,
       HttpServletRequest servletRequest) {
+    Long resolvedStoreId = parseOrResolveStoreId(storeId);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 
     String imageUrl = body != null ? body.get("imageUrl") : null;
     ProductResponse response =
         productService.updateProductImageUrl(
-            storeId, productId, imageUrl, authenticatedDbId, authenticatedRole);
+            resolvedStoreId, productId, imageUrl, authenticatedDbId, authenticatedRole);
     return ResponseEntity.ok(response);
   }
 

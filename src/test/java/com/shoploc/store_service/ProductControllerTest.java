@@ -46,6 +46,7 @@ class ProductControllerTest {
   @MockitoBean private ImageStorageService imageStorageService;
 
   private Store store;
+  private String storeUid;
 
   @BeforeEach
   void setUp() {
@@ -58,6 +59,7 @@ class ProductControllerTest {
                 "Alimentation",
                 "FR7630006000011234567890189",
                 100L));
+    storeUid = store.getUid().toString();
   }
 
   private MockHttpServletRequest createMockRequest(String role, Long dbId) {
@@ -77,7 +79,7 @@ class ProductControllerTest {
         new Product(
             store.getId(), "REF-B", "Poires Williams", "Bio", new BigDecimal("3.49"), null, 30));
 
-    ResponseEntity<List<ProductResponse>> response = productController.getProducts(store.getId());
+    ResponseEntity<List<ProductResponse>> response = productController.getProducts(storeUid);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).hasSize(2);
@@ -101,7 +103,7 @@ class ProductControllerTest {
                 10));
 
     ResponseEntity<ProductResponse> response =
-        productController.getProduct(store.getId(), product.getId());
+        productController.getProduct(storeUid, product.getId());
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -111,7 +113,8 @@ class ProductControllerTest {
   @Test
   @DisplayName("GET on non-existent store - Should throw StoreNotFoundException")
   void shouldThrowWhenStoreNotFound() {
-    assertThatThrownBy(() -> productController.getProducts(9999L))
+    String nonExistentUid = java.util.UUID.randomUUID().toString();
+    assertThatThrownBy(() -> productController.getProducts(nonExistentUid))
         .isInstanceOf(StoreNotFoundException.class);
   }
 
@@ -126,7 +129,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     ResponseEntity<ProductResponse> response =
-        productController.createProductJson(store.getId(), request, servletRequest);
+        productController.createProductJson(storeUid, request, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     assertThat(response.getBody()).isNotNull();
@@ -150,7 +153,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     ResponseEntity<ProductResponse> response =
-        productController.createProduct(store.getId(), request, image, servletRequest);
+        productController.createProduct(storeUid, request, image, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     assertThat(response.getBody()).isNotNull();
@@ -171,8 +174,7 @@ class ProductControllerTest {
             "REF-DOUBLE", "Autre article", "Desc", new BigDecimal("2.00"), null, 10);
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
-    assertThatThrownBy(
-            () -> productController.createProductJson(store.getId(), request, servletRequest))
+    assertThatThrownBy(() -> productController.createProductJson(storeUid, request, servletRequest))
         .isInstanceOf(ProductReferenceAlreadyExistsException.class);
   }
 
@@ -190,8 +192,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     ResponseEntity<ProductResponse> response =
-        productController.updateProductJson(
-            store.getId(), product.getId(), updateReq, servletRequest);
+        productController.updateProductJson(storeUid, product.getId(), updateReq, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -212,7 +213,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     ResponseEntity<Void> response =
-        productController.deleteProduct(store.getId(), product.getId(), servletRequest);
+        productController.deleteProduct(storeUid, product.getId(), servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     assertThat(productRepository.findById(product.getId())).isEmpty();
@@ -232,7 +233,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("SERVICE", null);
 
     ResponseEntity<ProductResponse> response =
-        productController.updateStock(store.getId(), product.getId(), stockReq, servletRequest);
+        productController.updateStock(storeUid, product.getId(), stockReq, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -252,7 +253,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     ResponseEntity<ProductResponse> response =
-        productController.updateStock(store.getId(), product.getId(), stockReq, servletRequest);
+        productController.updateStock(storeUid, product.getId(), stockReq, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody().getStockQuantity()).isEqualTo(45);
@@ -272,8 +273,7 @@ class ProductControllerTest {
 
     assertThatThrownBy(
             () ->
-                productController.updateStock(
-                    store.getId(), product.getId(), stockReq, servletRequest))
+                productController.updateStock(storeUid, product.getId(), stockReq, servletRequest))
         .isInstanceOf(InsufficientStockException.class);
   }
 
@@ -294,9 +294,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     assertThatThrownBy(
-            () ->
-                productController.createProduct(
-                    store.getId(), request, invalidFile, servletRequest))
+            () -> productController.createProduct(storeUid, request, invalidFile, servletRequest))
         .isInstanceOf(InvalidFileException.class)
         .hasMessageContaining("non supporté");
   }
@@ -318,8 +316,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
 
     assertThatThrownBy(
-            () ->
-                productController.createProduct(store.getId(), request, validImage, servletRequest))
+            () -> productController.createProduct(storeUid, request, validImage, servletRequest))
         .isInstanceOf(FileStorageException.class)
         .hasMessageContaining("MinIO");
   }
@@ -348,7 +345,7 @@ class ProductControllerTest {
     assertThatThrownBy(
             () ->
                 productController.updateProduct(
-                    store.getId(), product.getId(), request, validImage, servletRequest))
+                    storeUid, product.getId(), request, validImage, servletRequest))
         .isInstanceOf(FileStorageException.class)
         .hasMessageContaining("MinIO");
   }
@@ -371,8 +368,7 @@ class ProductControllerTest {
     when(imageStorageService.downloadImage("https://cdn.shoploc.fr/product-images/stream.png"))
         .thenReturn(Optional.of(new ImageResource(expectedBytes, "image/png")));
 
-    ResponseEntity<byte[]> response =
-        productController.getProductImage(store.getId(), product.getId());
+    ResponseEntity<byte[]> response = productController.getProductImage(storeUid, product.getId());
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isEqualTo(expectedBytes);
@@ -394,7 +390,7 @@ class ProductControllerTest {
                 null,
                 3));
 
-    assertThatThrownBy(() -> productController.getProductImage(store.getId(), product.getId()))
+    assertThatThrownBy(() -> productController.getProductImage(storeUid, product.getId()))
         .isInstanceOf(ProductImageNotFoundException.class);
   }
 
@@ -420,7 +416,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
     ResponseEntity<ProductResponse> response =
         productController.updateProductImageMultipart(
-            store.getId(), product.getId(), imageFile, servletRequest);
+            storeUid, product.getId(), imageFile, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody().getImageUrl())
@@ -448,7 +444,7 @@ class ProductControllerTest {
     MockHttpServletRequest servletRequest = createMockRequest("MERCHANT", 100L);
     ResponseEntity<ProductResponse> response =
         productController.updateProductImageJson(
-            store.getId(),
+            storeUid,
             product.getId(),
             Map.of("imageUrl", "https://cdn.shoploc.fr/product-images/custom.jpg"),
             servletRequest);
@@ -459,5 +455,63 @@ class ProductControllerTest {
 
     Product updated = productRepository.findById(product.getId()).orElseThrow();
     assertThat(updated.getImageUrl()).isEqualTo("https://cdn.shoploc.fr/product-images/custom.jpg");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{storeUid}/products - Should retrieve products using store UUID")
+  void shouldGetProductsByStoreUid() {
+    productRepository.save(
+        new Product(
+            store.getId(),
+            "REF-UID-PROD",
+            "Produit par UID",
+            "Description",
+            new BigDecimal("3.50"),
+            null,
+            12));
+
+    ResponseEntity<List<ProductResponse>> response =
+        productController.getProducts(store.getUid().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody()).extracting(ProductResponse::getName).contains("Produit par UID");
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{storeUid}/products/{productId} - Should retrieve product using store UUID")
+  void shouldGetProductByStoreUid() {
+    Product product =
+        productRepository.save(
+            new Product(
+                store.getId(),
+                "REF-UID-SINGLE",
+                "Produit Unique UID",
+                "Description",
+                new BigDecimal("4.20"),
+                null,
+                5));
+
+    ResponseEntity<ProductResponse> response =
+        productController.getProduct(store.getUid().toString(), product.getId());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getName()).isEqualTo("Produit Unique UID");
+  }
+
+  @Test
+  @DisplayName(
+      "Product endpoints should throw StoreNotFoundException when storeId is invalid or blank or numeric")
+  void shouldThrowWhenStoreIdIsBlankOrInvalid() {
+    assertThatThrownBy(() -> productController.getProducts((String) null))
+        .isInstanceOf(StoreNotFoundException.class);
+    assertThatThrownBy(() -> productController.getProducts("   "))
+        .isInstanceOf(StoreNotFoundException.class);
+    assertThatThrownBy(() -> productController.getProducts("invalid-store-uid-or-id"))
+        .isInstanceOf(StoreNotFoundException.class);
+    assertThatThrownBy(() -> productController.getProducts(store.getId().toString()))
+        .isInstanceOf(StoreNotFoundException.class);
   }
 }

@@ -4,6 +4,7 @@ import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.security.RequiresRole;
+import com.shoploc.store_service.storage.ImageResource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,7 +12,9 @@ import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,10 +47,12 @@ public class StoreController {
     return responseList;
   }
 
-  @GetMapping("/{storeId}")
-  @Operation(summary = "Récupère un commerce par son identifiant (accès public)")
-  public ResponseEntity<StoreResponse> getStoreById(@PathVariable Long storeId) {
-    Optional<Store> storeOptional = storeService.getStoreById(storeId);
+  @GetMapping("/{identifier}")
+  @Operation(
+      summary =
+          "Récupère un commerce par son uid UUID (accès public - ID technique numérique refusé)")
+  public ResponseEntity<StoreResponse> getStoreById(@PathVariable String identifier) {
+    Optional<Store> storeOptional = resolveStore(identifier);
     if (storeOptional.isEmpty()) {
       return ResponseEntity.notFound().build();
     }
@@ -57,7 +62,32 @@ public class StoreController {
     return ResponseEntity.ok(response);
   }
 
-  @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+  @GetMapping("/{identifier}/image")
+  @Operation(
+      summary =
+          "Récupérer l'image binaire de la devanture d'un commerce hébergée sur S3 (avec Cache-Control - Accès public)")
+  public ResponseEntity<byte[]> getStoreImage(@PathVariable String identifier) {
+    ImageResource resource = storeService.getStoreImage(identifier);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(resource.getContentType()))
+        .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+        .body(resource.getBytes());
+  }
+
+  private Optional<Store> resolveStore(String identifier) {
+    if (identifier == null || identifier.isBlank()) {
+      return Optional.empty();
+    }
+    String trimmed = identifier.trim();
+    try {
+      java.util.UUID uid = java.util.UUID.fromString(trimmed);
+      return storeService.getStoreByUid(uid);
+    } catch (IllegalArgumentException e) {
+      return Optional.empty();
+    }
+  }
+
+  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
       summary =
@@ -72,7 +102,7 @@ public class StoreController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
-  @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+  @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
       summary =

@@ -180,4 +180,110 @@ class StoreControllerTest {
     assertThatThrownBy(() -> storeController.createStore(request, (HttpServletRequest) null))
         .isInstanceOf(UserServiceUnavailableException.class);
   }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{identifier} - Should reject technical numeric ID with 404 Not Found")
+  void shouldRejectNumericStoreId() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Superette Centrale",
+                "8 rue Principale",
+                "https://img.com/superette.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                501L));
+
+    ResponseEntity<StoreResponse> response = storeController.getStoreById(store.getId().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier} - Should retrieve store by UUID uid")
+  void shouldGetStoreByUid() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Superette UID",
+                "9 rue Principale",
+                "https://img.com/superette-uid.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                502L));
+
+    ResponseEntity<StoreResponse> response =
+        storeController.getStoreById(store.getUid().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getId()).isEqualTo(store.getId());
+    assertThat(response.getBody().getUid()).isEqualTo(store.getUid());
+    assertThat(response.getBody().getName()).isEqualTo("Superette UID");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier} - Should return 404 when store not found by uid")
+  void shouldReturnNotFoundWhenStoreNotFoundByUid() {
+    java.util.UUID randomUid = java.util.UUID.randomUUID();
+
+    ResponseEntity<StoreResponse> response = storeController.getStoreById(randomUid.toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{identifier} - Should return 404 when identifier is invalid or blank")
+  void shouldReturnNotFoundWhenIdentifierIsInvalidOrBlank() {
+    assertThat(storeController.getStoreById("invalid-id-or-uuid").getStatusCode())
+        .isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(storeController.getStoreById("   ").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/{identifier}/image - Should stream image successfully")
+  void shouldGetStoreImageSuccessfully() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Superette Image",
+                "15 rue Principale",
+                "https://cdn.shoploc.fr/store-images/superette.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                503L));
+
+    byte[] expectedBytes = new byte[] {0x11, 0x22, 0x33};
+    when(imageStorageService.downloadImage("https://cdn.shoploc.fr/store-images/superette.jpg"))
+        .thenReturn(
+            java.util.Optional.of(
+                new com.shoploc.store_service.storage.ImageResource(expectedBytes, "image/jpeg")));
+
+    ResponseEntity<byte[]> response = storeController.getStoreImage(store.getUid().toString());
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isEqualTo(expectedBytes);
+    assertThat(response.getHeaders().getContentType().toString()).isEqualTo("image/jpeg");
+    assertThat(response.getHeaders().getCacheControl()).contains("max-age=86400");
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{identifier}/image - Should throw StoreImageNotFoundException when image absent")
+  void shouldThrowWhenStoreHasNoImage() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Superette Sans Image",
+                "16 rue Principale",
+                null,
+                "Alimentation",
+                "FR7630006000011234567890189",
+                504L));
+
+    assertThatThrownBy(() -> storeController.getStoreImage(store.getUid().toString()))
+        .isInstanceOf(com.shoploc.store_service.exception.StoreImageNotFoundException.class);
+  }
 }

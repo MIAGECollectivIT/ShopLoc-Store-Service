@@ -2,11 +2,16 @@ package com.shoploc.store_service;
 
 import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.exception.StoreImageNotFoundException;
+import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.exception.UserNotFoundException;
+import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -33,8 +38,44 @@ public class StoreService {
     return storeRepository.findById(id);
   }
 
+  public Optional<Store> getStoreByUid(UUID uid) {
+    if (uid == null) {
+      return Optional.empty();
+    }
+    return storeRepository.findByUid(uid);
+  }
+
+  public Optional<Store> getStoreByIdOrUid(String identifier) {
+    if (identifier == null || identifier.isBlank()) {
+      return Optional.empty();
+    }
+    String trimmed = identifier.trim();
+    try {
+      UUID uid = UUID.fromString(trimmed);
+      return storeRepository.findByUid(uid);
+    } catch (IllegalArgumentException e) {
+      return Optional.empty();
+    }
+  }
+
   public List<Store> getStoresByUserId(Long userId) {
     return storeRepository.findByUserId(userId);
+  }
+
+  @Transactional(readOnly = true)
+  public ImageResource getStoreImage(String identifier) {
+    Store store =
+        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+
+    String publicIdentifier = store.getUid() != null ? store.getUid().toString() : identifier;
+
+    if (store.getUrl() == null || store.getUrl().isBlank()) {
+      throw new StoreImageNotFoundException(publicIdentifier);
+    }
+
+    return imageStorageService
+        .downloadImage(store.getUrl())
+        .orElseThrow(() -> new StoreImageNotFoundException(publicIdentifier));
   }
 
   public Store createStore(StoreCreateRequest request, MultipartFile image) {

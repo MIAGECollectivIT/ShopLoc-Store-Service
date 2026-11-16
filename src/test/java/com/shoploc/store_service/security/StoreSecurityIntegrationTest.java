@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -363,8 +365,9 @@ class StoreSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{id} without JWT -> should return 200 OK (public detail consultation)")
+      "GET /v1/stores/{uid} without JWT -> should return 200 OK without exposing numeric database ID")
   void shouldAllowStoreDetailConsultationWithoutToken() throws Exception {
+    UUID uid = UUID.randomUUID();
     Store store =
         new Store(
             "Boutique Publique",
@@ -374,11 +377,47 @@ class StoreSecurityIntegrationTest {
             "FR7630006000011234567890189",
             1L);
     ReflectionTestUtils.setField(store, "id", 1L);
-    when(storeService.getStoreById(1L)).thenReturn(Optional.of(store));
+    ReflectionTestUtils.setField(store, "uid", uid);
+    when(storeService.getStoreByUid(uid)).thenReturn(Optional.of(store));
 
     mockMvc
-        .perform(get("/v1/stores/1"))
+        .perform(get("/v1/stores/" + uid))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.name").value("Boutique Publique"));
+        .andExpect(jsonPath("$.name").value("Boutique Publique"))
+        .andExpect(jsonPath("$.uid").value(uid.toString()))
+        .andExpect(jsonPath("$.id").doesNotExist());
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{id} with numeric ID -> should return 404 Not Found (security hardening: reject numeric DB IDs)")
+  void shouldRejectNumericStoreId() throws Exception {
+    mockMvc.perform(get("/v1/stores/1")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{uid}/image without JWT -> should return 200 OK (public storefront image)")
+  void shouldAllowStoreImageConsultationWithoutToken() throws Exception {
+    UUID uid = UUID.randomUUID();
+    byte[] imageBytes = new byte[] {0x11, 0x22};
+    when(storeService.getStoreImage(uid.toString()))
+        .thenReturn(new com.shoploc.store_service.storage.ImageResource(imageBytes, "image/jpeg"));
+
+    mockMvc
+        .perform(get("/v1/stores/" + uid + "/image"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType("image/jpeg"))
+        .andExpect(header().string("Cache-Control", "public, max-age=86400"));
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{id}/image with numeric ID -> should return 404 Not Found (security hardening: reject numeric DB IDs)")
+  void shouldRejectNumericStoreIdOnImageEndpoint() throws Exception {
+    when(storeService.getStoreImage("1"))
+        .thenThrow(new com.shoploc.store_service.exception.StoreNotFoundException("1"));
+
+    mockMvc.perform(get("/v1/stores/1/image")).andExpect(status().isNotFound());
   }
 }

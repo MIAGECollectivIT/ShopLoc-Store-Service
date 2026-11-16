@@ -290,4 +290,137 @@ class StoreControllerTest {
     assertThatThrownBy(() -> storeController.getStoreImage(store.getUid().toString()))
         .isInstanceOf(com.shoploc.store_service.exception.StoreImageNotFoundException.class);
   }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{identifier} - Should partially update store and absence info")
+  void shouldPartiallyUpdateStoreAndAbsence() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Initiale",
+                "10 rue Ancienne",
+                "https://img.com/initial.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                601L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(601L);
+
+    com.shoploc.store_service.dto.StorePatchRequest patchRequest =
+        new com.shoploc.store_service.dto.StorePatchRequest();
+    patchRequest.setAddress("25 rue Nouvelle");
+    patchRequest.setOpeningHours("Lun-Ven: 09h-19h");
+    java.time.Instant start = java.time.Instant.now().plusSeconds(3600);
+    java.time.Instant end = start.plusSeconds(86400 * 5);
+    patchRequest.setAbsenceStartDate(start);
+    patchRequest.setAbsenceEndDate(end);
+    patchRequest.setAbsenceReason("Conges annuels");
+
+    ResponseEntity<StoreResponse> response =
+        storeController.patchStore(store.getUid().toString(), patchRequest, servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    StoreResponse updated = response.getBody();
+    assertThat(updated).isNotNull();
+    assertThat(updated.getName()).isEqualTo("Boutique Initiale"); // unchanged
+    assertThat(updated.getAddress()).isEqualTo("25 rue Nouvelle"); // updated
+    assertThat(updated.getOpeningHours()).isEqualTo("Lun-Ven: 09h-19h");
+    assertThat(updated.getAbsenceReason()).isEqualTo("Conges annuels");
+    assertThat(updated.getAbsenceDurationDays()).isGreaterThanOrEqualTo(4L);
+  }
+
+  @Test
+  @DisplayName(
+      "PATCH /v1/stores/{identifier} - Should throw IllegalArgumentException when end date before start date")
+  void shouldRejectAbsenceEndDateBeforeStartDate() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Dates",
+                "12 rue Test",
+                "https://img.com/test.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                602L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(602L);
+
+    com.shoploc.store_service.dto.StorePatchRequest patchRequest =
+        new com.shoploc.store_service.dto.StorePatchRequest();
+    java.time.Instant start = java.time.Instant.now().plusSeconds(86400);
+    java.time.Instant end = start.minusSeconds(3600);
+    patchRequest.setAbsenceStartDate(start);
+    patchRequest.setAbsenceEndDate(end);
+
+    assertThatThrownBy(
+            () ->
+                storeController.patchStore(store.getUid().toString(), patchRequest, servletRequest))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("La date de fin d'absence ne peut pas être antérieure");
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{identifier} - Should throw AccessDeniedException on IDOR attempt")
+  void shouldRejectPatchWhenNotOwner() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Autre",
+                "14 rue Test",
+                "https://img.com/test.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                603L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(999L); // different user
+
+    com.shoploc.store_service.dto.StorePatchRequest patchRequest =
+        new com.shoploc.store_service.dto.StorePatchRequest();
+    patchRequest.setName("Piratage");
+
+    assertThatThrownBy(
+            () ->
+                storeController.patchStore(store.getUid().toString(), patchRequest, servletRequest))
+        .isInstanceOf(com.shoploc.store_service.exception.AccessDeniedException.class);
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{identifier}/image - Should update store image on S3")
+  void shouldUpdateStoreImage() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Photo",
+                "20 rue Test",
+                "https://cdn.shoploc.fr/store-images/old.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                604L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(604L);
+
+    org.springframework.web.multipart.MultipartFile imageFile =
+        new org.springframework.mock.web.MockMultipartFile(
+            "image", "nouvelle.jpg", "image/jpeg", new byte[] {0x10, 0x20});
+    when(imageStorageService.uploadStoreImage(imageFile))
+        .thenReturn("https://cdn.shoploc.fr/store-images/new.jpg");
+
+    ResponseEntity<StoreResponse> response =
+        storeController.updateStoreImage(store.getUid().toString(), imageFile, servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getUrl())
+        .isEqualTo("https://cdn.shoploc.fr/store-images/new.jpg");
+    verify(imageStorageService).deleteImage("https://cdn.shoploc.fr/store-images/old.jpg");
+    verify(imageStorageService).uploadStoreImage(imageFile);
+  }
 }

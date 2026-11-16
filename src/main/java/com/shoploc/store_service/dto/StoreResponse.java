@@ -1,6 +1,7 @@
 package com.shoploc.store_service.dto;
 
 import com.shoploc.store_service.Store;
+import java.time.Instant;
 import java.util.UUID;
 
 public class StoreResponse {
@@ -13,6 +14,12 @@ public class StoreResponse {
   private String category;
   private String rib;
   private Long userId;
+  private String openingHours;
+  private Instant absenceStartDate;
+  private Instant absenceEndDate;
+  private String absenceReason;
+  private Boolean isCurrentlyAbsent;
+  private Long absenceDurationDays;
 
   public StoreResponse() {}
 
@@ -45,15 +52,23 @@ public class StoreResponse {
     if (store == null) {
       return null;
     }
-    return new StoreResponse(
-        store.getId(),
-        store.getUid(),
-        store.getName(),
-        store.getAddress(),
-        store.getUrl(),
-        store.getCategory(),
-        store.getRib(),
-        store.getUserId());
+    StoreResponse response =
+        new StoreResponse(
+            store.getId(),
+            store.getUid(),
+            store.getName(),
+            store.getAddress(),
+            store.getUrl(),
+            store.getCategory(),
+            store.getRib(),
+            store.getUserId());
+    response.setOpeningHours(store.getOpeningHours());
+    response.setAbsenceStartDate(store.getAbsenceStartDate());
+    response.setAbsenceEndDate(store.getAbsenceEndDate());
+    response.setAbsenceReason(store.getAbsenceReason());
+    response.setIsCurrentlyAbsent(store.isCurrentlyAbsent());
+    response.setAbsenceDurationDays(store.getAbsenceDurationDays());
+    return response;
   }
 
   public Long getId() {
@@ -118,5 +133,53 @@ public class StoreResponse {
 
   public void setUserId(Long userId) {
     this.userId = userId;
+  }
+
+  public String getOpeningHours() {
+    return openingHours;
+  }
+
+  public void setOpeningHours(String openingHours) {
+    this.openingHours = openingHours;
+  }
+
+  public Instant getAbsenceStartDate() {
+    return absenceStartDate;
+  }
+
+  public void setAbsenceStartDate(Instant absenceStartDate) {
+    this.absenceStartDate = absenceStartDate;
+  }
+
+  public Instant getAbsenceEndDate() {
+    return absenceEndDate;
+  }
+
+  public void setAbsenceEndDate(Instant absenceEndDate) {
+    this.absenceEndDate = absenceEndDate;
+  }
+
+  public String getAbsenceReason() {
+    return absenceReason;
+  }
+
+  public void setAbsenceReason(String absenceReason) {
+    this.absenceReason = absenceReason;
+  }
+
+  public Boolean getIsCurrentlyAbsent() {
+    return isCurrentlyAbsent;
+  }
+
+  public void setIsCurrentlyAbsent(Boolean isCurrentlyAbsent) {
+    this.isCurrentlyAbsent = isCurrentlyAbsent;
+  }
+
+  public Long getAbsenceDurationDays() {
+    return absenceDurationDays;
+  }
+
+  public void setAbsenceDurationDays(Long absenceDurationDays) {
+    this.absenceDurationDays = absenceDurationDays;
   }
 }

@@ -2,11 +2,14 @@ package com.shoploc.store_service;
 
 import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.dto.StorePatchRequest;
+import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.exception.StoreImageNotFoundException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.exception.UserNotFoundException;
 import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
+import com.shoploc.store_service.validation.RibIbanHelper;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -105,5 +108,86 @@ public class StoreService {
 
   public Store createStore(StoreCreateRequest request) {
     return createStore(request, null);
+  }
+
+  public Store patchStore(
+      String identifier, StorePatchRequest request, Long authenticatedUserId, String userRole) {
+    Store store =
+        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+
+    verifyStoreOwnership(store, authenticatedUserId, userRole);
+
+    if (request.getName() != null && !request.getName().isBlank()) {
+      store.setName(request.getName().trim());
+    }
+    if (request.getAddress() != null && !request.getAddress().isBlank()) {
+      store.setAddress(request.getAddress().trim());
+    }
+    if (request.getCategory() != null && !request.getCategory().isBlank()) {
+      store.setCategory(request.getCategory().trim());
+    }
+    if (request.getRib() != null && !request.getRib().isBlank()) {
+      String cleanedRib = RibIbanHelper.clean(request.getRib());
+      if (!RibIbanHelper.isValidRibOrIban(cleanedRib)) {
+        throw new IllegalArgumentException(
+            "Le format ou la clé algorithmique du RIB/IBAN est invalide");
+      }
+      store.setRib(cleanedRib);
+    }
+    if (request.getUrl() != null) {
+      store.setUrl(request.getUrl().trim());
+    }
+    if (request.getOpeningHours() != null) {
+      store.setOpeningHours(request.getOpeningHours().trim());
+    }
+    if (request.getAbsenceStartDate() != null) {
+      store.setAbsenceStartDate(request.getAbsenceStartDate());
+    }
+    if (request.getAbsenceEndDate() != null) {
+      store.setAbsenceEndDate(request.getAbsenceEndDate());
+    }
+    if (request.getAbsenceReason() != null) {
+      store.setAbsenceReason(request.getAbsenceReason().trim());
+    }
+
+    if (store.getAbsenceStartDate() != null
+        && store.getAbsenceEndDate() != null
+        && store.getAbsenceEndDate().isBefore(store.getAbsenceStartDate())) {
+      throw new IllegalArgumentException(
+          "La date de fin d'absence ne peut pas être antérieure à la date de début");
+    }
+
+    return storeRepository.save(store);
+  }
+
+  public Store updateStoreImage(
+      String identifier, MultipartFile image, Long authenticatedUserId, String userRole) {
+    Store store =
+        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+
+    verifyStoreOwnership(store, authenticatedUserId, userRole);
+
+    if (image == null || image.isEmpty()) {
+      throw new IllegalArgumentException("Le fichier image est obligatoire");
+    }
+
+    if (store.getUrl() != null && !store.getUrl().isBlank()) {
+      imageStorageService.deleteImage(store.getUrl());
+    }
+
+    String imageUrl = imageStorageService.uploadStoreImage(image);
+    store.setUrl(imageUrl);
+
+    return storeRepository.save(store);
+  }
+
+  private void verifyStoreOwnership(Store store, Long authenticatedUserId, String userRole) {
+    if ("ADMIN".equalsIgnoreCase(userRole)) {
+      return;
+    }
+    if (authenticatedUserId == null || !authenticatedUserId.equals(store.getUserId())) {
+      throw new AccessDeniedException(
+          "Accès refusé : vous n'avez pas l'autorisation de modifier ce commerce");
+    }
   }
 }

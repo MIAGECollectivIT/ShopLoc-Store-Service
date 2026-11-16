@@ -1,6 +1,7 @@
 package com.shoploc.store_service;
 
 import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreResponse;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.security.RequiresRole;
@@ -12,6 +13,7 @@ import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -49,8 +51,7 @@ public class StoreController {
 
   @GetMapping("/{identifier}")
   @Operation(
-      summary =
-          "Récupère un commerce par son uid UUID (accès public - ID technique numérique refusé)")
+      summary = "Récupère un commerce par son uid UUID ou son id numérique de repli (accès public)")
   public ResponseEntity<StoreResponse> getStoreById(@PathVariable String identifier) {
     Optional<Store> storeOptional = resolveStore(identifier);
     if (storeOptional.isEmpty()) {
@@ -80,7 +81,7 @@ public class StoreController {
     }
     String trimmed = identifier.trim();
     try {
-      java.util.UUID uid = java.util.UUID.fromString(trimmed);
+      UUID uid = UUID.fromString(trimmed);
       return storeService.getStoreByUid(uid);
     } catch (IllegalArgumentException e) {
       try {
@@ -120,20 +121,61 @@ public class StoreController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
+  @PatchMapping("/{identifier}")
+  @RequiresRole({"ADMIN", "MERCHANT"})
+  @Operation(
+      summary =
+          "Mise à jour partielle des informations du commerce (SLE-54, SLE-245) - Réservé aux administrateurs et commerçants propriétaires")
+  public ResponseEntity<StoreResponse> patchStore(
+      @PathVariable String identifier,
+      @Valid @RequestBody StorePatchRequest request,
+      HttpServletRequest servletRequest) {
+    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    String userRole = extractAuthenticatedUserRole(servletRequest);
+    Store updatedStore =
+        storeService.patchStore(identifier, request, authenticatedUserId, userRole);
+    return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
+  }
+
+  @PatchMapping(value = "/{identifier}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @RequiresRole({"ADMIN", "MERCHANT"})
+  @Operation(
+      summary =
+          "Mettre à jour la photo de vitrine du commerce sur S3 (SLE-54, SLE-246) - Réservé aux administrateurs et commerçants propriétaires")
+  public ResponseEntity<StoreResponse> updateStoreImage(
+      @PathVariable String identifier,
+      @RequestPart("image") MultipartFile image,
+      HttpServletRequest servletRequest) {
+    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    String userRole = extractAuthenticatedUserRole(servletRequest);
+    Store updatedStore =
+        storeService.updateStoreImage(identifier, image, authenticatedUserId, userRole);
+    return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
+  }
+
+  private Long extractAuthenticatedUserId(HttpServletRequest servletRequest) {
+    if (servletRequest == null) {
+      return null;
+    }
+    Object dbIdObj = servletRequest.getAttribute("authenticatedUserDbId");
+    if (dbIdObj instanceof Long l) {
+      return l;
+    } else if (dbIdObj instanceof Number n) {
+      return n.longValue();
+    }
+    return null;
+  }
+
+  private String extractAuthenticatedUserRole(HttpServletRequest servletRequest) {
+    return servletRequest != null
+        ? (String) servletRequest.getAttribute("authenticatedUserRole")
+        : null;
+  }
+
   private void resolveAndValidateUserId(
       StoreCreateRequest request, HttpServletRequest servletRequest) {
-    String role =
-        servletRequest != null
-            ? (String) servletRequest.getAttribute("authenticatedUserRole")
-            : null;
-    Object dbIdObj =
-        servletRequest != null ? servletRequest.getAttribute("authenticatedUserDbId") : null;
-    Long authenticatedDbId = null;
-    if (dbIdObj instanceof Long l) {
-      authenticatedDbId = l;
-    } else if (dbIdObj instanceof Number n) {
-      authenticatedDbId = n.longValue();
-    }
+    String role = extractAuthenticatedUserRole(servletRequest);
+    Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
 
     if ("MERCHANT".equalsIgnoreCase(role)) {
       // A merchant can only create a store for their own account (IDOR prevention)

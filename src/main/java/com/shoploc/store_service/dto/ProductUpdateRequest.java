@@ -29,6 +29,9 @@ public class ProductUpdateRequest {
   @Min(value = 0, message = "Le stock ne peut pas être négatif")
   private Integer stockQuantity;
 
+  @Min(value = 0, message = "Le seuil d'alerte ne peut pas être négatif")
+  private Integer alertThreshold;
+
   public ProductUpdateRequest() {}
 
   public ProductUpdateRequest(
@@ -38,12 +41,24 @@ public class ProductUpdateRequest {
       BigDecimal price,
       String imageUrl,
       Integer stockQuantity) {
+    this(reference, name, description, price, imageUrl, stockQuantity, 5);
+  }
+
+  public ProductUpdateRequest(
+      String reference,
+      String name,
+      String description,
+      BigDecimal price,
+      String imageUrl,
+      Integer stockQuantity,
+      Integer alertThreshold) {
     this.reference = reference;
     this.name = name;
     this.description = description;
     this.price = price;
     this.imageUrl = imageUrl;
     this.stockQuantity = stockQuantity;
+    this.alertThreshold = alertThreshold != null ? alertThreshold : 5;
   }
 
   public String getReference() {
@@ -92,5 +107,13 @@ public class ProductUpdateRequest {
 
   public void setStockQuantity(Integer stockQuantity) {
     this.stockQuantity = stockQuantity;
+  }
+
+  public Integer getAlertThreshold() {
+    return alertThreshold;
+  }
+
+  public void setAlertThreshold(Integer alertThreshold) {
+    this.alertThreshold = alertThreshold;
   }
 }

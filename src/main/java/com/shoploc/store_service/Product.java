@@ -46,6 +46,9 @@ public class Product {
   @Column(name = "stock_quantity", nullable = false)
   private Integer stockQuantity;
 
+  @Column(name = "alert_threshold", nullable = false)
+  private Integer alertThreshold;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -62,6 +65,18 @@ public class Product {
       BigDecimal price,
       String imageUrl,
       Integer stockQuantity) {
+    this(storeId, reference, name, description, price, imageUrl, stockQuantity, 5);
+  }
+
+  public Product(
+      Long storeId,
+      String reference,
+      String name,
+      String description,
+      BigDecimal price,
+      String imageUrl,
+      Integer stockQuantity,
+      Integer alertThreshold) {
     this.storeId = storeId;
     this.reference = reference;
     this.name = name;
@@ -69,6 +84,7 @@ public class Product {
     this.price = price;
     this.imageUrl = imageUrl;
     this.stockQuantity = stockQuantity != null ? stockQuantity : 0;
+    this.alertThreshold = alertThreshold != null ? alertThreshold : 5;
   }
 
   @PrePersist
@@ -78,6 +94,9 @@ public class Product {
     this.updatedAt = now;
     if (this.stockQuantity == null) {
       this.stockQuantity = 0;
+    }
+    if (this.alertThreshold == null) {
+      this.alertThreshold = 5;
     }
   }
 
@@ -148,6 +167,18 @@ public class Product {
 
   public void setStockQuantity(Integer stockQuantity) {
     this.stockQuantity = stockQuantity;
+  }
+
+  public Integer getAlertThreshold() {
+    return alertThreshold;
+  }
+
+  public void setAlertThreshold(Integer alertThreshold) {
+    this.alertThreshold = alertThreshold;
+  }
+
+  public boolean isAvailable() {
+    return stockQuantity != null && stockQuantity > 0;
   }
 
   public Instant getCreatedAt() {

@@ -14,6 +14,8 @@ public class ProductResponse {
   private BigDecimal price;
   private String imageUrl;
   private Integer stockQuantity;
+  private Integer alertThreshold;
+  private Boolean isAvailable;
   private Instant createdAt;
   private Instant updatedAt;
 
@@ -30,6 +32,34 @@ public class ProductResponse {
       Integer stockQuantity,
       Instant createdAt,
       Instant updatedAt) {
+    this(
+        id,
+        storeId,
+        reference,
+        name,
+        description,
+        price,
+        imageUrl,
+        stockQuantity,
+        5,
+        stockQuantity != null && stockQuantity > 0,
+        createdAt,
+        updatedAt);
+  }
+
+  public ProductResponse(
+      Long id,
+      Long storeId,
+      String reference,
+      String name,
+      String description,
+      BigDecimal price,
+      String imageUrl,
+      Integer stockQuantity,
+      Integer alertThreshold,
+      Boolean isAvailable,
+      Instant createdAt,
+      Instant updatedAt) {
     this.id = id;
     this.storeId = storeId;
     this.reference = reference;
@@ -38,6 +68,9 @@ public class ProductResponse {
     this.price = price;
     this.imageUrl = imageUrl;
     this.stockQuantity = stockQuantity;
+    this.alertThreshold = alertThreshold != null ? alertThreshold : 5;
+    this.isAvailable =
+        isAvailable != null ? isAvailable : (stockQuantity != null && stockQuantity > 0);
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -55,6 +88,8 @@ public class ProductResponse {
         product.getPrice(),
         product.getImageUrl(),
         product.getStockQuantity(),
+        product.getAlertThreshold() != null ? product.getAlertThreshold() : 5,
+        product.isAvailable(),
         product.getCreatedAt(),
         product.getUpdatedAt());
   }
@@ -121,6 +156,22 @@ public class ProductResponse {
 
   public void setStockQuantity(Integer stockQuantity) {
     this.stockQuantity = stockQuantity;
+  }
+
+  public Integer getAlertThreshold() {
+    return alertThreshold;
+  }
+
+  public void setAlertThreshold(Integer alertThreshold) {
+    this.alertThreshold = alertThreshold;
+  }
+
+  public Boolean getIsAvailable() {
+    return isAvailable;
+  }
+
+  public void setIsAvailable(Boolean isAvailable) {
+    this.isAvailable = isAvailable;
   }
 
   public Instant getCreatedAt() {

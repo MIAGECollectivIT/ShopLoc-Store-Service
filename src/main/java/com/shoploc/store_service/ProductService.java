@@ -331,10 +331,6 @@ public class ProductService {
   }
 
   public Long resolveStoreId(String storeIdentifier) {
-    return resolveStoreId(storeIdentifier, false);
-  }
-
-  public Long resolveStoreId(String storeIdentifier, boolean allowNumericId) {
     if (storeIdentifier == null || storeIdentifier.isBlank()) {
       throw new StoreNotFoundException(storeIdentifier);
     }
@@ -346,17 +342,6 @@ public class ProductService {
           .map(Store::getId)
           .orElseThrow(() -> new StoreNotFoundException(storeIdentifier));
     } catch (IllegalArgumentException e) {
-      if (allowNumericId) {
-        try {
-          Long numericId = Long.parseLong(trimmed);
-          return storeRepository
-              .findById(numericId)
-              .map(Store::getId)
-              .orElseThrow(() -> new StoreNotFoundException(storeIdentifier));
-        } catch (NumberFormatException nfe) {
-          throw new StoreNotFoundException(storeIdentifier);
-        }
-      }
       throw new StoreNotFoundException(storeIdentifier);
     }
   }

@@ -39,6 +39,7 @@ class ProductValidationExceptionHandlerTest {
   @InjectMocks private ProductController productController;
 
   private final GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
+  private static final String STORE_UID = "11111111-1111-1111-1111-111111111111";
 
   @BeforeEach
   void setUp() {
@@ -53,7 +54,9 @@ class ProductValidationExceptionHandlerTest {
   void shouldReturnDetailedFieldErrorsOnEmptyProductPost() throws Exception {
     mockMvc
         .perform(
-            post("/v1/stores/1/products").contentType(MediaType.APPLICATION_JSON).content("{}"))
+            post("/v1/stores/" + STORE_UID + "/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.error").value("Bad Request"))
@@ -73,7 +76,7 @@ class ProductValidationExceptionHandlerTest {
 
     mockMvc
         .perform(
-            post("/v1/stores/1/products")
+            post("/v1/stores/" + STORE_UID + "/products")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)))
         .andExpect(status().isBadRequest())
@@ -92,7 +95,7 @@ class ProductValidationExceptionHandlerTest {
 
     mockMvc
         .perform(
-            put("/v1/stores/1/products/10")
+            put("/v1/stores/" + STORE_UID + "/products/10")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)))
         .andExpect(status().isBadRequest())
@@ -113,7 +116,7 @@ class ProductValidationExceptionHandlerTest {
 
     mockMvc
         .perform(
-            patch("/v1/stores/1/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidStock)))
         .andExpect(status().isBadRequest())
@@ -127,14 +130,14 @@ class ProductValidationExceptionHandlerTest {
   @DisplayName("GlobalExceptionHandler: direct verification of catalog domain exception responses")
   void shouldVerifyDirectHandlerResponses() {
     ResponseEntity<Map<String, Object>> notFoundResp =
-        exceptionHandler.handleNotFoundExceptions(new ProductNotFoundException(1L, 99L));
+        exceptionHandler.handleNotFoundExceptions(new ProductNotFoundException(99L));
     assertThat(notFoundResp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(notFoundResp.getBody().get("message"))
-        .isEqualTo("Produit 99 introuvable dans le commerce 1");
+        .isEqualTo("Produit 99 introuvable dans le commerce");
 
     ResponseEntity<Map<String, Object>> conflictResp =
         exceptionHandler.handleProductReferenceConflict(
-            new ProductReferenceAlreadyExistsException("REF-01", 1L));
+            new ProductReferenceAlreadyExistsException("REF-01"));
     assertThat(conflictResp.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     assertThat(conflictResp.getBody().get("message").toString()).contains("REF-01");
 

@@ -128,7 +128,7 @@ class ProductLifecycleE2EIntegrationTest {
     MvcResult createResult =
         mockMvc
             .perform(
-                post("/v1/stores/" + store.getId() + "/products")
+                post("/v1/stores/" + store.getUid() + "/products")
                     .header("Authorization", "Bearer " + merchantToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(createRequest)))
@@ -143,7 +143,7 @@ class ProductLifecycleE2EIntegrationTest {
 
     // 2. The client browses the public storefront (without token)
     mockMvc
-        .perform(get("/v1/stores/" + store.getId() + "/products"))
+        .perform(get("/v1/stores/" + store.getUid() + "/products"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1))
         .andExpect(jsonPath("$[0].id").value(productId))
@@ -152,7 +152,7 @@ class ProductLifecycleE2EIntegrationTest {
     // 3. The client views product details
     mockMvc
         .perform(
-            get("/v1/stores/" + store.getId() + "/products/" + productId)
+            get("/v1/stores/" + store.getUid() + "/products/" + productId)
                 .header("Authorization", "Bearer " + clientToken))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Éclair au Chocolat"))
@@ -162,7 +162,7 @@ class ProductLifecycleE2EIntegrationTest {
     StockUpdateRequest order1 = StockUpdateRequest.ofDelta(-3);
     mockMvc
         .perform(
-            patch("/v1/stores/" + store.getId() + "/products/" + productId + "/stock")
+            patch("/v1/stores/" + store.getUid() + "/products/" + productId + "/stock")
                 .header("Authorization", "Bearer " + serviceToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(order1)))
@@ -173,7 +173,7 @@ class ProductLifecycleE2EIntegrationTest {
     StockUpdateRequest order2 = StockUpdateRequest.ofDelta(-7);
     mockMvc
         .perform(
-            patch("/v1/stores/" + store.getId() + "/products/" + productId + "/stock")
+            patch("/v1/stores/" + store.getUid() + "/products/" + productId + "/stock")
                 .header("Authorization", "Bearer " + serviceToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(order2)))
@@ -185,7 +185,7 @@ class ProductLifecycleE2EIntegrationTest {
     StockUpdateRequest order3 = StockUpdateRequest.ofDelta(-1);
     mockMvc
         .perform(
-            patch("/v1/stores/" + store.getId() + "/products/" + productId + "/stock")
+            patch("/v1/stores/" + store.getUid() + "/products/" + productId + "/stock")
                 .header("Authorization", "Bearer " + serviceToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(order3)))
@@ -202,7 +202,7 @@ class ProductLifecycleE2EIntegrationTest {
     StockUpdateRequest restock = StockUpdateRequest.ofDelta(15);
     mockMvc
         .perform(
-            patch("/v1/stores/" + store.getId() + "/products/" + productId + "/stock")
+            patch("/v1/stores/" + store.getUid() + "/products/" + productId + "/stock")
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(restock)))
@@ -221,7 +221,7 @@ class ProductLifecycleE2EIntegrationTest {
 
     mockMvc
         .perform(
-            put("/v1/stores/" + store.getId() + "/products/" + productId)
+            put("/v1/stores/" + store.getUid() + "/products/" + productId)
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateReq)))
@@ -232,19 +232,19 @@ class ProductLifecycleE2EIntegrationTest {
     // 9. The merchant deletes the item from the catalog
     mockMvc
         .perform(
-            delete("/v1/stores/" + store.getId() + "/products/" + productId)
+            delete("/v1/stores/" + store.getUid() + "/products/" + productId)
                 .header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isNoContent());
 
     // 10. Accessing the deleted item must return 404 Not Found
     mockMvc
-        .perform(get("/v1/stores/" + store.getId() + "/products/" + productId))
+        .perform(get("/v1/stores/" + store.getUid() + "/products/" + productId))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.status").value(404));
 
     // And the store catalog must be empty
     mockMvc
-        .perform(get("/v1/stores/" + store.getId() + "/products"))
+        .perform(get("/v1/stores/" + store.getUid() + "/products"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(0));
   }

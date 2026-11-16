@@ -111,4 +111,27 @@ class S3ImageStorageServiceTest {
         .isInstanceOf(FileStorageException.class)
         .hasMessageContaining("MinIO");
   }
+
+  @Test
+  @DisplayName("downloadImage should return empty when URL points to unauthorized bucket")
+  void shouldRejectDownloadFromUnauthorizedBucket() {
+    assertThat(
+            storageService.downloadImage(
+                "https://s3.amazonaws.com/unauthorized-bucket/secrets.txt"))
+        .isEmpty();
+  }
+
+  @Test
+  @DisplayName("downloadImage should return empty when key contains path traversal")
+  void shouldRejectDownloadWithPathTraversal() {
+    assertThat(storageService.downloadImage("store-images/../secret.txt")).isEmpty();
+  }
+
+  @Test
+  @DisplayName("deleteImage should ignore deletion requests for unauthorized buckets")
+  void shouldIgnoreDeletionFromUnauthorizedBucket() {
+    storageService.deleteImage("https://s3.amazonaws.com/unauthorized-bucket/secrets.txt");
+    verify(s3Client, org.mockito.Mockito.never())
+        .deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
+  }
 }

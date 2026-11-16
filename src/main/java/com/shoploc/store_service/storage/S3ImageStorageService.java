@@ -112,7 +112,7 @@ public class S3ImageStorageService implements ImageStorageService {
     }
 
     ParsedS3Ref ref = parseS3Ref(imageUrlOrKey);
-    if (ref.key().isBlank()) {
+    if (ref.key().isBlank() || ref.key().contains("..") || !isAllowedBucket(ref.bucket())) {
       return Optional.empty();
     }
 
@@ -145,7 +145,7 @@ public class S3ImageStorageService implements ImageStorageService {
     }
     try {
       ParsedS3Ref ref = parseS3Ref(imageUrlOrKey);
-      if (ref.key().isBlank()) {
+      if (ref.key().isBlank() || ref.key().contains("..") || !isAllowedBucket(ref.bucket())) {
         return;
       }
       DeleteObjectRequest deleteRequest =
@@ -155,6 +155,13 @@ public class S3ImageStorageService implements ImageStorageService {
     } catch (Exception e) {
       log.warn("Impossible de supprimer l'image S3 '{}' : {}", imageUrlOrKey, e.getMessage());
     }
+  }
+
+  private boolean isAllowedBucket(String bucket) {
+    if (bucket == null || bucket.isBlank()) {
+      return false;
+    }
+    return bucket.equals(storeBucketName) || bucket.equals(productsBucketName);
   }
 
   private String extractExtension(String filename, String contentType) {
@@ -227,11 +234,15 @@ public class S3ImageStorageService implements ImageStorageService {
           if (slashIdx > 0) {
             String bucket = path.substring(0, slashIdx);
             String key = path.substring(slashIdx + 1);
-            return new ParsedS3Ref(bucket, key);
+            if (isAllowedBucket(bucket)) {
+              return new ParsedS3Ref(bucket, key);
+            }
+            return new ParsedS3Ref("", "");
           }
         }
       } catch (Exception ignored) {
       }
+      return new ParsedS3Ref("", "");
     }
 
     if (trimmed.startsWith(productsBucketName + "/")) {

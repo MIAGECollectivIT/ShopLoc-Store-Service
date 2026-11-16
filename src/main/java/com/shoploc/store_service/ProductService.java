@@ -53,7 +53,7 @@ public class ProductService {
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+            .orElseThrow(() -> new ProductNotFoundException(productId));
     return ProductResponse.fromEntity(product);
   }
 
@@ -69,7 +69,7 @@ public class ProductService {
 
     String normalizedRef = request.getReference().trim();
     if (productRepository.existsByStoreIdAndReference(storeId, normalizedRef)) {
-      throw new ProductReferenceAlreadyExistsException(normalizedRef, storeId);
+      throw new ProductReferenceAlreadyExistsException(normalizedRef);
     }
 
     String imageUrl = request.getImageUrl();
@@ -112,11 +112,11 @@ public class ProductService {
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+            .orElseThrow(() -> new ProductNotFoundException(productId));
 
     String normalizedRef = request.getReference().trim();
     if (productRepository.existsByStoreIdAndReferenceAndIdNot(storeId, normalizedRef, productId)) {
-      throw new ProductReferenceAlreadyExistsException(normalizedRef, storeId);
+      throw new ProductReferenceAlreadyExistsException(normalizedRef);
     }
 
     product.setReference(normalizedRef);
@@ -152,7 +152,7 @@ public class ProductService {
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+            .orElseThrow(() -> new ProductNotFoundException(productId));
 
     if (product.getImageUrl() != null && !product.getImageUrl().isBlank()) {
       imageStorageService.deleteImage(product.getImageUrl());
@@ -179,7 +179,7 @@ public class ProductService {
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+            .orElseThrow(() -> new ProductNotFoundException(productId));
 
     if (product.getImageUrl() != null && !product.getImageUrl().isBlank()) {
       imageStorageService.deleteImage(product.getImageUrl());
@@ -202,7 +202,7 @@ public class ProductService {
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+            .orElseThrow(() -> new ProductNotFoundException(productId));
 
     product.setImageUrl(imageUrl);
     Product saved = productRepository.save(product);
@@ -216,15 +216,15 @@ public class ProductService {
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+            .orElseThrow(() -> new ProductNotFoundException(productId));
 
     if (product.getImageUrl() == null || product.getImageUrl().isBlank()) {
-      throw new ProductImageNotFoundException(storeId, productId);
+      throw new ProductImageNotFoundException(productId);
     }
 
     return imageStorageService
         .downloadImage(product.getImageUrl())
-        .orElseThrow(() -> new ProductImageNotFoundException(storeId, productId));
+        .orElseThrow(() -> new ProductImageNotFoundException(productId));
   }
 
   @Transactional
@@ -240,7 +240,7 @@ public class ProductService {
     Product product =
         productRepository
             .findByIdAndStoreIdForUpdate(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(storeId, productId));
+            .orElseThrow(() -> new ProductNotFoundException(productId));
 
     int currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
     int targetStock;
@@ -288,15 +288,7 @@ public class ProductService {
           .map(Store::getId)
           .orElseThrow(() -> new StoreNotFoundException(storeIdentifier));
     } catch (IllegalArgumentException e) {
-      try {
-        Long id = Long.parseLong(trimmed);
-        if (!storeRepository.existsById(id)) {
-          throw new StoreNotFoundException(storeIdentifier);
-        }
-        return id;
-      } catch (NumberFormatException nfe) {
-        throw new StoreNotFoundException(storeIdentifier);
-      }
+      throw new StoreNotFoundException(storeIdentifier);
     }
   }
 
@@ -318,8 +310,7 @@ public class ProductService {
     if ("MERCHANT".equalsIgnoreCase(userRole)) {
       if (authenticatedUserId == null || !store.getUserId().equals(authenticatedUserId)) {
         throw new AccessDeniedException(
-            "Accès refusé : vous n'êtes pas le commerçant gestionnaire du magasin "
-                + store.getId());
+            "Accès refusé : vous n'êtes pas le commerçant gestionnaire de ce commerce");
       }
       return;
     }
@@ -340,8 +331,7 @@ public class ProductService {
     if ("MERCHANT".equalsIgnoreCase(userRole)) {
       if (authenticatedUserId == null || !store.getUserId().equals(authenticatedUserId)) {
         throw new AccessDeniedException(
-            "Accès refusé : vous n'êtes pas le commerçant gestionnaire du magasin "
-                + store.getId());
+            "Accès refusé : vous n'êtes pas le commerçant gestionnaire de ce commerce");
       }
       return;
     }

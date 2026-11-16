@@ -65,6 +65,8 @@ class ProductSecurityIntegrationTest {
     testKeyPair = kpg.generateKeyPair();
   }
 
+  private static final String STORE_UID = "11111111-1111-1111-1111-111111111111";
+
   @BeforeEach
   void setUp() {
     jwtValidatorService = new JwtValidatorService();
@@ -73,6 +75,8 @@ class ProductSecurityIntegrationTest {
     jwtValidatorService.init();
 
     roleInterceptor = new RoleInterceptor(jwtValidatorService);
+
+    org.mockito.Mockito.lenient().when(productService.resolveStoreId(eq(STORE_UID))).thenReturn(1L);
 
     mockMvc =
         MockMvcBuilders.standaloneSetup(productController)
@@ -107,7 +111,7 @@ class ProductSecurityIntegrationTest {
   void shouldAllowPublicCatalogConsultation() throws Exception {
     when(productService.getProductsByStore(1L)).thenReturn(List.of());
 
-    mockMvc.perform(get("/v1/stores/1/products")).andExpect(status().isOk());
+    mockMvc.perform(get("/v1/stores/" + STORE_UID + "/products")).andExpect(status().isOk());
   }
 
   @Test
@@ -118,7 +122,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            post("/v1/stores/1/products")
+            post("/v1/stores/" + STORE_UID + "/products")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized());
@@ -133,7 +137,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            post("/v1/stores/1/products")
+            post("/v1/stores/" + STORE_UID + "/products")
                 .header("Authorization", "Bearer " + clientToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -165,7 +169,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            post("/v1/stores/1/products")
+            post("/v1/stores/" + STORE_UID + "/products")
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -199,7 +203,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            post("/v1/stores/1/products")
+            post("/v1/stores/" + STORE_UID + "/products")
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -216,7 +220,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            put("/v1/stores/1/products/10")
+            put("/v1/stores/" + STORE_UID + "/products/10")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized());
@@ -232,7 +236,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            put("/v1/stores/1/products/10")
+            put("/v1/stores/" + STORE_UID + "/products/10")
                 .header("Authorization", "Bearer " + clientToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -264,7 +268,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            put("/v1/stores/1/products/10")
+            put("/v1/stores/" + STORE_UID + "/products/10")
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -276,7 +280,9 @@ class ProductSecurityIntegrationTest {
   @DisplayName(
       "DELETE /v1/stores/{storeId}/products/{productId} without token should return 401 Unauthorized")
   void shouldDenyDeleteProductWithoutToken() throws Exception {
-    mockMvc.perform(delete("/v1/stores/1/products/10")).andExpect(status().isUnauthorized());
+    mockMvc
+        .perform(delete("/v1/stores/" + STORE_UID + "/products/10"))
+        .andExpect(status().isUnauthorized());
   }
 
   @Test
@@ -287,7 +293,8 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            delete("/v1/stores/1/products/10").header("Authorization", "Bearer " + clientToken))
+            delete("/v1/stores/" + STORE_UID + "/products/10")
+                .header("Authorization", "Bearer " + clientToken))
         .andExpect(status().isForbidden());
   }
 
@@ -302,7 +309,8 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            delete("/v1/stores/1/products/10").header("Authorization", "Bearer " + merchantToken))
+            delete("/v1/stores/" + STORE_UID + "/products/10")
+                .header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isForbidden());
   }
 
@@ -314,7 +322,8 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            delete("/v1/stores/1/products/10").header("Authorization", "Bearer " + merchantToken))
+            delete("/v1/stores/" + STORE_UID + "/products/10")
+                .header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isNoContent());
   }
 
@@ -326,7 +335,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            patch("/v1/stores/1/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized());
@@ -342,7 +351,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            patch("/v1/stores/1/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
                 .header("Authorization", "Bearer " + expiredToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -373,7 +382,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            patch("/v1/stores/1/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
                 .header("Authorization", "Bearer " + serviceToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -405,7 +414,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            patch("/v1/stores/1/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -422,7 +431,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            patch("/v1/stores/1/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
                 .header("Authorization", "Bearer " + clientToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -442,7 +451,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            post("/v1/stores/1/products")
+            post("/v1/stores/" + STORE_UID + "/products")
                 .header("Authorization", "Bearer " + clientToken)
                 .header("X-User-Role", "ADMIN")
                 .header("Role", "ADMIN")
@@ -463,7 +472,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            delete("/v1/stores/1/products/10")
+            delete("/v1/stores/" + STORE_UID + "/products/10")
                 .header("Authorization", "Bearer " + clientToken)
                 .header("X-User-Role", "MERCHANT")
                 .header("X-User-Db-Id", "100")
@@ -482,7 +491,7 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            post("/v1/stores/1/products")
+            post("/v1/stores/" + STORE_UID + "/products")
                 .header("X-User-Role", "ADMIN")
                 .header("X-User-Id", "1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -501,12 +510,21 @@ class ProductSecurityIntegrationTest {
 
     mockMvc
         .perform(
-            patch("/v1/stores/1/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
                 .header("Authorization", "Bearer " + clientToken)
                 .header("X-User-Role", "SERVICE")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.status").value(403));
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/{id}/products with numeric ID -> should return 404 Not Found (security hardening: reject numeric DB IDs)")
+  void shouldRejectNumericStoreId() throws Exception {
+    when(productService.resolveStoreId("1"))
+        .thenThrow(new com.shoploc.store_service.exception.StoreNotFoundException("1"));
+    mockMvc.perform(get("/v1/stores/1/products")).andExpect(status().isNotFound());
   }
 }

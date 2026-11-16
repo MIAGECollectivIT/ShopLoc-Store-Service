@@ -67,13 +67,15 @@ public class StoreService {
     Store store =
         getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
 
+    String publicIdentifier = store.getUid() != null ? store.getUid().toString() : identifier;
+
     if (store.getUrl() == null || store.getUrl().isBlank()) {
-      throw new StoreImageNotFoundException(store.getId());
+      throw new StoreImageNotFoundException(publicIdentifier);
     }
 
     return imageStorageService
         .downloadImage(store.getUrl())
-        .orElseThrow(() -> new StoreImageNotFoundException(store.getId()));
+        .orElseThrow(() -> new StoreImageNotFoundException(publicIdentifier));
   }
 
   public Store createStore(StoreCreateRequest request, MultipartFile image) {

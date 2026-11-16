@@ -446,13 +446,11 @@ class ProductServiceTest {
   }
 
   @Test
-  @DisplayName("resolveStoreId with valid numeric ID should return store id when store exists")
-  void shouldResolveNumericStoreId() {
-    when(storeRepository.existsById(1L)).thenReturn(true);
-
-    Long storeId = productService.resolveStoreId("1");
-
-    assertThat(storeId).isEqualTo(1L);
+  @DisplayName(
+      "resolveStoreId with numeric ID should reject with StoreNotFoundException (security hardening)")
+  void shouldRejectNumericStoreId() {
+    assertThatThrownBy(() -> productService.resolveStoreId("1"))
+        .isInstanceOf(StoreNotFoundException.class);
   }
 
   @Test
@@ -482,8 +480,6 @@ class ProductServiceTest {
   @Test
   @DisplayName("resolveStoreId with unknown numeric ID should throw StoreNotFoundException")
   void shouldThrowWhenNumericIdNotFound() {
-    when(storeRepository.existsById(999L)).thenReturn(false);
-
     assertThatThrownBy(() -> productService.resolveStoreId("999"))
         .isInstanceOf(StoreNotFoundException.class);
   }

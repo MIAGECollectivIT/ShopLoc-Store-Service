@@ -38,11 +38,7 @@ public class ProductController {
       throw new com.shoploc.store_service.exception.StoreNotFoundException(storeId);
     }
     String trimmed = storeId.trim();
-    try {
-      return Long.parseLong(trimmed);
-    } catch (NumberFormatException e) {
-      return productService.resolveStoreId(trimmed);
-    }
+    return productService.resolveStoreId(trimmed);
   }
 
   @GetMapping
@@ -53,10 +49,6 @@ public class ProductController {
     return ResponseEntity.ok(products);
   }
 
-  public ResponseEntity<List<ProductResponse>> getProducts(Long storeId) {
-    return getProducts(String.valueOf(storeId));
-  }
-
   @GetMapping("/{productId}")
   @Operation(summary = "Récupérer la fiche unitaire d'un produit (Accès public)")
   public ResponseEntity<ProductResponse> getProduct(
@@ -64,10 +56,6 @@ public class ProductController {
     Long resolvedStoreId = parseOrResolveStoreId(storeId);
     ProductResponse product = productService.getProductById(resolvedStoreId, productId);
     return ResponseEntity.ok(product);
-  }
-
-  public ResponseEntity<ProductResponse> getProduct(Long storeId, Long productId) {
-    return getProduct(String.valueOf(storeId), productId);
   }
 
   @GetMapping("/{productId}/image")
@@ -82,10 +70,6 @@ public class ProductController {
         .contentType(MediaType.parseMediaType(resource.getContentType()))
         .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
         .body(resource.getBytes());
-  }
-
-  public ResponseEntity<byte[]> getProductImage(Long storeId, Long productId) {
-    return getProductImage(String.valueOf(storeId), productId);
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -109,14 +93,6 @@ public class ProductController {
     return ResponseEntity.created(location).body(response);
   }
 
-  public ResponseEntity<ProductResponse> createProduct(
-      Long storeId,
-      ProductCreateRequest request,
-      MultipartFile image,
-      HttpServletRequest servletRequest) {
-    return createProduct(String.valueOf(storeId), request, image, servletRequest);
-  }
-
   @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
   @RequiresRole({"MERCHANT", "ADMIN"})
   @Operation(
@@ -135,11 +111,6 @@ public class ProductController {
             resolvedStoreId, request, null, authenticatedDbId, authenticatedRole);
     URI location = URI.create("/v1/stores/" + storeId + "/products/" + response.getId());
     return ResponseEntity.created(location).body(response);
-  }
-
-  public ResponseEntity<ProductResponse> createProductJson(
-      Long storeId, ProductCreateRequest request, HttpServletRequest servletRequest) {
-    return createProductJson(String.valueOf(storeId), request, servletRequest);
   }
 
   @PutMapping(value = "/{productId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -163,15 +134,6 @@ public class ProductController {
     return ResponseEntity.ok(response);
   }
 
-  public ResponseEntity<ProductResponse> updateProduct(
-      Long storeId,
-      Long productId,
-      ProductUpdateRequest request,
-      MultipartFile image,
-      HttpServletRequest servletRequest) {
-    return updateProduct(String.valueOf(storeId), productId, request, image, servletRequest);
-  }
-
   @PutMapping(value = "/{productId}", consumes = MediaType.APPLICATION_JSON_VALUE)
   @RequiresRole({"MERCHANT", "ADMIN"})
   @Operation(
@@ -192,14 +154,6 @@ public class ProductController {
     return ResponseEntity.ok(response);
   }
 
-  public ResponseEntity<ProductResponse> updateProductJson(
-      Long storeId,
-      Long productId,
-      ProductUpdateRequest request,
-      HttpServletRequest servletRequest) {
-    return updateProductJson(String.valueOf(storeId), productId, request, servletRequest);
-  }
-
   @DeleteMapping("/{productId}")
   @RequiresRole({"MERCHANT", "ADMIN"})
   @Operation(
@@ -214,11 +168,6 @@ public class ProductController {
 
     productService.deleteProduct(resolvedStoreId, productId, authenticatedDbId, authenticatedRole);
     return ResponseEntity.noContent().build();
-  }
-
-  public ResponseEntity<Void> deleteProduct(
-      Long storeId, Long productId, HttpServletRequest servletRequest) {
-    return deleteProduct(String.valueOf(storeId), productId, servletRequest);
   }
 
   @PatchMapping("/{productId}/stock")
@@ -241,11 +190,6 @@ public class ProductController {
     return ResponseEntity.ok(response);
   }
 
-  public ResponseEntity<ProductResponse> updateStock(
-      Long storeId, Long productId, StockUpdateRequest request, HttpServletRequest servletRequest) {
-    return updateStock(String.valueOf(storeId), productId, request, servletRequest);
-  }
-
   @PatchMapping(value = "/{productId}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @RequiresRole({"MERCHANT", "ADMIN"})
   @Operation(
@@ -264,11 +208,6 @@ public class ProductController {
         productService.updateProductImage(
             resolvedStoreId, productId, image, authenticatedDbId, authenticatedRole);
     return ResponseEntity.ok(response);
-  }
-
-  public ResponseEntity<ProductResponse> updateProductImageMultipart(
-      Long storeId, Long productId, MultipartFile image, HttpServletRequest servletRequest) {
-    return updateProductImageMultipart(String.valueOf(storeId), productId, image, servletRequest);
   }
 
   @PatchMapping(value = "/{productId}/image", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -290,11 +229,6 @@ public class ProductController {
         productService.updateProductImageUrl(
             resolvedStoreId, productId, imageUrl, authenticatedDbId, authenticatedRole);
     return ResponseEntity.ok(response);
-  }
-
-  public ResponseEntity<ProductResponse> updateProductImageJson(
-      Long storeId, Long productId, Map<String, String> body, HttpServletRequest servletRequest) {
-    return updateProductImageJson(String.valueOf(storeId), productId, body, servletRequest);
   }
 
   private Long extractAuthenticatedUserId(HttpServletRequest request) {

@@ -76,7 +76,6 @@ public class StoreService {
         .orElseThrow(() -> new StoreImageNotFoundException(store.getId()));
   }
 
-
   public Store createStore(StoreCreateRequest request, MultipartFile image) {
     Long userId = request.getUserId();
     if (!userClient.userExists(userId)) {

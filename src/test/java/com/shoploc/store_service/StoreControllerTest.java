@@ -182,7 +182,8 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{identifier} - Should reject technical numeric ID with 404 Not Found")
+  @DisplayName(
+      "GET /v1/stores/{identifier} - Should reject technical numeric ID with 404 Not Found")
   void shouldRejectNumericStoreId() {
     Store store =
         storeRepository.save(

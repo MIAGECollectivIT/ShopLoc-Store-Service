@@ -6,8 +6,7 @@ import java.util.UUID;
 
 public class StoreResponse {
 
-  @JsonIgnore
-  private Long id;
+  @JsonIgnore private Long id;
   private UUID uid;
   private String name;
   private String address;

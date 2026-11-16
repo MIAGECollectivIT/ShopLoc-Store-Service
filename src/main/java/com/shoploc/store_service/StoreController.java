@@ -49,7 +49,8 @@ public class StoreController {
 
   @GetMapping("/{identifier}")
   @Operation(
-      summary = "Récupère un commerce par son uid UUID (accès public - ID technique numérique refusé)")
+      summary =
+          "Récupère un commerce par son uid UUID (accès public - ID technique numérique refusé)")
   public ResponseEntity<StoreResponse> getStoreById(@PathVariable String identifier) {
     Optional<Store> storeOptional = resolveStore(identifier);
     if (storeOptional.isEmpty()) {

@@ -390,8 +390,6 @@ class StoreSecurityIntegrationTest {
   @DisplayName(
       "GET /v1/stores/{id} with numeric ID -> should return 404 Not Found (security hardening: reject numeric DB IDs)")
   void shouldRejectNumericStoreId() throws Exception {
-    mockMvc
-        .perform(get("/v1/stores/1"))
-        .andExpect(status().isNotFound());
+    mockMvc.perform(get("/v1/stores/1")).andExpect(status().isNotFound());
   }
 }

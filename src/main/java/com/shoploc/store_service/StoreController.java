@@ -47,6 +47,50 @@ public class StoreController {
     return responseList;
   }
 
+  @GetMapping("/search")
+  @Operation(
+      summary = "Recherche et filtrage multi-critères des commerces partenaires (accès public)")
+  public List<StoreResponse> searchStores(
+      @RequestParam(name = "name", required = false) String name,
+      @RequestParam(name = "query", required = false) String query,
+      @RequestParam(name = "q", required = false) String q,
+      @RequestParam(name = "category", required = false) List<String> category,
+      @RequestParam(name = "categories", required = false) List<String> categories) {
+    String effectiveQuery = resolveSearchQuery(name, query, q);
+    List<String> combinedCategories = combineCategories(category, categories);
+
+    List<Store> stores = storeService.searchStores(effectiveQuery, combinedCategories);
+    List<StoreResponse> responseList = new ArrayList<>();
+    for (Store store : stores) {
+      responseList.add(StoreResponse.fromEntity(store));
+    }
+    return responseList;
+  }
+
+  private String resolveSearchQuery(String name, String query, String q) {
+    if (name != null && !name.isBlank()) {
+      return name.trim();
+    }
+    if (query != null && !query.isBlank()) {
+      return query.trim();
+    }
+    if (q != null && !q.isBlank()) {
+      return q.trim();
+    }
+    return null;
+  }
+
+  private List<String> combineCategories(List<String> category, List<String> categories) {
+    List<String> combined = new ArrayList<>();
+    if (category != null) {
+      combined.addAll(category);
+    }
+    if (categories != null) {
+      combined.addAll(categories);
+    }
+    return combined;
+  }
+
   @GetMapping("/{identifier}")
   @Operation(
       summary =

@@ -34,6 +34,20 @@ public class StoreService {
     return storeRepository.findAll();
   }
 
+  public List<Store> searchStores(String query, List<String> categories) {
+    boolean hasQuery = query != null && !query.isBlank();
+    boolean hasCategories =
+        categories != null && categories.stream().anyMatch(c -> c != null && !c.isBlank());
+
+    if (!hasQuery && !hasCategories) {
+      return storeRepository.findAll();
+    }
+
+    org.springframework.data.jpa.domain.Specification<Store> spec =
+        StoreSpecifications.withFilters(query, categories);
+    return storeRepository.findAll(spec);
+  }
+
   public Optional<Store> getStoreById(Long id) {
     return storeRepository.findById(id);
   }

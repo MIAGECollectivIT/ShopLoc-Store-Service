@@ -182,8 +182,9 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{identifier} - Should retrieve store by technical numeric ID")
-  void shouldGetStoreByNumericId() {
+  @DisplayName(
+      "GET /v1/stores/{identifier} - Should reject technical numeric ID with 404 Not Found")
+  void shouldRejectNumericStoreId() {
     Store store =
         storeRepository.save(
             new Store(
@@ -196,11 +197,7 @@ class StoreControllerTest {
 
     ResponseEntity<StoreResponse> response = storeController.getStoreById(store.getId().toString());
 
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().getId()).isEqualTo(store.getId());
-    assertThat(response.getBody().getUid()).isEqualTo(store.getUid());
-    assertThat(response.getBody().getName()).isEqualTo("Superette Centrale");
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
   }
 
   @Test

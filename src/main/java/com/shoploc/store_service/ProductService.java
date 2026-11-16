@@ -288,7 +288,15 @@ public class ProductService {
           .map(Store::getId)
           .orElseThrow(() -> new StoreNotFoundException(storeIdentifier));
     } catch (IllegalArgumentException e) {
-      throw new StoreNotFoundException(storeIdentifier);
+      try {
+        Long id = Long.parseLong(trimmed);
+        if (storeRepository.existsById(id)) {
+          return id;
+        }
+        throw new StoreNotFoundException(storeIdentifier);
+      } catch (NumberFormatException nfe) {
+        throw new StoreNotFoundException(storeIdentifier);
+      }
     }
   }
 

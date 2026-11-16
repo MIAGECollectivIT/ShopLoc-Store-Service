@@ -521,10 +521,10 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{id}/products with numeric ID -> should return 404 Not Found (security hardening: reject numeric DB IDs)")
-  void shouldRejectNumericStoreId() throws Exception {
-    when(productService.resolveStoreId("1"))
-        .thenThrow(new com.shoploc.store_service.exception.StoreNotFoundException("1"));
-    mockMvc.perform(get("/v1/stores/1/products")).andExpect(status().isNotFound());
+      "GET /v1/stores/{id}/products with numeric ID -> should return 200 OK (fallback support)")
+  void shouldAllowNumericStoreIdOnProductEndpoint() throws Exception {
+    when(productService.resolveStoreId("1")).thenReturn(1L);
+    when(productService.getProductsByStore(1L)).thenReturn(java.util.Collections.emptyList());
+    mockMvc.perform(get("/v1/stores/1/products")).andExpect(status().isOk());
   }
 }

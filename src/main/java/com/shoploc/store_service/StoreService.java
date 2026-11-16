@@ -68,7 +68,12 @@ public class StoreService {
       UUID uid = UUID.fromString(trimmed);
       return storeRepository.findByUid(uid);
     } catch (IllegalArgumentException e) {
-      return Optional.empty();
+      try {
+        Long id = Long.parseLong(trimmed);
+        return storeRepository.findById(id);
+      } catch (NumberFormatException nfe) {
+        return Optional.empty();
+      }
     }
   }
 

@@ -365,8 +365,7 @@ class StoreSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/stores/{uid} without JWT -> should return 200 OK without exposing numeric database ID")
+  @DisplayName("GET /v1/stores/{uid} without JWT -> should return 200 OK exposing id and uid")
   void shouldAllowStoreDetailConsultationWithoutToken() throws Exception {
     UUID uid = UUID.randomUUID();
     Store store =
@@ -386,14 +385,32 @@ class StoreSecurityIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Boutique Publique"))
         .andExpect(jsonPath("$.uid").value(uid.toString()))
-        .andExpect(jsonPath("$.id").doesNotExist());
+        .andExpect(jsonPath("$.id").value(1));
   }
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{id} with numeric ID -> should return 404 Not Found (security hardening: reject numeric DB IDs)")
-  void shouldRejectNumericStoreId() throws Exception {
-    mockMvc.perform(get("/v1/stores/1")).andExpect(status().isNotFound());
+      "GET /v1/stores/{id} with numeric ID -> should return 200 OK and expose id and uid (pragmatic fallback)")
+  void shouldAllowStoreConsultationByNumericId() throws Exception {
+    UUID uid = UUID.randomUUID();
+    Store store =
+        new Store(
+            "Boutique Numerique",
+            "1 rue Numeric",
+            "https://img.com/n.jpg",
+            "Mode",
+            "FR7630006000011234567890189",
+            1L);
+    ReflectionTestUtils.setField(store, "id", 1L);
+    ReflectionTestUtils.setField(store, "uid", uid);
+    when(storeService.getStoreById(1L)).thenReturn(Optional.of(store));
+
+    mockMvc
+        .perform(get("/v1/stores/1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(1))
+        .andExpect(jsonPath("$.uid").value(uid.toString()))
+        .andExpect(jsonPath("$.name").value("Boutique Numerique"));
   }
 
   @Test
@@ -414,12 +431,16 @@ class StoreSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{id}/image with numeric ID -> should return 404 Not Found (security hardening: reject numeric DB IDs)")
-  void shouldRejectNumericStoreIdOnImageEndpoint() throws Exception {
+      "GET /v1/stores/{id}/image with numeric ID -> should return 200 OK (fallback support)")
+  void shouldAllowStoreImageConsultationByNumericId() throws Exception {
+    byte[] imageBytes = new byte[] {0x11, 0x22};
     when(storeService.getStoreImage("1"))
-        .thenThrow(new com.shoploc.store_service.exception.StoreNotFoundException("1"));
+        .thenReturn(new com.shoploc.store_service.storage.ImageResource(imageBytes, "image/jpeg"));
 
-    mockMvc.perform(get("/v1/stores/1/image")).andExpect(status().isNotFound());
+    mockMvc
+        .perform(get("/v1/stores/1/image"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType("image/jpeg"));
   }
 
   @Test

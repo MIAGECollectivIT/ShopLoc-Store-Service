@@ -3,15 +3,15 @@ package com.shoploc.store_service.exception;
 public class StoreImageNotFoundException extends ProductImageNotFoundException {
 
   private static final long serialVersionUID = 1L;
-  private final Long storeId;
+  private final String identifier;
 
-  public StoreImageNotFoundException(Long storeId) {
-    super(storeId, 0L);
-    this.storeId = storeId;
+  public StoreImageNotFoundException(String identifier) {
+    super(0L);
+    this.identifier = identifier;
   }
 
   @Override
   public String getMessage() {
-    return "Aucune image disponible pour le commerce id=" + storeId;
+    return "Aucune image disponible pour le commerce : " + identifier;
   }
 }

@@ -33,12 +33,19 @@ public class ProductController {
     this.productService = productService;
   }
 
-  private Long parseOrResolveStoreId(String storeId) {
+  private Long parseOrResolveStoreId(String storeId, boolean allowNumeric) {
     if (storeId == null || storeId.isBlank()) {
       throw new com.shoploc.store_service.exception.StoreNotFoundException(storeId);
     }
     String trimmed = storeId.trim();
+    if (allowNumeric) {
+      return productService.resolveStoreId(trimmed, true);
+    }
     return productService.resolveStoreId(trimmed);
+  }
+
+  private Long parseOrResolveStoreId(String storeId) {
+    return parseOrResolveStoreId(storeId, false);
   }
 
   @GetMapping
@@ -180,7 +187,7 @@ public class ProductController {
       @PathVariable Long productId,
       @Valid @RequestBody StockUpdateRequest request,
       HttpServletRequest servletRequest) {
-    Long resolvedStoreId = parseOrResolveStoreId(storeId);
+    Long resolvedStoreId = parseOrResolveStoreId(storeId, true);
     Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
     String authenticatedRole = extractAuthenticatedRole(servletRequest);
 

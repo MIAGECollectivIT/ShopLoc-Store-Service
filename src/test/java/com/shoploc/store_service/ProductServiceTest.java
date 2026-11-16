@@ -532,6 +532,19 @@ class ProductServiceTest {
   }
 
   @Test
+  @DisplayName(
+      "resolveStoreId with numeric ID and allowNumeric=true should return store id when store exists")
+  void shouldResolveNumericStoreIdWhenAllowed() {
+    Store store = new Store();
+    store.setId(1L);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+
+    Long storeId = productService.resolveStoreId("1", true);
+
+    assertThat(storeId).isEqualTo(1L);
+  }
+
+  @Test
   @DisplayName("resolveStoreId with valid UUID string should resolve to store id")
   void shouldResolveUuidStoreId() {
     UUID uid = UUID.randomUUID();
@@ -558,7 +571,9 @@ class ProductServiceTest {
   @Test
   @DisplayName("resolveStoreId with unknown numeric ID should throw StoreNotFoundException")
   void shouldThrowWhenNumericIdNotFound() {
-    assertThatThrownBy(() -> productService.resolveStoreId("999"))
+    when(storeRepository.findById(999L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> productService.resolveStoreId("999", true))
         .isInstanceOf(StoreNotFoundException.class);
   }
 

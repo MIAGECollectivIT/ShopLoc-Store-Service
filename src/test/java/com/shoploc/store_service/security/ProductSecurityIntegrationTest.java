@@ -77,6 +77,9 @@ class ProductSecurityIntegrationTest {
     roleInterceptor = new RoleInterceptor(jwtValidatorService);
 
     org.mockito.Mockito.lenient().when(productService.resolveStoreId(eq(STORE_UID))).thenReturn(1L);
+    org.mockito.Mockito.lenient()
+        .when(productService.resolveStoreId(eq(STORE_UID), eq(true)))
+        .thenReturn(1L);
 
     mockMvc =
         MockMvcBuilders.standaloneSetup(productController)

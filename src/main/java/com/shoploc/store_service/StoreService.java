@@ -4,11 +4,13 @@ import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.StoreAbsenceRequest;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
+import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreAlreadyRevokedException;
 import com.shoploc.store_service.exception.StoreImageNotFoundException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
+import com.shoploc.store_service.exception.StoreNotRevokedException;
 import com.shoploc.store_service.exception.UserNotFoundException;
 import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
@@ -123,6 +125,34 @@ public class StoreService {
     store.setRevokedBy(adminIdentifier);
     store.setRib("REVOKED");
     store.setUrl(null);
+
+    return storeRepository.save(store);
+  }
+
+  @Transactional
+  public Store reactivateStore(String identifier, StoreReactivateRequest request) {
+    Store store =
+        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+
+    if (!store.isRevoked()) {
+      throw new StoreNotRevokedException(identifier);
+    }
+
+    if (request == null || request.rib() == null || request.rib().isBlank()) {
+      throw new IllegalArgumentException(
+          "Le nouveau RIB est obligatoire pour réactiver le commerce");
+    }
+
+    String cleanedRib = RibIbanHelper.clean(request.rib());
+    if (!RibIbanHelper.isValidRibOrIban(cleanedRib)) {
+      throw new IllegalArgumentException(
+          "Le format ou la clé algorithmique du RIB/IBAN est invalide");
+    }
+
+    store.setStatus(StoreStatus.ACTIVE);
+    store.setRib(cleanedRib);
+    store.setRevokedAt(null);
+    store.setRevokedBy(null);
 
     return storeRepository.save(store);
   }

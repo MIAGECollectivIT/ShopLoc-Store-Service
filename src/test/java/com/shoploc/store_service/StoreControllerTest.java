@@ -9,7 +9,9 @@ import com.shoploc.store_service.dto.StoreAbsenceRequest;
 import com.shoploc.store_service.dto.StoreAbsenceResponse;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
+import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
+import com.shoploc.store_service.exception.StoreNotRevokedException;
 import com.shoploc.store_service.exception.UserServiceUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -950,5 +952,51 @@ class StoreControllerTest {
     assertThat(myStores).hasSize(1);
     assertThat(myStores.get(0).getName()).isEqualTo("Mon Magasin");
     assertThat(myStores.get(0).getUserId()).isEqualTo(888L);
+  }
+
+  @Test
+  @DisplayName(
+      "POST /v1/stores/{id}/reactivate - Should successfully reactivate revoked store with new RIB")
+  void shouldReactivateRevokedStoreWhenAdmin() {
+    Store store =
+        storeRepository.save(
+            new Store("Commerce Sortant", "20 rue du Départ", null, "Mode", "REVOKED", 701L));
+    store.setStatus(StoreStatus.REVOKED);
+    store.setRevokedAt(Instant.now());
+    store.setRevokedBy("admin@ville.fr");
+    store = storeRepository.save(store);
+
+    StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
+
+    ResponseEntity<StoreResponse> response =
+        storeController.reactivateStore(String.valueOf(store.getId()), request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(response.getBody().getRib()).isEqualTo("FR7630006000011234567890189");
+    assertThat(response.getBody().getRevokedAt()).isNull();
+    assertThat(response.getBody().getRevokedBy()).isNull();
+  }
+
+  @Test
+  @DisplayName(
+      "POST /v1/stores/{id}/reactivate - Should throw StoreNotRevokedException when store is ACTIVE")
+  void shouldFailToReactivateActiveStore() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Déjà Actif",
+                "10 rue du Centre",
+                "https://img.com/actif.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                702L));
+
+    StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
+
+    assertThatThrownBy(
+            () -> storeController.reactivateStore(String.valueOf(store.getId()), request))
+        .isInstanceOf(StoreNotRevokedException.class);
   }
 }

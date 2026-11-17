@@ -4,6 +4,7 @@ import com.shoploc.store_service.dto.StoreAbsenceRequest;
 import com.shoploc.store_service.dto.StoreAbsenceResponse;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
+import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.security.RequiresRole;
@@ -315,6 +316,17 @@ public class StoreController {
     }
     Store revokedStore = storeService.revokeStore(identifier, adminEmail);
     return ResponseEntity.ok(StoreResponse.fromEntity(revokedStore));
+  }
+
+  @PostMapping("/{identifier}/reactivate")
+  @RequiresRole("ADMIN")
+  @Operation(
+      summary =
+          "Réactiver un commerce partenaire révoqué avec nouveau RIB conventionnel (SLE-70, SLE-263) - Réservé aux administrateurs")
+  public ResponseEntity<StoreResponse> reactivateStore(
+      @PathVariable String identifier, @Valid @RequestBody StoreReactivateRequest request) {
+    Store reactivatedStore = storeService.reactivateStore(identifier, request);
+    return ResponseEntity.ok(StoreResponse.fromEntity(reactivatedStore));
   }
 
   private Long extractAuthenticatedUserId(HttpServletRequest servletRequest) {

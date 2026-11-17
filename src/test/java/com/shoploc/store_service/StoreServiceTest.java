@@ -6,8 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.shoploc.store_service.client.UserClient;
+import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.exception.StoreAlreadyRevokedException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
+import com.shoploc.store_service.exception.StoreNotRevokedException;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.Collections;
 import java.util.List;
@@ -146,5 +148,68 @@ class StoreServiceTest {
 
     assertThatThrownBy(() -> storeService.revokeStore("1", "admin@ville.fr"))
         .isInstanceOf(StoreAlreadyRevokedException.class);
+  }
+
+  @Test
+  @DisplayName(
+      "reactivateStore - Should transition REVOKED store to ACTIVE, clear audit fields and set new valid RIB")
+  void shouldReactivateRevokedStore() {
+    Store store =
+        new Store("Boulangerie Paul", "10 rue Royale", null, "Alimentation", "REVOKED", 10L);
+    store.setId(1L);
+    store.setStatus(StoreStatus.REVOKED);
+    store.setRevokedAt(java.time.Instant.now());
+    store.setRevokedBy("admin@ville.fr");
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(storeRepository.save(any(Store.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    StoreReactivateRequest request =
+        new StoreReactivateRequest("FR76 3000 6000 0112 3456 7890 189");
+    Store reactivated = storeService.reactivateStore("1", request);
+
+    assertThat(reactivated.getStatus()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(reactivated.isRevoked()).isFalse();
+    assertThat(reactivated.getRevokedAt()).isNull();
+    assertThat(reactivated.getRevokedBy()).isNull();
+    assertThat(reactivated.getRib()).isEqualTo("FR7630006000011234567890189");
+    verify(storeRepository).save(store);
+  }
+
+  @Test
+  @DisplayName(
+      "reactivateStore - Should throw StoreNotRevokedException when store is currently ACTIVE")
+  void shouldThrowWhenReactivatingActiveStore() {
+    Store store =
+        new Store(
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "FR7630006000011234567890189",
+            10L);
+    store.setId(1L);
+    store.setStatus(StoreStatus.ACTIVE);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+
+    StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
+
+    assertThatThrownBy(() -> storeService.reactivateStore("1", request))
+        .isInstanceOf(StoreNotRevokedException.class);
+  }
+
+  @Test
+  @DisplayName("reactivateStore - Should throw IllegalArgumentException when RIB format is invalid")
+  void shouldThrowWhenReactivatingWithInvalidRib() {
+    Store store =
+        new Store("Boulangerie Paul", "10 rue Royale", null, "Alimentation", "REVOKED", 10L);
+    store.setId(1L);
+    store.setStatus(StoreStatus.REVOKED);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+
+    StoreReactivateRequest request = new StoreReactivateRequest("INVALID_RIB_123");
+
+    assertThatThrownBy(() -> storeService.reactivateStore("1", request))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 }

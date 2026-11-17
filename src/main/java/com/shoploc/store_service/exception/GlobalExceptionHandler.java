@@ -150,6 +150,18 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
   }
 
+  @ExceptionHandler(StoreNotRevokedException.class)
+  public ResponseEntity<Map<String, Object>> handleStoreNotRevokedException(
+      StoreNotRevokedException ex) {
+    Map<String, Object> body = new HashMap<>();
+    body.put("timestamp", Instant.now().toString());
+    body.put("status", HttpStatus.CONFLICT.value());
+    body.put("error", "Conflict");
+    body.put("message", ex.getMessage());
+
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+  }
+
   @ExceptionHandler(RevokedStoreException.class)
   public ResponseEntity<Map<String, Object>> handleRevokedStoreException(RevokedStoreException ex) {
     Map<String, Object> body = new HashMap<>();

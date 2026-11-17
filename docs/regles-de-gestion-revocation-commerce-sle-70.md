@@ -9,6 +9,7 @@
 > - **SLE-255** : Back (Store) — Endpoint de révocation de commerce avec anonymisation des coordonnées et statut REVOKED (`/v1/stores/{storeId}/revoke`)  
 > - **SLE-256** : Back (Sales & Store) — Blocage systématique des commandes et transactions pour tout commerce révoqué  
 > - **SLE-257** : Front — Modal de confirmation avec avertissement de révocation définitive et traçabilité de l'action admin  
+> - **SLE-263** : Back & Front — Réactivation d'un commerce partenaire révoqué avec nouveau RIB conventionnel  
 
 ---
 
@@ -57,6 +58,7 @@ La story **SLE-70** formalise le processus de **clôture de partenariat** en res
 | **EXF-008** | **Consultation de l'historique de ventes d'un commerce clos** | Le commerçant | Le commerçant d'un établissement révoqué consulte son historique de ventes en mode lecture seule depuis son tableau de bord. |
 | **EXF-009** | **Signalement d'inactivité sur le tableau de bord commerçant** | Le commerçant | Le commerçant d'un établissement révoqué visualise une bannière lui indiquant que son commerce est révoqué et que les fonctions de vente et de gestion de stock sont désactivées. |
 | **EXF-010** | **Alerte de présence d'un produit révoqué dans le panier** | Le client | Le client tentant de valider un panier contenant un article d'un commerce révoqué reçoit une notification explicite l'invitant à retirer cet article de son panier. |
+| **EXF-011** | **Réactivation administrative d'un commerce révoqué** | L'administrateur | L'administrateur réactive un commerce précédemment révoqué en saisissant des coordonnées conventionnelles à jour (nouveau RIB/IBAN valide), ce qui réintègre immédiatement l'établissement dans l'annuaire public et réactive les encaissements. |
 
 ---
 
@@ -77,4 +79,6 @@ La story **SLE-70** formalise le processus de **clôture de partenariat** en res
 | **EXNF-009** | **Support universel d'identification UUID et technique** | **Interopérabilité** | L'endpoint de révocation accepte indifféremment l'identifiant public UUID (`uid`) ou l'identifiant numérique technique (`id`). |
 | **EXNF-010** | **Désactivation de la ressource image sur commerce clos** | **Gestion des médias** | En cas d'accès direct à l'image binaire d'un commerce révoqué (`GET /v1/stores/{id}/image`), le système retourne une réponse HTTP `404 Not Found` sans solliciter le stockage objet S3. |
 | **EXNF-011** | **Optimisation des requêtes de consultation publique** | **Performance & Indexation**| Le système maintient un index de base de données composite `idx_shops_status_category` sur la table `shops` afin de garantir des temps de réponse inférieurs à 100ms sur le filtrage de l'annuaire public. |
+| **EXNF-012** | **Validation algorithmique et persistance du nouveau RIB lors de la réactivation** | **Contrôle d'intégrité & Conformité** | Le système exige et valide algorithmiquement (clé RIB / checksum modulo 97 IBAN) le nouveau RIB fourni lors de la réactivation (`POST /v1/stores/{storeId}/reactivate`). Le statut est rétabli à `ACTIVE` et les champs d'audit de révocation (`revoked_at`, `revoked_by`) sont réinitialisés à `null`. |
+| **EXNF-013** | **Contrôle d'accès et de transition d'état à la réactivation** | **Sécurité & Intégrité** | Le système restreint l'endpoint de réactivation aux administrateurs (rôle `ADMIN`) et rejette avec un code d'erreur HTTP `409 Conflict` toute tentative de réactivation ciblant un commerce qui ne porte pas le statut `REVOKED`. |
 

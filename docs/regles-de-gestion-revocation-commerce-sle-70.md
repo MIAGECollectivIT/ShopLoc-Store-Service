@@ -77,3 +77,4 @@ La story **SLE-70** formalise le processus de **clôture de partenariat** en res
 | **EXNF-009** | **Support universel d'identification UUID et technique** | **Interopérabilité** | L'endpoint de révocation accepte indifféremment l'identifiant public UUID (`uid`) ou l'identifiant numérique technique (`id`). |
 | **EXNF-010** | **Désactivation de la ressource image sur commerce clos** | **Gestion des médias** | En cas d'accès direct à l'image binaire d'un commerce révoqué (`GET /v1/stores/{id}/image`), le système retourne une réponse HTTP `404 Not Found` sans solliciter le stockage objet S3. |
 | **EXNF-011** | **Optimisation des requêtes de consultation publique** | **Performance & Indexation**| Le système maintient un index de base de données composite `idx_shops_status_category` sur la table `shops` afin de garantir des temps de réponse inférieurs à 100ms sur le filtrage de l'annuaire public. |
+

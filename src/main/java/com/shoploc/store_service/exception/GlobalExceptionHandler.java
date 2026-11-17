@@ -138,6 +138,29 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
   }
 
+  @ExceptionHandler(StoreAlreadyRevokedException.class)
+  public ResponseEntity<Map<String, Object>> handleStoreAlreadyRevokedException(
+      StoreAlreadyRevokedException ex) {
+    Map<String, Object> body = new HashMap<>();
+    body.put("timestamp", Instant.now().toString());
+    body.put("status", HttpStatus.CONFLICT.value());
+    body.put("error", "Conflict");
+    body.put("message", ex.getMessage());
+
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+  }
+
+  @ExceptionHandler(RevokedStoreException.class)
+  public ResponseEntity<Map<String, Object>> handleRevokedStoreException(RevokedStoreException ex) {
+    Map<String, Object> body = new HashMap<>();
+    body.put("timestamp", Instant.now().toString());
+    body.put("status", HttpStatus.UNPROCESSABLE_ENTITY.value());
+    body.put("error", "Unprocessable Entity");
+    body.put("message", ex.getMessage());
+
+    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(body);
+  }
+
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(
       IllegalArgumentException ex) {

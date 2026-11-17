@@ -11,8 +11,17 @@ public final class StoreSpecifications {
   private StoreSpecifications() {}
 
   public static Specification<Store> withFilters(String query, List<String> categories) {
+    return withFilters(query, categories, StoreStatus.ACTIVE);
+  }
+
+  public static Specification<Store> withFilters(
+      String query, List<String> categories, StoreStatus status) {
     return (root, cq, cb) -> {
       List<Predicate> predicates = new ArrayList<>();
+
+      if (status != null) {
+        predicates.add(cb.equal(root.get("status"), status));
+      }
 
       if (query != null && !query.isBlank()) {
         String pattern = "%" + query.trim().toLowerCase(Locale.ROOT) + "%";

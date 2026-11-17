@@ -13,6 +13,10 @@ public interface StoreRepository
 
   List<Store> findByUserId(Long userId);
 
+  List<Store> findByStatus(StoreStatus status);
+
+  List<Store> findByUserIdAndStatus(Long userId, StoreStatus status);
+
   Optional<Store> findByUid(UUID uid);
 
   boolean existsByUid(UUID uid);

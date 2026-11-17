@@ -1,4 +1,4 @@
--- Migration V7: Create store_absences table for multiple absences per store (SLE-54)
+-- Migration V8: Create store_absences table for multiple absences per store (SLE-54)
 
 CREATE TABLE IF NOT EXISTS store_absences (
     id BIGSERIAL PRIMARY KEY,

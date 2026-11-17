@@ -8,3 +8,6 @@ INSERT INTO shops (name, address, url, category, rib, user_id)
 SELECT 'Printemps Paris', '25 Avenue de l''Opéra, 75001 Paris', 'https://cdn.prod.website-files.com/69c11320dc2f4180f9b647cc/69c11320dc2f4180f9b64a86_printemps-mobile.webp', 'Commerce de détail', 'FR7630006000011234567890189', 2
 WHERE NOT EXISTS (SELECT 1 FROM shops WHERE name = 'Printemps Paris');
 
+UPDATE shops SET user_id = 2 WHERE name IN ('Burger King Lille', 'Printemps Paris') AND user_id = 1;
+
+

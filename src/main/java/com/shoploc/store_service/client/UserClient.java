@@ -12,6 +12,14 @@ public interface UserClient {
   boolean userExists(Long userId);
 
   /**
+   * Retrieves the email address of a user by their identifier.
+   *
+   * @param userId the identifier of the user
+   * @return Optional containing the email if found, empty otherwise
+   */
+  java.util.Optional<String> getUserEmail(Long userId);
+
+  /**
    * Notifies the Users Service to link an existing user to a newly created store.
    *
    * @param userId the identifier of the user

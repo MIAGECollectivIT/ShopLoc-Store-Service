@@ -649,4 +649,217 @@ class StoreControllerTest {
     assertThat(resp.getBody()).hasSize(1);
     assertThat(resp.getBody().get(0).getReason()).isEqualTo("Inventaire annuel");
   }
+
+  @Test
+  @DisplayName("GET /v1/stores/search - Should return all stores when no search criteria provided")
+  void shouldReturnAllStoresWhenNoSearchCriteriaProvided() {
+    storeRepository.save(
+        new Store(
+            "Boulangerie Test 1",
+            "1 rue Test",
+            "https://img.com/b1.jpg",
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            601L));
+    storeRepository.save(
+        new Store(
+            "Boucherie Test 2",
+            "2 rue Test",
+            "https://img.com/b2.jpg",
+            "Boucherie",
+            "FR7630006000011234567890189",
+            602L));
+
+    List<StoreResponse> results = storeController.searchStores(null, null, null, null, null);
+
+    assertThat(results).isNotEmpty();
+    assertThat(results)
+        .extracting(StoreResponse::getName)
+        .contains("Boulangerie Test 1", "Boucherie Test 2");
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/search?name={name} - Should filter stores by name case-insensitively")
+  void shouldFilterStoresByNameCaseInsensitively() {
+    storeRepository.save(
+        new Store(
+            "Boulangerie Traditionnelle Paul",
+            "10 rue Royale",
+            "https://img.com/paul.jpg",
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            603L));
+    storeRepository.save(
+        new Store(
+            "Pharmacie Centrale",
+            "20 rue Royale",
+            "https://img.com/pharm.jpg",
+            "Santé",
+            "FR7630006000011234567890189",
+            604L));
+
+    List<StoreResponse> results =
+        storeController.searchStores("traditionnelle", null, null, null, null);
+
+    assertThat(results).hasSize(1);
+    assertThat(results.get(0).getName()).isEqualTo("Boulangerie Traditionnelle Paul");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/search - Should support 'query' and 'q' parameter aliases")
+  void shouldSupportQueryAndQParameterAliases() {
+    storeRepository.save(
+        new Store(
+            "Pâtisserie Gourmande",
+            "3 rue Sucrée",
+            "https://img.com/patisserie.jpg",
+            "Pâtisserie",
+            "FR7630006000011234567890189",
+            605L));
+
+    List<StoreResponse> resultsQuery =
+        storeController.searchStores(null, "gourmande", null, null, null);
+    assertThat(resultsQuery).hasSize(1);
+    assertThat(resultsQuery.get(0).getName()).isEqualTo("Pâtisserie Gourmande");
+
+    List<StoreResponse> resultsQ =
+        storeController.searchStores(null, null, "gourmande", null, null);
+    assertThat(resultsQ).hasSize(1);
+    assertThat(resultsQ.get(0).getName()).isEqualTo("Pâtisserie Gourmande");
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/search?category={category} - Should filter stores by single category")
+  void shouldFilterStoresBySingleCategory() {
+    storeRepository.save(
+        new Store(
+            "Boulangerie A",
+            "1 rue A",
+            "https://img.com/a.jpg",
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            606L));
+    storeRepository.save(
+        new Store(
+            "Boucherie B",
+            "2 rue B",
+            "https://img.com/b.jpg",
+            "Boucherie",
+            "FR7630006000011234567890189",
+            607L));
+
+    List<StoreResponse> results =
+        storeController.searchStores(null, null, null, List.of("boulangerie"), null);
+
+    assertThat(results).extracting(StoreResponse::getName).contains("Boulangerie A");
+    assertThat(results).extracting(StoreResponse::getName).doesNotContain("Boucherie B");
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/search?categories={categories} - Should filter stores by multiple categories")
+  void shouldFilterStoresByMultipleCategories() {
+    storeRepository.save(
+        new Store(
+            "Boulangerie C",
+            "1 rue C",
+            "https://img.com/c.jpg",
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            608L));
+    storeRepository.save(
+        new Store(
+            "Epicerie Fine D",
+            "2 rue D",
+            "https://img.com/d.jpg",
+            "Epicerie",
+            "FR7630006000011234567890189",
+            609L));
+    storeRepository.save(
+        new Store(
+            "Fleuriste E",
+            "3 rue E",
+            "https://img.com/e.jpg",
+            "Fleuriste",
+            "FR7630006000011234567890189",
+            610L));
+
+    List<StoreResponse> results =
+        storeController.searchStores(null, null, null, null, List.of("Boulangerie", "Epicerie"));
+
+    assertThat(results)
+        .extracting(StoreResponse::getName)
+        .contains("Boulangerie C", "Epicerie Fine D")
+        .doesNotContain("Fleuriste E");
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/search - Should support comma-separated categories")
+  void shouldSupportCommaSeparatedCategories() {
+    storeRepository.save(
+        new Store(
+            "Fromagerie F",
+            "1 rue F",
+            "https://img.com/f.jpg",
+            "Fromagerie",
+            "FR7630006000011234567890189",
+            611L));
+
+    List<StoreResponse> results =
+        storeController.searchStores(null, null, null, List.of("Fromagerie, Primeur"), null);
+
+    assertThat(results).extracting(StoreResponse::getName).contains("Fromagerie F");
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/search - Should combine name and category filters with AND semantics")
+  void shouldCombineNameAndCategoryFilters() {
+    storeRepository.save(
+        new Store(
+            "Le Bon Pain",
+            "10 rue Bleue",
+            "https://img.com/pain.jpg",
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            612L));
+    storeRepository.save(
+        new Store(
+            "Le Bon Boeuf",
+            "12 rue Rouge",
+            "https://img.com/boeuf.jpg",
+            "Boucherie",
+            "FR7630006000011234567890189",
+            613L));
+
+    List<StoreResponse> matchResults =
+        storeController.searchStores("Le Bon", null, null, List.of("Boulangerie"), null);
+    assertThat(matchResults).hasSize(1);
+    assertThat(matchResults.get(0).getName()).isEqualTo("Le Bon Pain");
+
+    List<StoreResponse> mismatchResults =
+        storeController.searchStores("Le Bon", null, null, List.of("Librairie"), null);
+    assertThat(mismatchResults).isEmpty();
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/search - Should ignore blank name and empty categories")
+  void shouldIgnoreBlankNameAndEmptyCategories() {
+    storeRepository.save(
+        new Store(
+            "Librairie Imaginaire",
+            "5 rue des Livres",
+            "https://img.com/livres.jpg",
+            "Librairie",
+            "FR7630006000011234567890189",
+            614L));
+
+    List<StoreResponse> results =
+        storeController.searchStores("   ", null, null, List.of("   "), List.of());
+
+    assertThat(results).isNotEmpty();
+    assertThat(results).extracting(StoreResponse::getName).contains("Librairie Imaginaire");
+  }
 }

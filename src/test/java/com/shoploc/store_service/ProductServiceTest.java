@@ -3,10 +3,13 @@ package com.shoploc.store_service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.ProductCreateRequest;
 import com.shoploc.store_service.dto.ProductResponse;
 import com.shoploc.store_service.dto.ProductUpdateRequest;
@@ -17,6 +20,7 @@ import com.shoploc.store_service.exception.ProductImageNotFoundException;
 import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
+import com.shoploc.store_service.service.StockAlertEmailService;
 import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.math.BigDecimal;
@@ -38,6 +42,8 @@ class ProductServiceTest {
   @Mock private ProductRepository productRepository;
   @Mock private StoreRepository storeRepository;
   @Mock private ImageStorageService imageStorageService;
+  @Mock private StockAlertEmailService stockAlertEmailService;
+  @Mock private UserClient userClient;
 
   @InjectMocks private ProductService productService;
 
@@ -353,6 +359,78 @@ class ProductServiceTest {
     assertThatThrownBy(() -> productService.updateStock(1L, 10L, request, 100L, "MERCHANT"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Au moins un des champs");
+  }
+
+  @Test
+  @DisplayName("updateStock reaching critical threshold should trigger stock alert email")
+  void shouldTriggerStockAlertWhenReachingThreshold() {
+    sampleProduct.setStockQuantity(10);
+    sampleProduct.setAlertThreshold(5);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
+        .thenReturn(Optional.of(sampleProduct));
+    when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(userClient.getUserEmail(100L)).thenReturn(Optional.of("merchant@test.fr"));
+
+    StockUpdateRequest request = StockUpdateRequest.ofDelta(-6);
+    ProductResponse response = productService.updateStock(1L, 10L, request, 100L, "MERCHANT");
+
+    assertThat(response.getStockQuantity()).isEqualTo(4);
+    assertThat(response.getIsAvailable()).isTrue();
+    verify(stockAlertEmailService)
+        .sendStockAlertAsync(
+            eq("merchant@test.fr"),
+            eq("Boulangerie Paul"),
+            eq("Croissant au beurre"),
+            eq("REF-001"),
+            eq(4),
+            eq(5));
+  }
+
+  @Test
+  @DisplayName(
+      "updateStock reaching zero should trigger rupture de stock alert and set unavailable")
+  void shouldTriggerOutOfStockAlertWhenReachingZero() {
+    sampleProduct.setStockQuantity(2);
+    sampleProduct.setAlertThreshold(5);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
+        .thenReturn(Optional.of(sampleProduct));
+    when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(userClient.getUserEmail(100L)).thenReturn(Optional.of("merchant@test.fr"));
+
+    StockUpdateRequest request = StockUpdateRequest.ofAbsolute(0);
+    ProductResponse response = productService.updateStock(1L, 10L, request, 100L, "MERCHANT");
+
+    assertThat(response.getStockQuantity()).isEqualTo(0);
+    assertThat(response.getIsAvailable()).isFalse();
+    verify(stockAlertEmailService)
+        .sendStockAlertAsync(
+            eq("merchant@test.fr"),
+            eq("Boulangerie Paul"),
+            eq("Croissant au beurre"),
+            eq("REF-001"),
+            eq(0),
+            eq(5));
+  }
+
+  @Test
+  @DisplayName("updateStock remaining above threshold should not trigger stock alert")
+  void shouldNotTriggerStockAlertWhenAboveThreshold() {
+    sampleProduct.setStockQuantity(20);
+    sampleProduct.setAlertThreshold(5);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
+    when(productRepository.findByIdAndStoreIdForUpdate(10L, 1L))
+        .thenReturn(Optional.of(sampleProduct));
+    when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    StockUpdateRequest request = StockUpdateRequest.ofDelta(-5);
+    ProductResponse response = productService.updateStock(1L, 10L, request, 100L, "MERCHANT");
+
+    assertThat(response.getStockQuantity()).isEqualTo(15);
+    assertThat(response.getIsAvailable()).isTrue();
+    verify(stockAlertEmailService, never())
+        .sendStockAlertAsync(any(), any(), any(), any(), anyInt(), anyInt());
   }
 
   @Test

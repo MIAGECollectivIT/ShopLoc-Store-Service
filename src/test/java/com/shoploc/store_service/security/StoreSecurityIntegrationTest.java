@@ -24,6 +24,7 @@ import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
@@ -559,5 +560,27 @@ class StoreSecurityIntegrationTest {
                 .header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.url").value("https://cdn.shoploc.fr/vitrine.jpg"));
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/search without JWT -> should return 200 OK (public access)")
+  void shouldAllowStoreSearchWithoutToken() throws Exception {
+    Store store =
+        new Store(
+            "Boulangerie Publique",
+            "1 rue de la Recherche",
+            "https://img.com/search.jpg",
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            100L);
+    when(storeService.searchStores(any(), any())).thenReturn(List.of(store));
+
+    mockMvc
+        .perform(
+            get("/v1/stores/search").param("name", "Boulangerie").param("category", "Boulangerie"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("Boulangerie Publique"))
+        .andExpect(jsonPath("$[0].category").value("Boulangerie"))
+        .andExpect(jsonPath("$[0].id").doesNotExist());
   }
 }

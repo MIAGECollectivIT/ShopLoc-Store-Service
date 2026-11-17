@@ -1,12 +1,22 @@
 package com.shoploc.store_service;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -38,6 +48,26 @@ public class Store {
   @Column(name = "user_id", nullable = false)
   private Long userId;
 
+  @Column(name = "opening_hours", columnDefinition = "TEXT")
+  private String openingHours;
+
+  @Column(name = "absence_start_date")
+  private Instant absenceStartDate;
+
+  @Column(name = "absence_end_date")
+  private Instant absenceEndDate;
+
+  @Column(name = "absence_reason", length = 255)
+  private String absenceReason;
+
+  @OneToMany(
+      mappedBy = "store",
+      cascade = CascadeType.ALL,
+      orphanRemoval = true,
+      fetch = FetchType.EAGER)
+  @OrderBy("startDate ASC")
+  private List<StoreAbsence> absences = new ArrayList<>();
+
   public Store() {
     this.uid = UUID.randomUUID();
   }
@@ -67,6 +97,118 @@ public class Store {
   public void prePersist() {
     if (this.uid == null) {
       this.uid = UUID.randomUUID();
+    }
+  }
+
+  public boolean isCurrentlyAbsent() {
+    Instant now = Instant.now();
+    if (absences != null && !absences.isEmpty()) {
+      return absences.stream().anyMatch(a -> a.isActiveAt(now));
+    }
+    if (absenceStartDate == null) {
+      return false;
+    }
+    boolean afterStart = !now.isBefore(absenceStartDate);
+    boolean beforeEnd = absenceEndDate == null || !now.isAfter(absenceEndDate);
+    return afterStart && beforeEnd;
+  }
+
+  public Long getAbsenceDurationDays() {
+    Instant now = Instant.now();
+    if (absences != null && !absences.isEmpty()) {
+      StoreAbsence active =
+          absences.stream().filter(a -> a.isActiveAt(now)).findFirst().orElse(null);
+      if (active != null) {
+        return active.getDurationDays();
+      }
+      StoreAbsence upcoming =
+          absences.stream()
+              .filter(a -> a.getStartDate() != null && a.getStartDate().isAfter(now))
+              .min(Comparator.comparing(StoreAbsence::getStartDate))
+              .orElse(null);
+      if (upcoming != null) {
+        return upcoming.getDurationDays();
+      }
+    }
+    if (absenceStartDate == null || absenceEndDate == null) {
+      return null;
+    }
+    long days =
+        ChronoUnit.DAYS.between(
+            absenceStartDate.atZone(ZoneOffset.UTC).toLocalDate(),
+            absenceEndDate.atZone(ZoneOffset.UTC).toLocalDate());
+    return Math.max(0L, days);
+  }
+
+  public List<StoreAbsence> getAbsences() {
+    return absences;
+  }
+
+  public void setAbsences(List<StoreAbsence> absences) {
+    this.absences = absences != null ? absences : new ArrayList<>();
+    syncCurrentAbsenceFields();
+  }
+
+  public void addAbsence(StoreAbsence absence) {
+    if (this.absences == null) {
+      this.absences = new ArrayList<>();
+    }
+    absence.setStore(this);
+    this.absences.add(absence);
+    syncCurrentAbsenceFields();
+  }
+
+  public void removeAbsence(StoreAbsence absence) {
+    if (this.absences != null) {
+      this.absences.remove(absence);
+      absence.setStore(null);
+      syncCurrentAbsenceFields();
+    }
+  }
+
+  public void clearAbsences() {
+    if (this.absences != null) {
+      this.absences.clear();
+    }
+    syncCurrentAbsenceFields();
+  }
+
+  public void syncCurrentAbsenceFields() {
+    Instant now = Instant.now();
+    if (absences == null || absences.isEmpty()) {
+      this.absenceStartDate = null;
+      this.absenceEndDate = null;
+      this.absenceReason = null;
+      return;
+    }
+    StoreAbsence active = absences.stream().filter(a -> a.isActiveAt(now)).findFirst().orElse(null);
+    if (active != null) {
+      this.absenceStartDate = active.getStartDate();
+      this.absenceEndDate = active.getEndDate();
+      this.absenceReason = active.getReason();
+      return;
+    }
+    StoreAbsence upcoming =
+        absences.stream()
+            .filter(a -> a.getStartDate() != null && a.getStartDate().isAfter(now))
+            .min(Comparator.comparing(StoreAbsence::getStartDate))
+            .orElse(null);
+    if (upcoming != null) {
+      this.absenceStartDate = upcoming.getStartDate();
+      this.absenceEndDate = upcoming.getEndDate();
+      this.absenceReason = upcoming.getReason();
+      return;
+    }
+    StoreAbsence latest =
+        absences.stream().max(Comparator.comparing(StoreAbsence::getStartDate)).orElse(null);
+    if (latest != null) {
+      this.absenceStartDate = latest.getStartDate();
+      this.absenceEndDate = latest.getEndDate();
+      this.absenceReason = latest.getReason();
+    } else {
+      this.absenceStartDate = null;
+      this.absenceEndDate = null;
+      this.absenceReason = null;
     }
   }
 
@@ -132,5 +274,37 @@ public class Store {
 
   public void setUserId(Long userId) {
     this.userId = userId;
+  }
+
+  public String getOpeningHours() {
+    return openingHours;
+  }
+
+  public void setOpeningHours(String openingHours) {
+    this.openingHours = openingHours;
+  }
+
+  public Instant getAbsenceStartDate() {
+    return absenceStartDate;
+  }
+
+  public void setAbsenceStartDate(Instant absenceStartDate) {
+    this.absenceStartDate = absenceStartDate;
+  }
+
+  public Instant getAbsenceEndDate() {
+    return absenceEndDate;
+  }
+
+  public void setAbsenceEndDate(Instant absenceEndDate) {
+    this.absenceEndDate = absenceEndDate;
+  }
+
+  public String getAbsenceReason() {
+    return absenceReason;
+  }
+
+  public void setAbsenceReason(String absenceReason) {
+    this.absenceReason = absenceReason;
   }
 }

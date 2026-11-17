@@ -9,7 +9,9 @@ import com.shoploc.store_service.dto.StoreAbsenceRequest;
 import com.shoploc.store_service.dto.StoreAbsenceResponse;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
+import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
+import com.shoploc.store_service.exception.StoreNotRevokedException;
 import com.shoploc.store_service.exception.UserServiceUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -20,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -861,5 +864,146 @@ class StoreControllerTest {
 
     assertThat(results).isNotEmpty();
     assertThat(results).extracting(StoreResponse::getName).contains("Librairie Imaginaire");
+  }
+
+  @Test
+  @DisplayName("POST /v1/stores/{id}/revoke - Should successfully revoke active store")
+  void shouldRevokeStoreWhenAdmin() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Sortant",
+                "20 rue du Départ",
+                "https://img.com/depart.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                701L));
+
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setAttribute("authenticatedUserEmail", "admin@ville.fr");
+
+    ResponseEntity<StoreResponse> response =
+        storeController.revokeStore(String.valueOf(store.getId()), request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.REVOKED);
+    assertThat(response.getBody().getRevokedBy()).isEqualTo("admin@ville.fr");
+    assertThat(response.getBody().getRevokedAt()).isNotNull();
+    assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
+    assertThat(response.getBody().getRib()).isEqualTo("REVOKED");
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores - Should exclude revoked stores by default, but include them with includeRevoked=true")
+  void shouldFilterRevokedStoresFromPublicListing() {
+    Store activeStore =
+        storeRepository.save(
+            new Store(
+                "Actif Store",
+                "1 rue Active",
+                "https://img.com/actif.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                702L));
+
+    Store revokedStore =
+        storeRepository.save(
+            new Store(
+                "Revoked Store",
+                "2 rue Morte",
+                "https://img.com/mort.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                703L));
+    revokedStore.setStatus(StoreStatus.REVOKED);
+    storeRepository.save(revokedStore);
+
+    List<StoreResponse> defaultList = storeController.getAllStores(null, false);
+    assertThat(defaultList).extracting(StoreResponse::getName).contains("Actif Store");
+    assertThat(defaultList).extracting(StoreResponse::getName).doesNotContain("Revoked Store");
+
+    List<StoreResponse> fullList = storeController.getAllStores(null, true);
+    assertThat(fullList)
+        .extracting(StoreResponse::getName)
+        .contains("Actif Store", "Revoked Store");
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/stores/me - Should return stores belonging to authenticated merchant from token")
+  void shouldReturnStoresForAuthenticatedUserViaMe() {
+    Store myStore =
+        storeRepository.save(
+            new Store(
+                "Mon Magasin",
+                "15 rue du Pain",
+                "https://img.com/pain.jpg",
+                "Boulangerie",
+                "FR7630006000011234567890189",
+                888L));
+
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setAttribute("authenticatedUserDbId", 888L);
+
+    List<StoreResponse> myStores = storeController.getMyStores(request);
+
+    assertThat(myStores).hasSize(1);
+    assertThat(myStores.get(0).getName()).isEqualTo("Mon Magasin");
+    assertThat(myStores.get(0).getUserId()).isEqualTo(888L);
+  }
+
+  @Test
+  @DisplayName(
+      "POST /v1/stores/{id}/reactivate - Should successfully reactivate revoked store with new RIB")
+  void shouldReactivateRevokedStoreWhenAdmin() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Sortant",
+                "20 rue du Départ",
+                "https://img.com/depart.jpg",
+                "Mode",
+                "REVOKED",
+                701L));
+    store.setStatus(StoreStatus.REVOKED);
+    store.setRevokedAt(Instant.now());
+    store.setRevokedBy("admin@ville.fr");
+    store = storeRepository.save(store);
+
+    StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
+
+    ResponseEntity<StoreResponse> response =
+        storeController.reactivateStore(String.valueOf(store.getId()), request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(response.getBody().getRib()).isEqualTo("FR7630006000011234567890189");
+    assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
+    assertThat(response.getBody().getRevokedAt()).isNull();
+    assertThat(response.getBody().getRevokedBy()).isNull();
+  }
+
+  @Test
+  @DisplayName(
+      "POST /v1/stores/{id}/reactivate - Should throw StoreNotRevokedException when store is ACTIVE")
+  void shouldFailToReactivateActiveStore() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Déjà Actif",
+                "10 rue du Centre",
+                "https://img.com/actif.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                702L));
+
+    StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
+
+    assertThatThrownBy(
+            () -> storeController.reactivateStore(String.valueOf(store.getId()), request))
+        .isInstanceOf(StoreNotRevokedException.class);
   }
 }

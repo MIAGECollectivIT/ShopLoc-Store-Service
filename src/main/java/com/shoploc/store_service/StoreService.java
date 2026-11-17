@@ -4,13 +4,18 @@ import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.StoreAbsenceRequest;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
+import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.exception.AccessDeniedException;
+import com.shoploc.store_service.exception.RevokedStoreException;
+import com.shoploc.store_service.exception.StoreAlreadyRevokedException;
 import com.shoploc.store_service.exception.StoreImageNotFoundException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
+import com.shoploc.store_service.exception.StoreNotRevokedException;
 import com.shoploc.store_service.exception.UserNotFoundException;
 import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import com.shoploc.store_service.validation.RibIbanHelper;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,21 +41,21 @@ public class StoreService {
 
   @Transactional(readOnly = true)
   public List<Store> getAllStores() {
-    return storeRepository.findAll();
+    return getAllStores(false);
+  }
+
+  @Transactional(readOnly = true)
+  public List<Store> getAllStores(boolean includeRevoked) {
+    if (includeRevoked) {
+      return storeRepository.findAll();
+    }
+    return storeRepository.findByStatus(StoreStatus.ACTIVE);
   }
 
   @Transactional(readOnly = true)
   public List<Store> searchStores(String query, List<String> categories) {
-    boolean hasQuery = query != null && !query.isBlank();
-    boolean hasCategories =
-        categories != null && categories.stream().anyMatch(c -> c != null && !c.isBlank());
-
-    if (!hasQuery && !hasCategories) {
-      return storeRepository.findAll();
-    }
-
     org.springframework.data.jpa.domain.Specification<Store> spec =
-        StoreSpecifications.withFilters(query, categories);
+        StoreSpecifications.withFilters(query, categories, StoreStatus.ACTIVE);
     return storeRepository.findAll(spec);
   }
 
@@ -106,6 +111,51 @@ public class StoreService {
         .orElseThrow(() -> new StoreImageNotFoundException(publicIdentifier));
   }
 
+  @Transactional
+  public Store revokeStore(String identifier, String adminIdentifier) {
+    Store store =
+        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+
+    if (store.isRevoked()) {
+      throw new StoreAlreadyRevokedException(identifier);
+    }
+
+    store.setStatus(StoreStatus.REVOKED);
+    store.setRevokedAt(Instant.now());
+    store.setRevokedBy(adminIdentifier);
+    store.setRib("REVOKED");
+
+    return storeRepository.save(store);
+  }
+
+  @Transactional
+  public Store reactivateStore(String identifier, StoreReactivateRequest request) {
+    Store store =
+        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+
+    if (!store.isRevoked()) {
+      throw new StoreNotRevokedException(identifier);
+    }
+
+    if (request == null || request.rib() == null || request.rib().isBlank()) {
+      throw new IllegalArgumentException(
+          "Le nouveau RIB est obligatoire pour réactiver le commerce");
+    }
+
+    String cleanedRib = RibIbanHelper.clean(request.rib());
+    if (!RibIbanHelper.isValidRibOrIban(cleanedRib)) {
+      throw new IllegalArgumentException(
+          "Le format ou la clé algorithmique du RIB/IBAN est invalide");
+    }
+
+    store.setStatus(StoreStatus.ACTIVE);
+    store.setRib(cleanedRib);
+    store.setRevokedAt(null);
+    store.setRevokedBy(null);
+
+    return storeRepository.save(store);
+  }
+
   public Store createStore(StoreCreateRequest request, MultipartFile image) {
     Long userId = request.getUserId();
     if (!userClient.userExists(userId)) {
@@ -134,6 +184,10 @@ public class StoreService {
       String identifier, StorePatchRequest request, Long authenticatedUserId, String userRole) {
     Store store =
         getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(identifier);
+    }
 
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 
@@ -217,6 +271,9 @@ public class StoreService {
       String identifier, StoreAbsenceRequest request, Long authenticatedUserId, String userRole) {
     Store store =
         getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(identifier);
+    }
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 
     if (request.getStartDate() == null) {
@@ -246,6 +303,9 @@ public class StoreService {
       String userRole) {
     Store store =
         getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(identifier);
+    }
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 
     StoreAbsence absence =
@@ -281,6 +341,9 @@ public class StoreService {
       String identifier, Long absenceId, Long authenticatedUserId, String userRole) {
     Store store =
         getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(identifier);
+    }
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 
     StoreAbsence absence =
@@ -299,6 +362,9 @@ public class StoreService {
   public Store clearStoreAbsence(String identifier, Long authenticatedUserId, String userRole) {
     Store store =
         getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(identifier);
+    }
     verifyStoreOwnership(store, authenticatedUserId, userRole);
     store.clearAbsences();
     return storeRepository.save(store);
@@ -308,6 +374,9 @@ public class StoreService {
       String identifier, MultipartFile image, Long authenticatedUserId, String userRole) {
     Store store =
         getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(identifier);
+    }
 
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 

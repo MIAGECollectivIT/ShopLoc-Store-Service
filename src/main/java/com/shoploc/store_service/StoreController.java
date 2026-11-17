@@ -4,6 +4,7 @@ import com.shoploc.store_service.dto.StoreAbsenceRequest;
 import com.shoploc.store_service.dto.StoreAbsenceResponse;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
+import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.security.RequiresRole;
@@ -36,15 +37,41 @@ public class StoreController {
   }
 
   @GetMapping
-  @Operation(summary = "Récupère tous les commerces (accès public)")
-  public List<StoreResponse> getAllStores(@RequestParam(required = false) Long userId) {
+  @Operation(summary = "Récupère tous les commerces (accès public - filtré sur actifs par défaut)")
+  public List<StoreResponse> getAllStores(
+      @RequestParam(required = false) Long userId,
+      @RequestParam(required = false, defaultValue = "false") boolean includeRevoked) {
     List<Store> stores;
     if (userId != null) {
       stores = storeService.getStoresByUserId(userId);
+    } else if (includeRevoked) {
+      stores = storeService.getAllStores(true);
     } else {
       stores = storeService.getAllStores();
     }
 
+    List<StoreResponse> responseList = new ArrayList<>();
+    for (Store store : stores) {
+      responseList.add(StoreResponse.fromEntity(store));
+    }
+    return responseList;
+  }
+
+  public List<StoreResponse> getAllStores(Long userId) {
+    return getAllStores(userId, false);
+  }
+
+  @GetMapping("/me")
+  @RequiresRole({"MERCHANT", "ADMIN"})
+  @Operation(
+      summary = "Récupère les commerces du commerçant authentifié via son token JWT (anti-IDOR)")
+  public List<StoreResponse> getMyStores(HttpServletRequest servletRequest) {
+    Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
+    if (authenticatedDbId == null || authenticatedDbId <= 0) {
+      throw new AccessDeniedException(
+          "Identifiant commerçant introuvable dans le jeton d'authentification");
+    }
+    List<Store> stores = storeService.getStoresByUserId(authenticatedDbId);
     List<StoreResponse> responseList = new ArrayList<>();
     for (Store store : stores) {
       responseList.add(StoreResponse.fromEntity(store));
@@ -271,6 +298,35 @@ public class StoreController {
     String userRole = extractAuthenticatedUserRole(servletRequest);
     Store updatedStore = storeService.clearStoreAbsence(identifier, authenticatedUserId, userRole);
     return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
+  }
+
+  @PostMapping("/{identifier}/revoke")
+  @RequiresRole("ADMIN")
+  @Operation(
+      summary =
+          "Révoquer un commerce partenaire sortant du programme (SLE-70, SLE-255) - Réservé aux administrateurs")
+  public ResponseEntity<StoreResponse> revokeStore(
+      @PathVariable String identifier, HttpServletRequest servletRequest) {
+    String adminEmail =
+        servletRequest != null
+            ? (String) servletRequest.getAttribute("authenticatedUserEmail")
+            : null;
+    if (adminEmail == null || adminEmail.isBlank()) {
+      adminEmail = "ADMIN";
+    }
+    Store revokedStore = storeService.revokeStore(identifier, adminEmail);
+    return ResponseEntity.ok(StoreResponse.fromEntity(revokedStore));
+  }
+
+  @PostMapping("/{identifier}/reactivate")
+  @RequiresRole("ADMIN")
+  @Operation(
+      summary =
+          "Réactiver un commerce partenaire révoqué avec nouveau RIB conventionnel (SLE-70, SLE-263) - Réservé aux administrateurs")
+  public ResponseEntity<StoreResponse> reactivateStore(
+      @PathVariable String identifier, @Valid @RequestBody StoreReactivateRequest request) {
+    Store reactivatedStore = storeService.reactivateStore(identifier, request);
+    return ResponseEntity.ok(StoreResponse.fromEntity(reactivatedStore));
   }
 
   private Long extractAuthenticatedUserId(HttpServletRequest servletRequest) {

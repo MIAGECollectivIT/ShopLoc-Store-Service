@@ -11,6 +11,7 @@ import com.shoploc.store_service.exception.InvalidFileException;
 import com.shoploc.store_service.exception.ProductImageNotFoundException;
 import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
+import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.service.StockAlertEmailService;
 import com.shoploc.store_service.storage.ImageResource;
@@ -58,7 +59,10 @@ public class ProductService {
 
   @Transactional(readOnly = true)
   public List<ProductResponse> getProductsByStore(Long storeId) {
-    verifyStoreExists(storeId);
+    Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      return List.of();
+    }
     return productRepository.findByStoreId(storeId).stream()
         .map(ProductResponse::fromEntity)
         .toList();
@@ -66,7 +70,10 @@ public class ProductService {
 
   @Transactional(readOnly = true)
   public ProductResponse getProductById(Long storeId, Long productId) {
-    verifyStoreExists(storeId);
+    Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
@@ -82,6 +89,9 @@ public class ProductService {
       Long authenticatedUserId,
       String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     String normalizedRef = request.getReference().trim();
@@ -125,6 +135,9 @@ public class ProductService {
       Long authenticatedUserId,
       String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
@@ -169,6 +182,9 @@ public class ProductService {
   public void deleteProduct(
       Long storeId, Long productId, Long authenticatedUserId, String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
@@ -192,6 +208,9 @@ public class ProductService {
       Long authenticatedUserId,
       String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     if (image == null || image.isEmpty()) {
@@ -219,6 +238,9 @@ public class ProductService {
   public ProductResponse updateProductImageUrl(
       Long storeId, Long productId, String imageUrl, Long authenticatedUserId, String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
@@ -234,7 +256,10 @@ public class ProductService {
 
   @Transactional(readOnly = true)
   public ImageResource getProductImage(Long storeId, Long productId) {
-    verifyStoreExists(storeId);
+    Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
@@ -257,6 +282,9 @@ public class ProductService {
       Long authenticatedUserId,
       String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStockUpdateAuthorization(store, authenticatedUserId, userRole);
 
     Product product =

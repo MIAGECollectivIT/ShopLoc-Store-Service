@@ -19,6 +19,7 @@ import com.shoploc.store_service.exception.InsufficientStockException;
 import com.shoploc.store_service.exception.ProductImageNotFoundException;
 import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
+import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.service.StockAlertEmailService;
 import com.shoploc.store_service.storage.ImageResource;
@@ -77,7 +78,7 @@ class ProductServiceTest {
   @Test
   @DisplayName("getProductsByStore should return product list for store")
   void shouldReturnProductsForStore() {
-    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByStoreId(1L)).thenReturn(List.of(sampleProduct));
 
     List<ProductResponse> responses = productService.getProductsByStore(1L);
@@ -89,7 +90,7 @@ class ProductServiceTest {
   @Test
   @DisplayName("getProductsByStore on non-existent store should throw StoreNotFoundException")
   void shouldThrowWhenStoreNotFoundOnGetProducts() {
-    when(storeRepository.existsById(999L)).thenReturn(false);
+    when(storeRepository.findById(999L)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> productService.getProductsByStore(999L))
         .isInstanceOf(StoreNotFoundException.class);
@@ -98,7 +99,7 @@ class ProductServiceTest {
   @Test
   @DisplayName("getProductById should return product when it exists in store")
   void shouldReturnProductById() {
-    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
 
     ProductResponse response = productService.getProductById(1L, 10L);
@@ -109,7 +110,7 @@ class ProductServiceTest {
   @Test
   @DisplayName("getProductById on non-existent product should throw ProductNotFoundException")
   void shouldThrowWhenProductNotFoundById() {
-    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(999L, 1L)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> productService.getProductById(1L, 999L))
@@ -501,7 +502,7 @@ class ProductServiceTest {
   @DisplayName("getProductImage returns binary stream of S3 image")
   void shouldGetProductImageResource() {
     sampleProduct.setImageUrl("https://cdn.shoploc.fr/product-images/pic.png");
-    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
     when(imageStorageService.downloadImage("https://cdn.shoploc.fr/product-images/pic.png"))
         .thenReturn(Optional.of(new ImageResource(new byte[] {4, 5, 6}, "image/png")));
@@ -516,7 +517,7 @@ class ProductServiceTest {
   @DisplayName("getProductImage without stored imageUrl throws ProductImageNotFoundException")
   void shouldThrowWhenProductImageIsNull() {
     sampleProduct.setImageUrl(null);
-    when(storeRepository.existsById(1L)).thenReturn(true);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(sampleStore));
     when(productRepository.findByIdAndStoreId(10L, 1L)).thenReturn(Optional.of(sampleProduct));
 
     assertThatThrownBy(() -> productService.getProductImage(1L, 10L))
@@ -580,5 +581,48 @@ class ProductServiceTest {
   void shouldThrowWhenIdentifierIsInvalidFormat() {
     assertThatThrownBy(() -> productService.resolveStoreId("invalid-identifier-format"))
         .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("getProductsByStore on revoked store should return empty list")
+  void shouldReturnEmptyListForRevokedStore() {
+    Store revokedStore = new Store("Magasin Révoqué", "1 rue Morte", null, "Mode", "REVOKED", 100L);
+    revokedStore.setId(2L);
+    revokedStore.setStatus(StoreStatus.REVOKED);
+    when(storeRepository.findById(2L)).thenReturn(Optional.of(revokedStore));
+
+    List<ProductResponse> products = productService.getProductsByStore(2L);
+    assertThat(products).isEmpty();
+    verify(productRepository, never()).findByStoreId(any());
+  }
+
+  @Test
+  @DisplayName("createProduct on revoked store should throw RevokedStoreException")
+  void shouldThrowRevokedStoreExceptionOnCreateProduct() {
+    Store revokedStore = new Store("Magasin Révoqué", "1 rue Morte", null, "Mode", "REVOKED", 100L);
+    revokedStore.setId(2L);
+    revokedStore.setStatus(StoreStatus.REVOKED);
+    when(storeRepository.findById(2L)).thenReturn(Optional.of(revokedStore));
+
+    ProductCreateRequest request =
+        new ProductCreateRequest(
+            "REF-REVOKED", "Produit", "Desc", new BigDecimal("10.00"), null, 5);
+
+    assertThatThrownBy(() -> productService.createProduct(2L, request, null, 100L, "MERCHANT"))
+        .isInstanceOf(RevokedStoreException.class);
+  }
+
+  @Test
+  @DisplayName("updateStock on revoked store should throw RevokedStoreException")
+  void shouldThrowRevokedStoreExceptionOnUpdateStock() {
+    Store revokedStore = new Store("Magasin Révoqué", "1 rue Morte", null, "Mode", "REVOKED", 100L);
+    revokedStore.setId(2L);
+    revokedStore.setStatus(StoreStatus.REVOKED);
+    when(storeRepository.findById(2L)).thenReturn(Optional.of(revokedStore));
+
+    StockUpdateRequest request = new StockUpdateRequest(5, null);
+
+    assertThatThrownBy(() -> productService.updateStock(2L, 10L, request, 100L, "MERCHANT"))
+        .isInstanceOf(RevokedStoreException.class);
   }
 }

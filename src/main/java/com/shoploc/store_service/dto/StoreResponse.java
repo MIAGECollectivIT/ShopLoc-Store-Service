@@ -1,6 +1,7 @@
 package com.shoploc.store_service.dto;
 
 import com.shoploc.store_service.Store;
+import com.shoploc.store_service.StoreStatus;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -21,6 +22,9 @@ public class StoreResponse {
   private Boolean isCurrentlyAbsent;
   private Long absenceDurationDays;
   private java.util.List<StoreAbsenceResponse> absences = new java.util.ArrayList<>();
+  private StoreStatus status = StoreStatus.ACTIVE;
+  private Instant revokedAt;
+  private String revokedBy;
 
   public StoreResponse() {}
 
@@ -69,6 +73,9 @@ public class StoreResponse {
     response.setAbsenceReason(store.getAbsenceReason());
     response.setIsCurrentlyAbsent(store.isCurrentlyAbsent());
     response.setAbsenceDurationDays(store.getAbsenceDurationDays());
+    response.setStatus(store.getStatus());
+    response.setRevokedAt(store.getRevokedAt());
+    response.setRevokedBy(store.getRevokedBy());
     if (store.getAbsences() != null) {
       response.setAbsences(
           store.getAbsences().stream()
@@ -196,5 +203,29 @@ public class StoreResponse {
 
   public void setAbsences(java.util.List<StoreAbsenceResponse> absences) {
     this.absences = absences;
+  }
+
+  public StoreStatus getStatus() {
+    return status;
+  }
+
+  public void setStatus(StoreStatus status) {
+    this.status = status;
+  }
+
+  public Instant getRevokedAt() {
+    return revokedAt;
+  }
+
+  public void setRevokedAt(Instant revokedAt) {
+    this.revokedAt = revokedAt;
+  }
+
+  public String getRevokedBy() {
+    return revokedBy;
+  }
+
+  public void setRevokedBy(String revokedBy) {
+    this.revokedBy = revokedBy;
   }
 }

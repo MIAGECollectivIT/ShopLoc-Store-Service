@@ -890,7 +890,7 @@ class StoreControllerTest {
     assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.REVOKED);
     assertThat(response.getBody().getRevokedBy()).isEqualTo("admin@ville.fr");
     assertThat(response.getBody().getRevokedAt()).isNotNull();
-    assertThat(response.getBody().getUrl()).isNull();
+    assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
     assertThat(response.getBody().getRib()).isEqualTo("REVOKED");
   }
 
@@ -960,7 +960,13 @@ class StoreControllerTest {
   void shouldReactivateRevokedStoreWhenAdmin() {
     Store store =
         storeRepository.save(
-            new Store("Commerce Sortant", "20 rue du Départ", null, "Mode", "REVOKED", 701L));
+            new Store(
+                "Commerce Sortant",
+                "20 rue du Départ",
+                "https://img.com/depart.jpg",
+                "Mode",
+                "REVOKED",
+                701L));
     store.setStatus(StoreStatus.REVOKED);
     store.setRevokedAt(Instant.now());
     store.setRevokedBy("admin@ville.fr");
@@ -975,6 +981,7 @@ class StoreControllerTest {
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.ACTIVE);
     assertThat(response.getBody().getRib()).isEqualTo("FR7630006000011234567890189");
+    assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
     assertThat(response.getBody().getRevokedAt()).isNull();
     assertThat(response.getBody().getRevokedBy()).isNull();
   }

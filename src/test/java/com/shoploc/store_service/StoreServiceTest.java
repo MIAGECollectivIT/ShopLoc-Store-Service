@@ -124,7 +124,7 @@ class StoreServiceTest {
     assertThat(revoked.getRevokedAt()).isNotNull();
     assertThat(revoked.getRevokedBy()).isEqualTo("admin@ville.fr");
     assertThat(revoked.getRib()).isEqualTo("REVOKED");
-    assertThat(revoked.getUrl()).isNull();
+    assertThat(revoked.getUrl()).isEqualTo("https://cdn.shoploc.fr/img.png");
     verify(storeRepository).save(store);
   }
 
@@ -152,10 +152,16 @@ class StoreServiceTest {
 
   @Test
   @DisplayName(
-      "reactivateStore - Should transition REVOKED store to ACTIVE, clear audit fields and set new valid RIB")
+      "reactivateStore - Should transition REVOKED store to ACTIVE, clear audit fields, preserve photo and set new valid RIB")
   void shouldReactivateRevokedStore() {
     Store store =
-        new Store("Boulangerie Paul", "10 rue Royale", null, "Alimentation", "REVOKED", 10L);
+        new Store(
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "REVOKED",
+            10L);
     store.setId(1L);
     store.setStatus(StoreStatus.REVOKED);
     store.setRevokedAt(java.time.Instant.now());
@@ -173,6 +179,7 @@ class StoreServiceTest {
     assertThat(reactivated.getRevokedAt()).isNull();
     assertThat(reactivated.getRevokedBy()).isNull();
     assertThat(reactivated.getRib()).isEqualTo("FR7630006000011234567890189");
+    assertThat(reactivated.getUrl()).isEqualTo("https://cdn.shoploc.fr/img.png");
     verify(storeRepository).save(store);
   }
 

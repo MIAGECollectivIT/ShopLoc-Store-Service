@@ -102,7 +102,7 @@ public class StoreService {
 
     String publicIdentifier = store.getUid() != null ? store.getUid().toString() : identifier;
 
-    if (store.isRevoked() || store.getUrl() == null || store.getUrl().isBlank()) {
+    if (store.getUrl() == null || store.getUrl().isBlank()) {
       throw new StoreImageNotFoundException(publicIdentifier);
     }
 
@@ -124,7 +124,6 @@ public class StoreService {
     store.setRevokedAt(Instant.now());
     store.setRevokedBy(adminIdentifier);
     store.setRib("REVOKED");
-    store.setUrl(null);
 
     return storeRepository.save(store);
   }

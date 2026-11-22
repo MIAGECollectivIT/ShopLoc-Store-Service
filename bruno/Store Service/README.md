@@ -29,7 +29,8 @@ bruno/Store Service/
 │   ├── 07 - Rejet creation magasin sans token - 401.bru
 │   ├── 08 - Rejet creation magasin avec role CLIENT - 403.bru
 │   ├── 09 - Rejet creation magasin tentative IDOR - 403.bru
-│   └── 10 - Rejet creation avec IBAN invalide - 400.bru
+│   ├── 10 - Rejet creation avec IBAN invalide - 400.bru
+│   └── 11 - Modifier un magasin (ADMIN) - Reassigner proprietaire - 200.bru
 │
 ├── 02 - Catalogue Produits/   # Catalogue Click & Collect (Story SLE-58 & SLE-143)
 │   ├── 01 - Creer un produit (MERCHANT - JSON) - 201.bru
@@ -67,7 +68,8 @@ bruno/Store Service/
     ├── 11 - Rejet tentative spoofing header X-User-Role ADMIN - 403.bru
     ├── 12 - Rejet creation produit magasin inexistant - 404.bru
     ├── 13 - Rejet consultation image produit sans visuel - 404.bru
-    └── 14 - Rejet modification image produit avec role CLIENT - 403.bru
+    ├── 14 - Rejet modification image produit avec role CLIENT - 403.bru
+    └── 15 - Rejet reassignation proprietaire magasin par COMMERCANT - 403.bru
 ```
 
 ---

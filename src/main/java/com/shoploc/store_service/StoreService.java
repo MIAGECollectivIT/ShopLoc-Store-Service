@@ -214,6 +214,9 @@ public class StoreService {
     if (request.getOpeningHours() != null) {
       store.setOpeningHours(request.getOpeningHours().trim());
     }
+    if (request.getUserId() != null && "ADMIN".equalsIgnoreCase(userRole)) {
+      store.setUserId(request.getUserId());
+    }
     if (Boolean.TRUE.equals(request.getClearAbsence())) {
       store.clearAbsences();
     } else if (request.getAbsences() != null) {

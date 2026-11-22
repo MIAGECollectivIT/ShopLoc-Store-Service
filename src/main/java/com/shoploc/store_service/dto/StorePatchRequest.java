@@ -30,6 +30,8 @@ public class StorePatchRequest {
 
   private Boolean clearAbsence;
 
+  private Long userId;
+
   private java.util.List<StoreAbsenceRequest> absences;
 
   public StorePatchRequest() {}
@@ -141,5 +143,13 @@ public class StorePatchRequest {
 
   public void setAbsences(java.util.List<StoreAbsenceRequest> absences) {
     this.absences = absences;
+  }
+
+  public Long getUserId() {
+    return userId;
+  }
+
+  public void setUserId(Long userId) {
+    this.userId = userId;
   }
 }

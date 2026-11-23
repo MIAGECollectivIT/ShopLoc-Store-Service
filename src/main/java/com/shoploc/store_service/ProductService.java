@@ -1,5 +1,6 @@
 package com.shoploc.store_service;
 
+import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.ProductCreateRequest;
 import com.shoploc.store_service.dto.ProductResponse;
 import com.shoploc.store_service.dto.ProductUpdateRequest;
@@ -10,13 +11,16 @@ import com.shoploc.store_service.exception.InvalidFileException;
 import com.shoploc.store_service.exception.ProductImageNotFoundException;
 import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
+import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
+import com.shoploc.store_service.service.StockAlertEmailService;
 import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,19 +33,36 @@ public class ProductService {
   private final ProductRepository productRepository;
   private final StoreRepository storeRepository;
   private final ImageStorageService imageStorageService;
+  private final StockAlertEmailService stockAlertEmailService;
+  private final UserClient userClient;
 
   public ProductService(
       ProductRepository productRepository,
       StoreRepository storeRepository,
       ImageStorageService imageStorageService) {
+    this(productRepository, storeRepository, imageStorageService, null, null);
+  }
+
+  @Autowired
+  public ProductService(
+      ProductRepository productRepository,
+      StoreRepository storeRepository,
+      ImageStorageService imageStorageService,
+      StockAlertEmailService stockAlertEmailService,
+      UserClient userClient) {
     this.productRepository = productRepository;
     this.storeRepository = storeRepository;
     this.imageStorageService = imageStorageService;
+    this.stockAlertEmailService = stockAlertEmailService;
+    this.userClient = userClient;
   }
 
   @Transactional(readOnly = true)
   public List<ProductResponse> getProductsByStore(Long storeId) {
-    verifyStoreExists(storeId);
+    Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      return List.of();
+    }
     return productRepository.findByStoreId(storeId).stream()
         .map(ProductResponse::fromEntity)
         .toList();
@@ -49,7 +70,10 @@ public class ProductService {
 
   @Transactional(readOnly = true)
   public ProductResponse getProductById(Long storeId, Long productId) {
-    verifyStoreExists(storeId);
+    Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
@@ -65,6 +89,9 @@ public class ProductService {
       Long authenticatedUserId,
       String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     String normalizedRef = request.getReference().trim();
@@ -87,7 +114,8 @@ public class ProductService {
             request.getDescription(),
             request.getPrice(),
             imageUrl,
-            request.getStockQuantity() != null ? request.getStockQuantity() : 0);
+            request.getStockQuantity() != null ? request.getStockQuantity() : 0,
+            request.getAlertThreshold() != null ? request.getAlertThreshold() : 5);
 
     Product savedProduct = productRepository.save(product);
     log.info(
@@ -107,6 +135,9 @@ public class ProductService {
       Long authenticatedUserId,
       String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
@@ -128,6 +159,10 @@ public class ProductService {
       product.setStockQuantity(request.getStockQuantity());
     }
 
+    if (request.getAlertThreshold() != null) {
+      product.setAlertThreshold(request.getAlertThreshold());
+    }
+
     if (image != null && !image.isEmpty()) {
       String imageUrl = imageStorageService.uploadProductImage(image);
       product.setImageUrl(imageUrl);
@@ -147,6 +182,9 @@ public class ProductService {
   public void deleteProduct(
       Long storeId, Long productId, Long authenticatedUserId, String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
@@ -170,6 +208,9 @@ public class ProductService {
       Long authenticatedUserId,
       String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     if (image == null || image.isEmpty()) {
@@ -197,6 +238,9 @@ public class ProductService {
   public ProductResponse updateProductImageUrl(
       Long storeId, Long productId, String imageUrl, Long authenticatedUserId, String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
@@ -212,7 +256,10 @@ public class ProductService {
 
   @Transactional(readOnly = true)
   public ImageResource getProductImage(Long storeId, Long productId) {
-    verifyStoreExists(storeId);
+    Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     Product product =
         productRepository
             .findByIdAndStoreId(productId, storeId)
@@ -235,6 +282,9 @@ public class ProductService {
       Long authenticatedUserId,
       String userRole) {
     Store store = findStoreOrThrow(storeId);
+    if (store.isRevoked()) {
+      throw new RevokedStoreException(String.valueOf(storeId));
+    }
     validateStockUpdateAuthorization(store, authenticatedUserId, userRole);
 
     Product product =
@@ -273,7 +323,39 @@ public class ProductService {
         storeId,
         currentStock,
         targetStock);
+
+    int alertThreshold = saved.getAlertThreshold() != null ? saved.getAlertThreshold() : 5;
+    if (targetStock <= alertThreshold && targetStock < currentStock) {
+      triggerStockAlert(store, saved, targetStock, alertThreshold);
+    }
+
     return ProductResponse.fromEntity(saved);
+  }
+
+  private void triggerStockAlert(
+      Store store, Product product, int targetStock, int alertThreshold) {
+    if (stockAlertEmailService == null) {
+      return;
+    }
+    String merchantEmail = null;
+    if (userClient != null && store.getUserId() != null) {
+      merchantEmail = userClient.getUserEmail(store.getUserId()).orElse(null);
+    }
+    if (merchantEmail != null && !merchantEmail.isBlank()) {
+      stockAlertEmailService.sendStockAlertAsync(
+          merchantEmail,
+          store.getName(),
+          product.getName(),
+          product.getReference(),
+          targetStock,
+          alertThreshold);
+    } else {
+      log.info(
+          "Stock alert detected for store '{}', product '{}' (stock={}), but merchant email could not be resolved",
+          store.getName(),
+          product.getName(),
+          targetStock);
+    }
   }
 
   public Long resolveStoreId(String storeIdentifier) {

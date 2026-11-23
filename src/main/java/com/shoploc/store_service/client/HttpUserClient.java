@@ -120,4 +120,21 @@ public class HttpUserClient implements UserClient {
           e.getMessage());
     }
   }
+
+  @Override
+  public java.util.Optional<String> getUserEmail(Long userId) {
+    if (userId == null) {
+      return java.util.Optional.empty();
+    }
+    try {
+      Map<?, ?> resp =
+          restClient.get().uri("/v1/users/{userId}", userId).retrieve().body(Map.class);
+      if (resp != null && resp.get("email") instanceof String email && !email.isBlank()) {
+        return java.util.Optional.of(email.trim());
+      }
+    } catch (Exception e) {
+      log.warn("Could not retrieve user email for user {}: {}", userId, e.getMessage());
+    }
+    return java.util.Optional.empty();
+  }
 }

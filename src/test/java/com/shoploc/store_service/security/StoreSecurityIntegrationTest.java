@@ -3,6 +3,8 @@ package com.shoploc.store_service.security;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -22,6 +24,7 @@ import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
@@ -440,5 +443,144 @@ class StoreSecurityIntegrationTest {
         .perform(get("/v1/stores/1/image"))
         .andExpect(status().isOk())
         .andExpect(content().contentType("image/jpeg"));
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{uid} without JWT -> should return 401 Unauthorized")
+  void shouldRejectPatchStoreWithoutToken() throws Exception {
+    UUID uid = UUID.randomUUID();
+    mockMvc
+        .perform(
+            patch("/v1/stores/" + uid)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"address\":\"10 rue Neuve\"}"))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{uid} with CLIENT role -> should return 403 Forbidden")
+  void shouldRejectPatchStoreForClient() throws Exception {
+    UUID uid = UUID.randomUUID();
+    String token = generateTestToken("CLIENT", "client@shoploc.fr");
+    mockMvc
+        .perform(
+            patch("/v1/stores/" + uid)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"address\":\"10 rue Neuve\"}"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{uid} with MERCHANT role -> should return 200 OK")
+  void shouldAllowPatchStoreForMerchant() throws Exception {
+    UUID uid = UUID.randomUUID();
+    Store store =
+        new Store(
+            "Boutique Test",
+            "10 rue Neuve",
+            "https://img.com/test.jpg",
+            "Mode",
+            "FR7630006000011234567890189",
+            101L);
+    ReflectionTestUtils.setField(store, "id", 1L);
+    ReflectionTestUtils.setField(store, "uid", uid);
+
+    when(storeService.patchStore(any(), any(), any(), any())).thenReturn(store);
+
+    String token = generateTestToken("MERCHANT", "merchant@shoploc.fr", "jti-patch-ok", 101L);
+    mockMvc
+        .perform(
+            patch("/v1/stores/" + uid)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"address\":\"10 rue Neuve\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.address").value("10 rue Neuve"));
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{uid}/image without JWT -> should return 401 Unauthorized")
+  void shouldRejectUpdateStoreImageWithoutToken() throws Exception {
+    UUID uid = UUID.randomUUID();
+    org.springframework.mock.web.MockMultipartFile imageFile =
+        new org.springframework.mock.web.MockMultipartFile(
+            "image", "vitrine.jpg", "image/jpeg", new byte[] {0x11, 0x22});
+
+    mockMvc
+        .perform(
+            multipart(org.springframework.http.HttpMethod.PATCH, "/v1/stores/" + uid + "/image")
+                .file(imageFile))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{uid}/image with CLIENT role -> should return 403 Forbidden")
+  void shouldRejectUpdateStoreImageForClient() throws Exception {
+    UUID uid = UUID.randomUUID();
+    org.springframework.mock.web.MockMultipartFile imageFile =
+        new org.springframework.mock.web.MockMultipartFile(
+            "image", "vitrine.jpg", "image/jpeg", new byte[] {0x11, 0x22});
+    String token = generateTestToken("CLIENT", "client@shoploc.fr");
+
+    mockMvc
+        .perform(
+            multipart(org.springframework.http.HttpMethod.PATCH, "/v1/stores/" + uid + "/image")
+                .file(imageFile)
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{uid}/image with MERCHANT role -> should return 200 OK")
+  void shouldAllowUpdateStoreImageForMerchant() throws Exception {
+    UUID uid = UUID.randomUUID();
+    Store store =
+        new Store(
+            "Boutique Vitrine",
+            "10 rue Neuve",
+            "https://cdn.shoploc.fr/vitrine.jpg",
+            "Mode",
+            "FR7630006000011234567890189",
+            101L);
+    ReflectionTestUtils.setField(store, "id", 1L);
+    ReflectionTestUtils.setField(store, "uid", uid);
+
+    when(storeService.updateStoreImage(any(), any(), any(), any())).thenReturn(store);
+
+    org.springframework.mock.web.MockMultipartFile imageFile =
+        new org.springframework.mock.web.MockMultipartFile(
+            "image", "vitrine.jpg", "image/jpeg", new byte[] {0x11, 0x22});
+    String token = generateTestToken("MERCHANT", "merchant@shoploc.fr", "jti-img-ok", 101L);
+
+    mockMvc
+        .perform(
+            multipart(org.springframework.http.HttpMethod.PATCH, "/v1/stores/" + uid + "/image")
+                .file(imageFile)
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.url").value("https://cdn.shoploc.fr/vitrine.jpg"));
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/search without JWT -> should return 200 OK (public access)")
+  void shouldAllowStoreSearchWithoutToken() throws Exception {
+    Store store =
+        new Store(
+            "Boulangerie Publique",
+            "1 rue de la Recherche",
+            "https://img.com/search.jpg",
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            100L);
+    when(storeService.searchStores(any(), any())).thenReturn(List.of(store));
+
+    mockMvc
+        .perform(
+            get("/v1/stores/search").param("name", "Boulangerie").param("category", "Boulangerie"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("Boulangerie Publique"))
+        .andExpect(jsonPath("$[0].category").value("Boulangerie"))
+        .andExpect(jsonPath("$[0].id").doesNotExist());
   }
 }

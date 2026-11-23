@@ -101,13 +101,33 @@ public class RoleInterceptor implements HandlerInterceptor {
 
     String userRole = jwtValidatorService.extractRole(claims);
 
-    request.setAttribute(ATTR_USER_ID, claims.get("userId", String.class));
+    Object userIdObj = claims.get("userId");
+    request.setAttribute(ATTR_USER_ID, userIdObj != null ? userIdObj.toString() : null);
+
     Object dbIdObj = claims.get("dbId");
     if (dbIdObj instanceof Number num) {
       request.setAttribute(ATTR_USER_DB_ID, num.longValue());
     } else if (dbIdObj != null) {
       try {
         request.setAttribute(ATTR_USER_DB_ID, Long.parseLong(dbIdObj.toString()));
+      } catch (NumberFormatException ignored) {
+      }
+    }
+
+    // Fallback if dbId is missing but userId or sub contains numerical ID
+    if (request.getAttribute(ATTR_USER_DB_ID) == null && userIdObj != null) {
+      if (userIdObj instanceof Number num) {
+        request.setAttribute(ATTR_USER_DB_ID, num.longValue());
+      } else {
+        try {
+          request.setAttribute(ATTR_USER_DB_ID, Long.parseLong(userIdObj.toString()));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+    }
+    if (request.getAttribute(ATTR_USER_DB_ID) == null && claims.getSubject() != null) {
+      try {
+        request.setAttribute(ATTR_USER_DB_ID, Long.parseLong(claims.getSubject()));
       } catch (NumberFormatException ignored) {
       }
     }

@@ -1,0 +1,32 @@
+meta {
+  name: 11 - Modifier un magasin (ADMIN) - Reassigner proprietaire - 200
+  type: http
+  seq: 11
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "userId": 10
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{storeId}}
+  res.body.userId: eq 10
+}
+

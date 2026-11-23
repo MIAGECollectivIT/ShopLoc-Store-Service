@@ -1,0 +1,31 @@
+meta {
+  name: 15 - Rejet reassignation proprietaire magasin par COMMERCANT - 403
+  type: http
+  seq: 15
+}
+
+patch {
+  url: {{baseUrl}}/v1/stores/{{storeId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "userId": 2
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error: eq "Forbidden"
+}
+

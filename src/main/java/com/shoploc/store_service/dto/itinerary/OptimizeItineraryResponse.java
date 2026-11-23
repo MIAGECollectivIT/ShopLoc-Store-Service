@@ -10,7 +10,8 @@ public record OptimizeItineraryResponse(
     @Schema(description = "Liste chronologique et ordonnée des étapes de retrait")
         List<ItineraryStepResponse> orderedSteps,
     @Schema(
-            description = "Distance totale parcourue en kilomètres (ajustée du facteur de sinuosité urbaine 1.35)",
+            description =
+                "Distance totale parcourue en kilomètres (ajustée du facteur de sinuosité urbaine 1.35)",
             example = "4.8")
         double totalDistanceKm,
     @Schema(

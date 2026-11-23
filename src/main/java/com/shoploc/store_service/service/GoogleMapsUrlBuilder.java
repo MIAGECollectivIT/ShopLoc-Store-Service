@@ -11,13 +11,11 @@ import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 /**
- * Standardized builder for Google Maps Directions API URLs (SLE-31, SLE-298).
- * Enforces:
- * 1. Compact latitude,longitude format (ex: 50.635600,3.061700).
- * 2. UTF-8 fallback with '+' for spaces on textual addresses.
- * 3. Exact 0 waypoints parameter when there is only 1 destination store.
- * 4. Deduplication of consecutive identical locations.
- * 5. Strict ceiling of 9 waypoints max for multi-destination routes.
+ * Standardized builder for Google Maps Directions API URLs (SLE-31, SLE-298). Enforces: 1. Compact
+ * latitude,longitude format (ex: 50.635600,3.061700). 2. UTF-8 fallback with '+' for spaces on
+ * textual addresses. 3. Exact 0 waypoints parameter when there is only 1 destination store. 4.
+ * Deduplication of consecutive identical locations. 5. Strict ceiling of 9 waypoints max for
+ * multi-destination routes.
  */
 @Component
 public class GoogleMapsUrlBuilder {
@@ -58,7 +56,8 @@ public class GoogleMapsUrlBuilder {
     String destinationLocation = formatStepLocation(lastStep);
     url.append("&destination=").append(destinationLocation);
 
-    // Intermediate steps become waypoints (from index 0 up to size - 2, or index 1 if custom origin was omitted)
+    // Intermediate steps become waypoints (from index 0 up to size - 2, or index 1 if custom origin
+    // was omitted)
     List<String> rawWaypoints = new ArrayList<>();
     int startIndex = (origin != null && origin.customOrigin()) ? 0 : 1;
     for (int i = startIndex; i < orderedSteps.size() - 1; i++) {
@@ -69,7 +68,8 @@ public class GoogleMapsUrlBuilder {
     List<String> distinctConsecutiveWaypoints = new ArrayList<>();
     String previousLocation = originLocation;
     for (String waypoint : rawWaypoints) {
-      if (!waypoint.equalsIgnoreCase(previousLocation) && !waypoint.equalsIgnoreCase(destinationLocation)) {
+      if (!waypoint.equalsIgnoreCase(previousLocation)
+          && !waypoint.equalsIgnoreCase(destinationLocation)) {
         distinctConsecutiveWaypoints.add(waypoint);
         previousLocation = waypoint;
       }
@@ -77,7 +77,8 @@ public class GoogleMapsUrlBuilder {
 
     boolean waypointsTruncated = false;
     if (distinctConsecutiveWaypoints.size() > MAX_GOOGLE_MAPS_WAYPOINTS) {
-      distinctConsecutiveWaypoints = distinctConsecutiveWaypoints.subList(0, MAX_GOOGLE_MAPS_WAYPOINTS);
+      distinctConsecutiveWaypoints =
+          distinctConsecutiveWaypoints.subList(0, MAX_GOOGLE_MAPS_WAYPOINTS);
       waypointsTruncated = true;
     }
 

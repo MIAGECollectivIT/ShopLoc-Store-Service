@@ -3,7 +3,6 @@ package com.shoploc.store_service.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shoploc.store_service.Store;
-import com.shoploc.store_service.StoreAbsence;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -12,7 +11,6 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -50,7 +48,8 @@ public class StoreScheduleEvaluator {
 
     // 1. Check if store is in an absence period covering the arrival date
     if (isStoreInAbsence(store, arrivalDate)) {
-      String reason = store.getAbsenceReason() != null ? store.getAbsenceReason() : "Congés / Fermeture";
+      String reason =
+          store.getAbsenceReason() != null ? store.getAbsenceReason() : "Congés / Fermeture";
       return new ScheduleEvaluation(
           false,
           true,
@@ -60,9 +59,12 @@ public class StoreScheduleEvaluator {
     }
 
     // 2. Parse daily schedule from openingHours
-    DaySchedule daySchedule = getDaySchedule(store.getOpeningHours(), arrivalDateTime.getDayOfWeek());
+    DaySchedule daySchedule =
+        getDaySchedule(store.getOpeningHours(), arrivalDateTime.getDayOfWeek());
 
-    if (!daySchedule.isOpen() || daySchedule.getOpeningTime() == null || daySchedule.getClosingTime() == null) {
+    if (!daySchedule.isOpen()
+        || daySchedule.getOpeningTime() == null
+        || daySchedule.getClosingTime() == null) {
       return new ScheduleEvaluation(
           false,
           true,
@@ -80,7 +82,8 @@ public class StoreScheduleEvaluator {
 
     // Check if arrival is before opening
     if (arrivalTime.isBefore(daySchedule.getOpeningTime())) {
-      long minutesBeforeOpen = Duration.between(arrivalTime, daySchedule.getOpeningTime()).toMinutes();
+      long minutesBeforeOpen =
+          Duration.between(arrivalTime, daySchedule.getOpeningTime()).toMinutes();
       return new ScheduleEvaluation(
           false,
           false,
@@ -106,7 +109,8 @@ public class StoreScheduleEvaluator {
     }
 
     // Currently open: calculate minutes remaining before closing
-    long minutesUntilClosing = Duration.between(arrivalTime, daySchedule.getClosingTime()).toMinutes();
+    long minutesUntilClosing =
+        Duration.between(arrivalTime, daySchedule.getClosingTime()).toMinutes();
     String warning = null;
     if (minutesUntilClosing < 45) {
       warning =
@@ -120,9 +124,7 @@ public class StoreScheduleEvaluator {
     return new ScheduleEvaluation(true, false, minutesUntilClosing, scheduleDisplay, warning);
   }
 
-  /**
-   * Checks whether the store is explicitly closed all day on the target date.
-   */
+  /** Checks whether the store is explicitly closed all day on the target date. */
   public boolean isClosedAllDay(Store store, LocalDate targetDate) {
     if (store == null || targetDate == null) {
       return false;

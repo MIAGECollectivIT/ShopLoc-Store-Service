@@ -1,7 +1,6 @@
 package com.shoploc.store_service.service;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
@@ -65,7 +64,8 @@ class ItineraryOptimizationServiceTest {
   @DisplayName("Dédoublonnage strict des storeUids en entrée")
   void shouldDeduplicateIncomingStoreUids() {
     UUID storeUid = UUID.randomUUID();
-    Store store = new Store("Boutique Unique", "10 Rue Nationale", null, "Alim", "FR...", UUID.randomUUID());
+    Store store =
+        new Store("Boutique Unique", "10 Rue Nationale", null, "Alim", "FR...", UUID.randomUUID());
     store.setUid(storeUid);
     store.setLatitude(50.6356);
     store.setLongitude(3.0617);
@@ -86,7 +86,10 @@ class ItineraryOptimizationServiceTest {
     OptimizeItineraryResponse response = service.optimizeItinerary(request);
 
     assertNotNull(response);
-    assertEquals(1, response.orderedSteps().size(), "Un commerce présent plusieurs fois dans le panier ne doit apparaître qu'une seule fois");
+    assertEquals(
+        1,
+        response.orderedSteps().size(),
+        "Un commerce présent plusieurs fois dans le panier ne doit apparaître qu'une seule fois");
     assertEquals(storeUid, response.orderedSteps().get(0).storeUid());
   }
 
@@ -96,13 +99,15 @@ class ItineraryOptimizationServiceTest {
     UUID activeUid = UUID.randomUUID();
     UUID revokedUid = UUID.randomUUID();
 
-    Store activeStore = new Store("Boutique Active", "Adresse 1", null, "Alim", "FR...", UUID.randomUUID());
+    Store activeStore =
+        new Store("Boutique Active", "Adresse 1", null, "Alim", "FR...", UUID.randomUUID());
     activeStore.setUid(activeUid);
     activeStore.setLatitude(50.631);
     activeStore.setLongitude(3.061);
     activeStore.setStatus(StoreStatus.ACTIVE);
 
-    Store revokedStore = new Store("Boutique Révoquée", "Adresse 2", null, "Alim", "FR...", UUID.randomUUID());
+    Store revokedStore =
+        new Store("Boutique Révoquée", "Adresse 2", null, "Alim", "FR...", UUID.randomUUID());
     revokedStore.setUid(revokedUid);
     revokedStore.setLatitude(50.635);
     revokedStore.setLongitude(3.065);
@@ -121,7 +126,8 @@ class ItineraryOptimizationServiceTest {
 
     OptimizeItineraryResponse response = service.optimizeItinerary(request);
 
-    assertEquals(1, response.orderedSteps().size(), "Seule la boutique active doit être dans les étapes");
+    assertEquals(
+        1, response.orderedSteps().size(), "Seule la boutique active doit être dans les étapes");
     assertEquals(activeUid, response.orderedSteps().get(0).storeUid());
     assertTrue(response.warnings().stream().anyMatch(w -> w.contains("révoqué")));
   }
@@ -138,36 +144,38 @@ class ItineraryOptimizationServiceTest {
 
     // Store A is closer (1 km away) but closes at 22:00
     UUID uidA = UUID.randomUUID();
-    Store storeA = new Store("Store A (Tardif)", "Addr A", null, "Alim", "FR...", UUID.randomUUID());
+    Store storeA =
+        new Store("Store A (Tardif)", "Addr A", null, "Alim", "FR...", UUID.randomUUID());
     storeA.setUid(uidA);
     storeA.setLatitude(50.632);
     storeA.setLongitude(3.061);
-    storeA.setOpeningHours("[{\"day\":\"Lundi\",\"open\":true,\"start\":\"09:00\",\"end\":\"22:00\"}]");
+    storeA.setOpeningHours(
+        "[{\"day\":\"Lundi\",\"open\":true,\"start\":\"09:00\",\"end\":\"22:00\"}]");
 
     // Store B is slightly further (1.5 km away) but closes at 19:00 (critical: in 25 min!)
     UUID uidB = UUID.randomUUID();
-    Store storeB = new Store("Store B (Ferme Bientôt)", "Addr B", null, "Alim", "FR...", UUID.randomUUID());
+    Store storeB =
+        new Store("Store B (Ferme Bientôt)", "Addr B", null, "Alim", "FR...", UUID.randomUUID());
     storeB.setUid(uidB);
     storeB.setLatitude(50.639);
     storeB.setLongitude(3.067);
-    storeB.setOpeningHours("[{\"day\":\"Lundi\",\"open\":true,\"start\":\"09:00\",\"end\":\"19:00\"}]");
+    storeB.setOpeningHours(
+        "[{\"day\":\"Lundi\",\"open\":true,\"start\":\"09:00\",\"end\":\"19:00\"}]");
 
     when(storeRepository.findByUidIn(anyList())).thenReturn(List.of(storeA, storeB));
 
     OptimizeItineraryRequest request =
         new OptimizeItineraryRequest(
-            List.of(uidA, uidB),
-            50.630,
-            3.060,
-            "Depart",
-            TransportMode.DRIVING,
-            departureTime);
+            List.of(uidA, uidB), 50.630, 3.060, "Depart", TransportMode.DRIVING, departureTime);
 
     OptimizeItineraryResponse response = service.optimizeItinerary(request);
 
     assertEquals(2, response.orderedSteps().size());
     // Store B must be scheduled FIRST to avoid closing gate!
-    assertEquals(uidB, response.orderedSteps().get(0).storeUid(), "Store B fermant dans 25 min doit être priorisé");
+    assertEquals(
+        uidB,
+        response.orderedSteps().get(0).storeUid(),
+        "Store B fermant dans 25 min doit être priorisé");
     assertEquals(uidA, response.orderedSteps().get(1).storeUid());
   }
 
@@ -177,12 +185,14 @@ class ItineraryOptimizationServiceTest {
     UUID uid1 = UUID.randomUUID();
     UUID uid2 = UUID.randomUUID();
 
-    Store store1 = new Store("Stall 1", "Halle de Wazemmes", null, "Alim", "FR...", UUID.randomUUID());
+    Store store1 =
+        new Store("Stall 1", "Halle de Wazemmes", null, "Alim", "FR...", UUID.randomUUID());
     store1.setUid(uid1);
     store1.setLatitude(50.6280);
     store1.setLongitude(3.0500);
 
-    Store store2 = new Store("Stall 2", "Halle de Wazemmes", null, "Alim", "FR...", UUID.randomUUID());
+    Store store2 =
+        new Store("Stall 2", "Halle de Wazemmes", null, "Alim", "FR...", UUID.randomUUID());
     store2.setUid(uid2);
     store2.setLatitude(50.6280);
     store2.setLongitude(3.0500);
@@ -191,17 +201,14 @@ class ItineraryOptimizationServiceTest {
 
     OptimizeItineraryRequest request =
         new OptimizeItineraryRequest(
-            List.of(uid1, uid2),
-            50.6280,
-            3.0500,
-            "Depart",
-            TransportMode.WALKING,
-            Instant.now());
+            List.of(uid1, uid2), 50.6280, 3.0500, "Depart", TransportMode.WALKING, Instant.now());
 
     OptimizeItineraryResponse response = service.optimizeItinerary(request);
 
     assertEquals(2, response.orderedSteps().size());
-    assertTrue(response.orderedSteps().get(1).isSameLocationAsPrevious(), "La 2e boutique à même adresse doit être marquée colocalisée");
+    assertTrue(
+        response.orderedSteps().get(1).isSameLocationAsPrevious(),
+        "La 2e boutique à même adresse doit être marquée colocalisée");
     assertEquals(0.0, response.orderedSteps().get(1).distanceFromPreviousKm());
     assertEquals(0, response.orderedSteps().get(1).travelTimeMinutes());
   }

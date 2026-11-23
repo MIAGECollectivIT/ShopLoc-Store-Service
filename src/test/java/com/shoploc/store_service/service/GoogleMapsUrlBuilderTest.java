@@ -49,7 +49,8 @@ class GoogleMapsUrlBuilderTest {
         urlBuilder.buildDirectionsUrl(origin, List.of(step1), TransportMode.DRIVING);
 
     assertNotNull(result.url());
-    assertFalse(result.url().contains("waypoints="), "L'URL ne doit pas avoir de paramètre waypoints");
+    assertFalse(
+        result.url().contains("waypoints="), "L'URL ne doit pas avoir de paramètre waypoints");
     assertTrue(result.url().contains("origin=50.629250,3.057256"));
     assertTrue(result.url().contains("destination=50.635600,3.061700"));
     assertTrue(result.url().contains("&travelmode=driving"));
@@ -139,8 +140,7 @@ class GoogleMapsUrlBuilderTest {
   @Test
   @DisplayName("Plafond strict de 9 waypoints intermédiaires")
   void shouldCapWaypointsAtNine() {
-    ItineraryOriginResponse origin =
-        new ItineraryOriginResponse("Depart", 50.0, 3.0, true);
+    ItineraryOriginResponse origin = new ItineraryOriginResponse("Depart", 50.0, 3.0, true);
 
     List<ItineraryStepResponse> steps = new ArrayList<>();
     for (int i = 1; i <= 15; i++) {
@@ -174,26 +174,67 @@ class GoogleMapsUrlBuilderTest {
   @Test
   @DisplayName("Dédoublonnage des waypoints consécutifs identiques (colocalisés)")
   void shouldDeduplicateConsecutiveIdenticalWaypoints() {
-    ItineraryOriginResponse origin =
-        new ItineraryOriginResponse("Depart", 50.0, 3.0, true);
+    ItineraryOriginResponse origin = new ItineraryOriginResponse("Depart", 50.0, 3.0, true);
 
     ItineraryStepResponse step1 =
         new ItineraryStepResponse(
-            1, UUID.randomUUID(), "Shop A", "Same Place", 50.1, 3.1, 1.0, 2, Instant.now(), true, false, false, "09:00-19:00", null);
+            1,
+            UUID.randomUUID(),
+            "Shop A",
+            "Same Place",
+            50.1,
+            3.1,
+            1.0,
+            2,
+            Instant.now(),
+            true,
+            false,
+            false,
+            "09:00-19:00",
+            null);
 
     ItineraryStepResponse step2 =
         new ItineraryStepResponse(
-            2, UUID.randomUUID(), "Shop B", "Same Place", 50.1, 3.1, 0.0, 0, Instant.now(), true, false, true, "09:00-19:00", null);
+            2,
+            UUID.randomUUID(),
+            "Shop B",
+            "Same Place",
+            50.1,
+            3.1,
+            0.0,
+            0,
+            Instant.now(),
+            true,
+            false,
+            true,
+            "09:00-19:00",
+            null);
 
     ItineraryStepResponse step3 =
         new ItineraryStepResponse(
-            3, UUID.randomUUID(), "Shop C", "Other Place", 50.2, 3.2, 2.0, 5, Instant.now(), true, false, false, "09:00-19:00", null);
+            3,
+            UUID.randomUUID(),
+            "Shop C",
+            "Other Place",
+            50.2,
+            3.2,
+            2.0,
+            5,
+            Instant.now(),
+            true,
+            false,
+            false,
+            "09:00-19:00",
+            null);
 
     GoogleMapsUrlBuilder.UrlBuildResult result =
         urlBuilder.buildDirectionsUrl(origin, List.of(step1, step2, step3), TransportMode.DRIVING);
 
     String waypointsParam = result.url().split("&waypoints=")[1].split("&travelmode=")[0];
     String[] parts = waypointsParam.split("%7C");
-    assertEquals(1, parts.length, "Les étapes consécutives à même localisation ne doivent pas être dupliquées dans waypoints");
+    assertEquals(
+        1,
+        parts.length,
+        "Les étapes consécutives à même localisation ne doivent pas être dupliquées dans waypoints");
   }
 }

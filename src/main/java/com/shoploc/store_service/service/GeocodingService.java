@@ -28,7 +28,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * Self-healing geocoding service with thread-safe memory caching and parallel execution (SLE-31, SLE-297).
+ * Self-healing geocoding service with thread-safe memory caching and parallel execution (SLE-31,
+ * SLE-297).
  */
 @Service
 public class GeocodingService {
@@ -59,9 +60,7 @@ public class GeocodingService {
     this.objectMapper = objectMapper;
   }
 
-  /**
-   * Attempts to geocode a single address with memory cache lookup.
-   */
+  /** Attempts to geocode a single address with memory cache lookup. */
   public Optional<Coordinates> tryGeocode(String address) {
     if (address == null || address.isBlank()) {
       return Optional.empty();
@@ -71,8 +70,8 @@ public class GeocodingService {
   }
 
   /**
-   * Geocodes multiple stores lacking GPS coordinates in parallel with a strict 2-second global timeout.
-   * Persists newly resolved coordinates to the database asynchronously.
+   * Geocodes multiple stores lacking GPS coordinates in parallel with a strict 2-second global
+   * timeout. Persists newly resolved coordinates to the database asynchronously.
    */
   public Map<UUID, Coordinates> geocodeStoresInParallel(List<Store> storesWithoutCoords) {
     if (storesWithoutCoords == null || storesWithoutCoords.isEmpty()) {
@@ -84,8 +83,7 @@ public class GeocodingService {
     for (Store store : storesWithoutCoords) {
       if (store.getAddress() != null && !store.getAddress().isBlank()) {
         futures.put(
-            store.getUid(),
-            CompletableFuture.supplyAsync(() -> tryGeocode(store.getAddress())));
+            store.getUid(), CompletableFuture.supplyAsync(() -> tryGeocode(store.getAddress())));
       }
     }
 
@@ -116,7 +114,10 @@ public class GeocodingService {
             storesToUpdate.add(store);
           }
         } catch (Exception e) {
-          log.warn("Impossible d'extraire les coordonnées pour la boutique {}: {}", store.getUid(), e.getMessage());
+          log.warn(
+              "Impossible d'extraire les coordonnées pour la boutique {}: {}",
+              store.getUid(),
+              e.getMessage());
         }
       }
     }
@@ -124,7 +125,9 @@ public class GeocodingService {
     if (!storesToUpdate.isEmpty()) {
       try {
         storeRepository.saveAll(storesToUpdate);
-        log.info("Coordonnées GPS auto-réparées et persistées pour {} boutiques.", storesToUpdate.size());
+        log.info(
+            "Coordonnées GPS auto-réparées et persistées pour {} boutiques.",
+            storesToUpdate.size());
       } catch (Exception e) {
         log.warn("Erreur lors de la persistance des coordonnées auto-réparées: {}", e.getMessage());
       }
@@ -146,7 +149,8 @@ public class GeocodingService {
               .GET()
               .build();
 
-      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() == 200) {
         JsonNode root = objectMapper.readTree(response.body());
         JsonNode features = root.path("features");
@@ -161,7 +165,10 @@ public class GeocodingService {
         }
       }
     } catch (Exception e) {
-      log.warn("Erreur lors de l'appel au service de géocodage pour '{}': {}", normalizedKey, e.getMessage());
+      log.warn(
+          "Erreur lors de l'appel au service de géocodage pour '{}': {}",
+          normalizedKey,
+          e.getMessage());
     }
     return Optional.empty();
   }

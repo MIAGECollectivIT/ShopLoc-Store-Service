@@ -17,10 +17,13 @@ public record ItineraryStepResponse(
     @Schema(description = "Latitude GPS", example = "50.6356") Double latitude,
     @Schema(description = "Longitude GPS", example = "3.0617") Double longitude,
     @Schema(
-            description = "Distance parcourue depuis l'étape précédente en kilomètres (ajustée sinuosité)",
+            description =
+                "Distance parcourue depuis l'étape précédente en kilomètres (ajustée sinuosité)",
             example = "1.2")
         double distanceFromPreviousKm,
-    @Schema(description = "Temps de trajet estimé depuis l'étape précédente en minutes", example = "4")
+    @Schema(
+            description = "Temps de trajet estimé depuis l'étape précédente en minutes",
+            example = "4")
         int travelTimeMinutes,
     @Schema(description = "Heure d'arrivée estimée à la boutique (fuseau Europe/Paris)")
         Instant estimatedArrivalTime,

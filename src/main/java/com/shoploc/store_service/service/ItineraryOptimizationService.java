@@ -25,9 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-/**
- * Core engine for Click & Collect itinerary optimization (SLE-31, SLE-32, SLE-297, SLE-294).
- */
+/** Core engine for Click & Collect itinerary optimization (SLE-31, SLE-32, SLE-297, SLE-294). */
 @Service
 public class ItineraryOptimizationService {
 
@@ -56,7 +54,8 @@ public class ItineraryOptimizationService {
 
   public OptimizeItineraryResponse optimizeItinerary(OptimizeItineraryRequest request) {
     if (request == null || request.storeUids() == null || request.storeUids().isEmpty()) {
-      throw new IllegalArgumentException("La liste des boutiques partenaires ne peut pas être vide");
+      throw new IllegalArgumentException(
+          "La liste des boutiques partenaires ne peut pas être vide");
     }
 
     List<String> warnings = new ArrayList<>();
@@ -79,14 +78,18 @@ public class ItineraryOptimizationService {
       if (store == null) {
         warnings.add("La boutique avec l'identifiant " + uid + " est introuvable.");
       } else if (store.getStatus() == StoreStatus.REVOKED) {
-        warnings.add("Le commerce '" + store.getName() + "' a été révoqué par l'administration et ne peut être inclus dans la tournée de retrait.");
+        warnings.add(
+            "Le commerce '"
+                + store.getName()
+                + "' a été révoqué par l'administration et ne peut être inclus dans la tournée de retrait.");
       } else {
         activeStores.add(store);
       }
     }
 
     if (activeStores.isEmpty()) {
-      throw new IllegalArgumentException("Aucun commerce actif n'a pu être sélectionné pour la tournée.");
+      throw new IllegalArgumentException(
+          "Aucun commerce actif n'a pu être sélectionné pour la tournée.");
     }
 
     // 4. Parallel self-healing geocoding if coordinates are missing
@@ -108,7 +111,8 @@ public class ItineraryOptimizationService {
     ItineraryOriginResponse originResponse = resolveOrigin(request);
 
     // 6. TSP Optimization using cost function (Urban Detour + Closing Penalty < 45m)
-    List<Store> orderedStores = orderStoresOptimally(originResponse, activeStores, departureTime, transportMode);
+    List<Store> orderedStores =
+        orderStoresOptimally(originResponse, activeStores, departureTime, transportMode);
 
     // 7. Build detailed steps chronologically
     List<ItineraryStepResponse> orderedSteps = new ArrayList<>();
@@ -123,9 +127,19 @@ public class ItineraryOptimizationService {
     for (int i = 0; i < orderedStores.size(); i++) {
       Store store = orderedStores.get(i);
       boolean isSameLocation =
-          (i > 0 && areLocationsEqual(prevLat, prevLng, prevAddress, store.getLatitude(), store.getLongitude(), store.getAddress()));
+          (i > 0
+              && areLocationsEqual(
+                  prevLat,
+                  prevLng,
+                  prevAddress,
+                  store.getLatitude(),
+                  store.getLongitude(),
+                  store.getAddress()));
 
-      double stepDistance = isSameLocation ? 0.0 : calculateUrbanDistance(prevLat, prevLng, store.getLatitude(), store.getLongitude());
+      double stepDistance =
+          isSameLocation
+              ? 0.0
+              : calculateUrbanDistance(prevLat, prevLng, store.getLatitude(), store.getLongitude());
       int travelMinutes = isSameLocation ? 0 : calculateTravelMinutes(stepDistance, transportMode);
 
       Instant arrivalTime = currentInstant.plus(Duration.ofMinutes(travelMinutes));
@@ -188,7 +202,8 @@ public class ItineraryOptimizationService {
           request.originAddress() != null && !request.originAddress().isBlank()
               ? request.originAddress().trim()
               : "Position GPS";
-      return new ItineraryOriginResponse(address, request.originLatitude(), request.originLongitude(), true);
+      return new ItineraryOriginResponse(
+          address, request.originLatitude(), request.originLongitude(), true);
     }
 
     if (request.originAddress() != null && !request.originAddress().isBlank()) {
@@ -276,7 +291,8 @@ public class ItineraryOptimizationService {
     Double prevLng = origin.longitude();
 
     for (Store store : perm) {
-      double dist = calculateUrbanDistance(prevLat, prevLng, store.getLatitude(), store.getLongitude());
+      double dist =
+          calculateUrbanDistance(prevLat, prevLng, store.getLatitude(), store.getLongitude());
       int travelMinutes = calculateTravelMinutes(dist, transportMode);
       Instant arrival = currentInstant.plus(Duration.ofMinutes(travelMinutes));
 
@@ -311,7 +327,9 @@ public class ItineraryOptimizationService {
       double minCost = Double.MAX_VALUE;
 
       for (Store candidate : remaining) {
-        double dist = calculateUrbanDistance(currentLat, currentLng, candidate.getLatitude(), candidate.getLongitude());
+        double dist =
+            calculateUrbanDistance(
+                currentLat, currentLng, candidate.getLatitude(), candidate.getLongitude());
         int travelMinutes = calculateTravelMinutes(dist, transportMode);
         Instant arrival = currentInstant.plus(Duration.ofMinutes(travelMinutes));
 
@@ -334,9 +352,13 @@ public class ItineraryOptimizationService {
       ordered.add(nextStore);
       remaining.remove(nextStore);
 
-      double dist = calculateUrbanDistance(currentLat, currentLng, nextStore.getLatitude(), nextStore.getLongitude());
+      double dist =
+          calculateUrbanDistance(
+              currentLat, currentLng, nextStore.getLatitude(), nextStore.getLongitude());
       int travelMinutes = calculateTravelMinutes(dist, transportMode);
-      currentInstant = currentInstant.plus(Duration.ofMinutes(travelMinutes + transportMode.getStopHandlingMinutes()));
+      currentInstant =
+          currentInstant.plus(
+              Duration.ofMinutes(travelMinutes + transportMode.getStopHandlingMinutes()));
       currentLat = nextStore.getLatitude();
       currentLng = nextStore.getLongitude();
     }

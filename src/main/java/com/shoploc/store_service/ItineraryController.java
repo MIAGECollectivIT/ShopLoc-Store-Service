@@ -17,7 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/stores/itinerary")
-@Tag(name = "Itinerary", description = "Endpoints de calcul d'itinéraire optimisé Click & Collect multi-boutiques (SLE-31, SLE-32)")
+@Tag(
+    name = "Itinerary",
+    description =
+        "Endpoints de calcul d'itinéraire optimisé Click & Collect multi-boutiques (SLE-31, SLE-32)")
 public class ItineraryController {
 
   private final ItineraryOptimizationService itineraryOptimizationService;
@@ -35,7 +38,9 @@ public class ItineraryController {
               + "selon la distance géographique et les heures limites de fermeture (SLE-32), et génère l'URL Google Maps standardisée.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "Itinéraire optimisé calculé avec succès"),
-    @ApiResponse(responseCode = "400", description = "Données d'entrée invalides ou liste de boutiques vide")
+    @ApiResponse(
+        responseCode = "400",
+        description = "Données d'entrée invalides ou liste de boutiques vide")
   })
   public ResponseEntity<OptimizeItineraryResponse> optimizeItinerary(
       @Valid @RequestBody OptimizeItineraryRequest request) {

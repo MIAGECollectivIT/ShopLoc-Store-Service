@@ -10,7 +10,8 @@ import java.util.UUID;
 public record OptimizeItineraryRequest(
     @Schema(
             description = "Liste des identifiants uniques (UUID) des boutiques à visiter",
-            example = "[\"11111111-1111-1111-1111-111111111111\", \"22222222-2222-2222-2222-222222222222\"]")
+            example =
+                "[\"11111111-1111-1111-1111-111111111111\", \"22222222-2222-2222-2222-222222222222\"]")
         @NotEmpty(message = "La liste des boutiques partenaires ne peut pas être vide")
         List<UUID> storeUids,
     @Schema(description = "Latitude du point de départ du client", example = "50.62925")
@@ -24,7 +25,8 @@ public record OptimizeItineraryRequest(
     @Schema(description = "Mode de transport choisi", defaultValue = "DRIVING")
         TransportMode transportMode,
     @Schema(
-            description = "Heure de départ souhaitée (ISO Instant). Si omise, l'heure courante est utilisée.")
+            description =
+                "Heure de départ souhaitée (ISO Instant). Si omise, l'heure courante est utilisée.")
         Instant departureTime) {
 
   public OptimizeItineraryRequest {

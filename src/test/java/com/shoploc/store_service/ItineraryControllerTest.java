@@ -54,12 +54,15 @@ class ItineraryControllerTest {
             TransportMode.DRIVING,
             Instant.now());
 
-    ResponseEntity<OptimizeItineraryResponse> response = itineraryController.optimizeItinerary(request);
+    ResponseEntity<OptimizeItineraryResponse> response =
+        itineraryController.optimizeItinerary(request);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     assertNotNull(response.getBody());
     assertEquals(1, response.getBody().orderedSteps().size());
     assertNotNull(response.getBody().googleMapsUrl());
-    assertFalse(response.getBody().googleMapsUrl().contains("waypoints="), "1 seule boutique ne doit pas avoir de waypoints");
+    assertFalse(
+        response.getBody().googleMapsUrl().contains("waypoints="),
+        "1 seule boutique ne doit pas avoir de waypoints");
   }
 }

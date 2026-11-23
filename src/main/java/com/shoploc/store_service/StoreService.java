@@ -153,12 +153,33 @@ public class StoreService {
           "Le format ou la clé algorithmique du RIB/IBAN est invalide");
     }
 
+    // Gestion de la réaffectation du commerçant lors de la réactivation
+    Long targetUserId = request.userId() != null ? request.userId() : store.getUserId();
+    if (targetUserId == null || targetUserId <= 0) {
+      throw new IllegalArgumentException(
+          "Un commerce ne peut pas être orphelin : l'identifiant du commerçant réaffecté doit être valide");
+    }
+
+    if (!userClient.userExists(targetUserId)) {
+      throw new UserNotFoundException(targetUserId);
+    }
+
+    Long oldUserId = store.getUserId();
+    store.setUserId(targetUserId);
     store.setStatus(StoreStatus.ACTIVE);
     store.setRib(cleanedRib);
     store.setRevokedAt(null);
     store.setRevokedBy(null);
 
-    return storeRepository.save(store);
+    Store savedStore = storeRepository.save(store);
+
+    // Relier systématiquement le commerce réactivé à son commerçant dans users-service
+    userClient.linkStoreToUser(targetUserId, savedStore.getId());
+    if (oldUserId != null && !oldUserId.equals(targetUserId)) {
+      userClient.unlinkStoreFromUser(oldUserId, savedStore.getId());
+    }
+
+    return savedStore;
   }
 
   public Store createStore(StoreCreateRequest request, MultipartFile image) {

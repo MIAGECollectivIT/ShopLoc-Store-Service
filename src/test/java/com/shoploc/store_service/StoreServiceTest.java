@@ -172,6 +172,7 @@ class StoreServiceTest {
     when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
     when(storeRepository.save(any(Store.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
+    when(userClient.userExists(10L)).thenReturn(true);
 
     StoreReactivateRequest request =
         new StoreReactivateRequest("FR76 3000 6000 0112 3456 7890 189");
@@ -184,6 +185,38 @@ class StoreServiceTest {
     assertThat(reactivated.getRib()).isEqualTo("FR7630006000011234567890189");
     assertThat(reactivated.getUrl()).isEqualTo("https://cdn.shoploc.fr/img.png");
     verify(storeRepository).save(store);
+    verify(userClient).linkStoreToUser(10L, 1L);
+  }
+
+  @Test
+  @DisplayName(
+      "reactivateStore - Should allow reassigning owner on reactivation and synchronize users-service")
+  void shouldReactivateAndReassignOwner() {
+    Store store =
+        new Store(
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "REVOKED",
+            10L);
+    store.setId(1L);
+    store.setStatus(StoreStatus.REVOKED);
+    store.setRevokedAt(java.time.Instant.now());
+    store.setRevokedBy("admin@ville.fr");
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(storeRepository.save(any(Store.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(userClient.userExists(25L)).thenReturn(true);
+
+    StoreReactivateRequest request =
+        new StoreReactivateRequest("FR76 3000 6000 0112 3456 7890 189", 25L);
+    Store reactivated = storeService.reactivateStore("1", request);
+
+    assertThat(reactivated.getStatus()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(reactivated.getUserId()).isEqualTo(25L);
+    verify(userClient).linkStoreToUser(25L, 1L);
+    verify(userClient).unlinkStoreFromUser(10L, 1L);
   }
 
   @Test

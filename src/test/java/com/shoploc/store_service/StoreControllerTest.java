@@ -960,20 +960,20 @@ class StoreControllerTest {
   @DisplayName(
       "POST /v1/stores/{id}/reactivate - Should successfully reactivate revoked store with new RIB")
   void shouldReactivateRevokedStoreWhenAdmin() {
-    Store store =
-        storeRepository.save(
-            new Store(
-                "Commerce Sortant",
-                "20 rue du Départ",
-                "https://img.com/depart.jpg",
-                "Mode",
-                "REVOKED",
-                701L));
-    store.setStatus(StoreStatus.REVOKED);
-    store.setRevokedAt(Instant.now());
-    store.setRevokedBy("admin@ville.fr");
-    store = storeRepository.save(store);
+    Store rawStore =
+        new Store(
+            "Commerce Sortant",
+            "20 rue du Départ",
+            "https://img.com/depart.jpg",
+            "Mode",
+            "REVOKED",
+            701L);
+    rawStore.setStatus(StoreStatus.REVOKED);
+    rawStore.setRevokedAt(Instant.now());
+    rawStore.setRevokedBy("admin@ville.fr");
+    Store store = storeRepository.save(rawStore);
 
+    when(userClient.userExists(701L)).thenReturn(true);
     StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
 
     ResponseEntity<StoreResponse> response =
@@ -986,6 +986,39 @@ class StoreControllerTest {
     assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
     assertThat(response.getBody().getRevokedAt()).isNull();
     assertThat(response.getBody().getRevokedBy()).isNull();
+    verify(userClient).linkStoreToUser(eq(701L), eq(store.getId()));
+  }
+
+  @Test
+  @DisplayName(
+      "POST /v1/stores/{id}/reactivate - Should reassign owner to new user on reactivation")
+  void shouldReactivateRevokedStoreWithNewOwner() {
+    Store rawStore =
+        new Store(
+            "Commerce Ancien Propriétaire",
+            "20 rue du Départ",
+            "https://img.com/depart.jpg",
+            "Mode",
+            "REVOKED",
+            701L);
+    rawStore.setStatus(StoreStatus.REVOKED);
+    rawStore.setRevokedAt(Instant.now());
+    rawStore.setRevokedBy("admin@ville.fr");
+    Store store = storeRepository.save(rawStore);
+
+    when(userClient.userExists(702L)).thenReturn(true);
+    StoreReactivateRequest request =
+        new StoreReactivateRequest("FR7630006000011234567890189", 702L);
+
+    ResponseEntity<StoreResponse> response =
+        storeController.reactivateStore(String.valueOf(store.getId()), request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(response.getBody().getUserId()).isEqualTo(702L);
+    verify(userClient).linkStoreToUser(eq(702L), eq(store.getId()));
+    verify(userClient).unlinkStoreFromUser(eq(701L), eq(store.getId()));
   }
 
   @Test

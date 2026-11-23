@@ -6,10 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.shoploc.store_service.client.UserClient;
+import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreReactivateRequest;
+import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreAlreadyRevokedException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.exception.StoreNotRevokedException;
+import com.shoploc.store_service.exception.UserNotFoundException;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.Collections;
 import java.util.List;
@@ -132,6 +135,7 @@ class StoreServiceTest {
     assertThat(revoked.getRib()).isEqualTo("REVOKED");
     assertThat(revoked.getUrl()).isEqualTo("https://cdn.shoploc.fr/img.png");
     verify(storeRepository).save(store);
+    verify(userClient).unlinkStoreFromUser(ownerUid, storeUid);
   }
 
   @Test
@@ -186,6 +190,7 @@ class StoreServiceTest {
     when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
     when(storeRepository.save(any(Store.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
+    when(userClient.userExists(ownerUid)).thenReturn(true);
 
     StoreReactivateRequest request =
         new StoreReactivateRequest("FR76 3000 6000 0112 3456 7890 189");
@@ -198,6 +203,40 @@ class StoreServiceTest {
     assertThat(reactivated.getRib()).isEqualTo("FR7630006000011234567890189");
     assertThat(reactivated.getUrl()).isEqualTo("https://cdn.shoploc.fr/img.png");
     verify(storeRepository).save(store);
+    verify(userClient).linkStoreToUser(ownerUid, storeUid);
+  }
+
+  @Test
+  @DisplayName(
+      "reactivateStore - Should allow reassigning owner on reactivation and synchronize users-service")
+  void shouldReactivateAndReassignOwner() {
+    Store store =
+        new Store(
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "REVOKED",
+            ownerUid);
+    store.setId(1L);
+    store.setStatus(StoreStatus.REVOKED);
+    store.setRevokedAt(java.time.Instant.now());
+    store.setRevokedBy("admin@ville.fr");
+    UUID storeUid = store.getUid();
+    UUID newOwnerUid = UUID.randomUUID();
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
+    when(storeRepository.save(any(Store.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(userClient.userExists(newOwnerUid)).thenReturn(true);
+
+    StoreReactivateRequest request =
+        new StoreReactivateRequest("FR76 3000 6000 0112 3456 7890 189", newOwnerUid);
+    Store reactivated = storeService.reactivateStore(storeUid, request);
+
+    assertThat(reactivated.getStatus()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(reactivated.getOwnerUid()).isEqualTo(newOwnerUid);
+    verify(userClient).linkStoreToUser(newOwnerUid, storeUid);
+    verify(userClient).unlinkStoreFromUser(ownerUid, storeUid);
   }
 
   @Test
@@ -245,5 +284,117 @@ class StoreServiceTest {
 
     assertThatThrownBy(() -> storeService.reactivateStore(storeUid, request))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  @DisplayName("revokeStore - Should preserve owner ownerUid and ensure store is never orphan")
+  void shouldPreserveOwnerOnRevoke() {
+    UUID storeUid = UUID.randomUUID();
+    Store store =
+        new Store(
+            storeUid,
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "FR7630006000011234567890189",
+            ownerUid);
+    store.setId(1L);
+    store.setStatus(StoreStatus.ACTIVE);
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
+    when(storeRepository.save(any(Store.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    Store revoked = storeService.revokeStore(storeUid, "admin@ville.fr");
+
+    assertThat(revoked.getStatus()).isEqualTo(StoreStatus.REVOKED);
+    assertThat(revoked.getOwnerUid()).isEqualTo(ownerUid);
+    verify(userClient).unlinkStoreFromUser(ownerUid, storeUid);
+  }
+
+  @Test
+  @DisplayName("patchStore - Should allow ADMIN to reassign owner of REVOKED store")
+  void shouldAllowAdminToReassignOwnerOfRevokedStore() {
+    UUID storeUid = UUID.randomUUID();
+    UUID newOwnerUid = UUID.randomUUID();
+    UUID adminUid = UUID.randomUUID();
+    Store store =
+        new Store(
+            storeUid,
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "REVOKED",
+            ownerUid);
+    store.setId(1L);
+    store.setStatus(StoreStatus.REVOKED);
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
+    when(userClient.userExists(newOwnerUid)).thenReturn(true);
+    when(storeRepository.save(any(Store.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setOwnerUid(newOwnerUid);
+
+    Store updated = storeService.patchStore(storeUid, patchReq, adminUid, "ADMIN");
+
+    assertThat(updated.getOwnerUid()).isEqualTo(newOwnerUid);
+    assertThat(updated.getStatus()).isEqualTo(StoreStatus.REVOKED);
+
+    verify(userClient).linkStoreToUser(newOwnerUid, storeUid);
+    verify(userClient).unlinkStoreFromUser(ownerUid, storeUid);
+  }
+
+  @Test
+  @DisplayName("patchStore - Should reject patching REVOKED store without ownerUid even when ADMIN")
+  void shouldRejectPatchingRevokedStoreWithoutUserIdWhenAdmin() {
+    UUID storeUid = UUID.randomUUID();
+    UUID adminUid = UUID.randomUUID();
+    Store store =
+        new Store(
+            storeUid,
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "REVOKED",
+            ownerUid);
+    store.setId(1L);
+    store.setStatus(StoreStatus.REVOKED);
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setName("Nouveau Nom Interdit");
+
+    assertThatThrownBy(() -> storeService.patchStore(storeUid, patchReq, adminUid, "ADMIN"))
+        .isInstanceOf(RevokedStoreException.class);
+  }
+
+  @Test
+  @DisplayName("patchStore - Should reject reassigning to non-existent user")
+  void shouldRejectReassigningToNonExistentUser() {
+    UUID storeUid = UUID.randomUUID();
+    UUID unknownOwnerUid = UUID.randomUUID();
+    UUID adminUid = UUID.randomUUID();
+    Store store =
+        new Store(
+            storeUid,
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "FR7630006000011234567890189",
+            ownerUid);
+    store.setId(1L);
+    store.setStatus(StoreStatus.ACTIVE);
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
+    when(userClient.userExists(unknownOwnerUid)).thenReturn(false);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setOwnerUid(unknownOwnerUid);
+
+    assertThatThrownBy(() -> storeService.patchStore(storeUid, patchReq, adminUid, "ADMIN"))
+        .isInstanceOf(UserNotFoundException.class);
   }
 }

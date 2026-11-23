@@ -29,4 +29,12 @@ public interface UserClient {
    * @param storeUid the UUID identifier of the newly created store
    */
   void linkStoreToUser(UUID userId, UUID storeUid);
+
+  /**
+   * Notifies the Users Service to unlink a store from a merchant.
+   *
+   * @param userId the UUID identifier of the former merchant
+   * @param storeUid the UUID identifier of the store
+   */
+  void unlinkStoreFromUser(UUID userId, UUID storeUid);
 }

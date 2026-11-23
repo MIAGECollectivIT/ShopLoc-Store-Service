@@ -101,12 +101,23 @@ public class StoreService {
       throw new StoreAlreadyRevokedException(storeUid.toString());
     }
 
+    if (store.getOwnerUid() == null) {
+      throw new IllegalStateException(
+          "Un commerce ne peut pas être révoqué s'il n'est pas lié à un commerçant.");
+    }
+
     store.setStatus(StoreStatus.REVOKED);
     store.setRevokedAt(Instant.now());
     store.setRevokedBy(adminIdentifier);
     store.setRib("REVOKED");
 
-    return storeRepository.save(store);
+    Store savedStore = storeRepository.save(store);
+
+    if (savedStore.getOwnerUid() != null) {
+      userClient.unlinkStoreFromUser(savedStore.getOwnerUid(), savedStore.getUid());
+    }
+
+    return savedStore;
   }
 
   @Transactional
@@ -128,12 +139,33 @@ public class StoreService {
           "Le format ou la clé algorithmique du RIB/IBAN est invalide");
     }
 
+    // Gestion de la réaffectation du commerçant lors de la réactivation
+    UUID targetOwnerUid = request.ownerUid() != null ? request.ownerUid() : store.getOwnerUid();
+    if (targetOwnerUid == null) {
+      throw new IllegalArgumentException(
+          "Un commerce ne peut pas être orphelin : l'identifiant du commerçant réaffecté doit être valide");
+    }
+
+    if (!userClient.userExists(targetOwnerUid)) {
+      throw new UserNotFoundException(targetOwnerUid);
+    }
+
+    UUID oldOwnerUid = store.getOwnerUid();
+    store.setOwnerUid(targetOwnerUid);
     store.setStatus(StoreStatus.ACTIVE);
     store.setRib(cleanedRib);
     store.setRevokedAt(null);
     store.setRevokedBy(null);
 
-    return storeRepository.save(store);
+    Store savedStore = storeRepository.save(store);
+
+    // Relier systématiquement le commerce réactivé à son commerçant dans users-service
+    userClient.linkStoreToUser(targetOwnerUid, savedStore.getUid());
+    if (oldOwnerUid != null && !oldOwnerUid.equals(targetOwnerUid)) {
+      userClient.unlinkStoreFromUser(oldOwnerUid, savedStore.getUid());
+    }
+
+    return savedStore;
   }
 
   public Store createStore(StoreCreateRequest request, MultipartFile image) {
@@ -165,11 +197,47 @@ public class StoreService {
       UUID storeUid, StorePatchRequest request, UUID authenticatedUserId, String userRole) {
     Store store = findStoreByUidOrThrow(storeUid);
 
+    boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
+
     if (store.isRevoked()) {
-      throw new RevokedStoreException(storeUid.toString());
+      // Seul un administrateur peut modifier un commerce révoqué, et uniquement pour lui réaffecter
+      // un nouveau propriétaire
+      if (!isAdmin || request.getOwnerUid() == null) {
+        throw new RevokedStoreException(storeUid.toString());
+      }
+      UUID newOwnerUid = request.getOwnerUid();
+      if (!userClient.userExists(newOwnerUid)) {
+        throw new UserNotFoundException(newOwnerUid);
+      }
+      UUID oldOwnerUid = store.getOwnerUid();
+      store.setOwnerUid(newOwnerUid);
+      Store savedStore = storeRepository.save(store);
+
+      userClient.linkStoreToUser(newOwnerUid, savedStore.getUid());
+      if (oldOwnerUid != null && !oldOwnerUid.equals(newOwnerUid)) {
+        userClient.unlinkStoreFromUser(oldOwnerUid, savedStore.getUid());
+      }
+      return savedStore;
     }
 
     verifyStoreOwnership(store, authenticatedUserId, userRole);
+
+    if (request.getOwnerUid() != null) {
+      if (!isAdmin) {
+        throw new AccessDeniedException(
+            "Seul un administrateur est autorisé à réassigner le propriétaire d'un commerce");
+      }
+      UUID newOwnerUid = request.getOwnerUid();
+      if (!userClient.userExists(newOwnerUid)) {
+        throw new UserNotFoundException(newOwnerUid);
+      }
+      UUID oldOwnerUid = store.getOwnerUid();
+      store.setOwnerUid(newOwnerUid);
+      userClient.linkStoreToUser(newOwnerUid, store.getUid());
+      if (oldOwnerUid != null && !oldOwnerUid.equals(newOwnerUid)) {
+        userClient.unlinkStoreFromUser(oldOwnerUid, store.getUid());
+      }
+    }
 
     if (request.getName() != null && !request.getName().isBlank()) {
       store.setName(request.getName().trim());

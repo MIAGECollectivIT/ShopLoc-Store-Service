@@ -15,6 +15,8 @@ public class StoreResponse {
   private String rib;
   private UUID ownerUid;
   private String openingHours;
+  private Double latitude;
+  private Double longitude;
   private Instant absenceStartDate;
   private Instant absenceEndDate;
   private String absenceReason;
@@ -62,6 +64,8 @@ public class StoreResponse {
             store.getRib(),
             store.getOwnerUid());
     response.setOpeningHours(store.getOpeningHours());
+    response.setLatitude(store.getLatitude());
+    response.setLongitude(store.getLongitude());
     response.setAbsenceStartDate(store.getAbsenceStartDate());
     response.setAbsenceEndDate(store.getAbsenceEndDate());
     response.setAbsenceReason(store.getAbsenceReason());
@@ -209,6 +213,22 @@ public class StoreResponse {
 
   public void setRevokedAt(Instant revokedAt) {
     this.revokedAt = revokedAt;
+  }
+
+  public Double getLatitude() {
+    return latitude;
+  }
+
+  public void setLatitude(Double latitude) {
+    this.latitude = latitude;
+  }
+
+  public Double getLongitude() {
+    return longitude;
+  }
+
+  public void setLongitude(Double longitude) {
+    this.longitude = longitude;
   }
 
   public String getRevokedBy() {

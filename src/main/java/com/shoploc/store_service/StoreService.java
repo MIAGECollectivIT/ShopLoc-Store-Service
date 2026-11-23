@@ -245,6 +245,12 @@ public class StoreService {
     if (request.getAddress() != null && !request.getAddress().isBlank()) {
       store.setAddress(request.getAddress().trim());
     }
+    if (request.getLatitude() != null) {
+      store.setLatitude(request.getLatitude());
+    }
+    if (request.getLongitude() != null) {
+      store.setLongitude(request.getLongitude());
+    }
     if (request.getCategory() != null && !request.getCategory().isBlank()) {
       store.setCategory(request.getCategory().trim());
     }

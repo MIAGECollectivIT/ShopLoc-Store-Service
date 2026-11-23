@@ -120,12 +120,23 @@ public class StoreService {
       throw new StoreAlreadyRevokedException(identifier);
     }
 
+    if (store.getUserId() == null) {
+      throw new IllegalStateException(
+          "Un commerce ne peut pas être révoqué s'il n'est pas lié à un commerçant.");
+    }
+
     store.setStatus(StoreStatus.REVOKED);
     store.setRevokedAt(Instant.now());
     store.setRevokedBy(adminIdentifier);
     store.setRib("REVOKED");
 
-    return storeRepository.save(store);
+    Store savedStore = storeRepository.save(store);
+
+    if (savedStore.getUserId() != null) {
+      userClient.unlinkStoreFromUser(savedStore.getUserId(), savedStore.getId());
+    }
+
+    return savedStore;
   }
 
   @Transactional
@@ -148,12 +159,33 @@ public class StoreService {
           "Le format ou la clé algorithmique du RIB/IBAN est invalide");
     }
 
+    // Gestion de la réaffectation du commerçant lors de la réactivation
+    Long targetUserId = request.userId() != null ? request.userId() : store.getUserId();
+    if (targetUserId == null || targetUserId <= 0) {
+      throw new IllegalArgumentException(
+          "Un commerce ne peut pas être orphelin : l'identifiant du commerçant réaffecté doit être valide");
+    }
+
+    if (!userClient.userExists(targetUserId)) {
+      throw new UserNotFoundException(targetUserId);
+    }
+
+    Long oldUserId = store.getUserId();
+    store.setUserId(targetUserId);
     store.setStatus(StoreStatus.ACTIVE);
     store.setRib(cleanedRib);
     store.setRevokedAt(null);
     store.setRevokedBy(null);
 
-    return storeRepository.save(store);
+    Store savedStore = storeRepository.save(store);
+
+    // Relier systématiquement le commerce réactivé à son commerçant dans users-service
+    userClient.linkStoreToUser(targetUserId, savedStore.getId());
+    if (oldUserId != null && !oldUserId.equals(targetUserId)) {
+      userClient.unlinkStoreFromUser(oldUserId, savedStore.getId());
+    }
+
+    return savedStore;
   }
 
   public Store createStore(StoreCreateRequest request, MultipartFile image) {
@@ -185,11 +217,55 @@ public class StoreService {
     Store store =
         getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
 
+    boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
+
     if (store.isRevoked()) {
-      throw new RevokedStoreException(identifier);
+      // Seul un administrateur peut modifier un commerce révoqué, et uniquement pour lui réaffecter
+      // un nouveau propriétaire
+      if (!isAdmin || request.getUserId() == null) {
+        throw new RevokedStoreException(identifier);
+      }
+      Long newUserId = request.getUserId();
+      if (newUserId <= 0) {
+        throw new IllegalArgumentException(
+            "Un commerce ne peut pas être orphelin : l'identifiant du nouveau commerçant doit être valide et strictement positif");
+      }
+      if (!userClient.userExists(newUserId)) {
+        throw new UserNotFoundException(newUserId);
+      }
+      Long oldUserId = store.getUserId();
+      store.setUserId(newUserId);
+      Store savedStore = storeRepository.save(store);
+
+      userClient.linkStoreToUser(newUserId, savedStore.getId());
+      if (oldUserId != null && !oldUserId.equals(newUserId)) {
+        userClient.unlinkStoreFromUser(oldUserId, savedStore.getId());
+      }
+      return savedStore;
     }
 
     verifyStoreOwnership(store, authenticatedUserId, userRole);
+
+    if (request.getUserId() != null) {
+      if (!isAdmin) {
+        throw new AccessDeniedException(
+            "Seul un administrateur est autorisé à réassigner le propriétaire d'un commerce");
+      }
+      Long newUserId = request.getUserId();
+      if (newUserId <= 0) {
+        throw new IllegalArgumentException(
+            "Un commerce ne peut pas être orphelin : l'identifiant du nouveau commerçant doit être valide et strictement positif");
+      }
+      if (!userClient.userExists(newUserId)) {
+        throw new UserNotFoundException(newUserId);
+      }
+      Long oldUserId = store.getUserId();
+      store.setUserId(newUserId);
+      userClient.linkStoreToUser(newUserId, store.getId());
+      if (oldUserId != null && !oldUserId.equals(newUserId)) {
+        userClient.unlinkStoreFromUser(oldUserId, store.getId());
+      }
+    }
 
     if (request.getName() != null && !request.getName().isBlank()) {
       store.setName(request.getName().trim());
@@ -213,9 +289,6 @@ public class StoreService {
     }
     if (request.getOpeningHours() != null) {
       store.setOpeningHours(request.getOpeningHours().trim());
-    }
-    if (request.getUserId() != null && "ADMIN".equalsIgnoreCase(userRole)) {
-      store.setUserId(request.getUserId());
     }
     if (Boolean.TRUE.equals(request.getClearAbsence())) {
       store.clearAbsences();

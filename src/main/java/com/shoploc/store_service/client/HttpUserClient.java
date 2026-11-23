@@ -122,6 +122,30 @@ public class HttpUserClient implements UserClient {
   }
 
   @Override
+  public void unlinkStoreFromUser(Long userId, Long storeId) {
+    if (userId == null || storeId == null) {
+      return;
+    }
+    try {
+      restClient
+          .delete()
+          .uri("/v1/admin/partners/{id}/stores/{storeId}", userId, storeId)
+          .retrieve()
+          .toBodilessEntity();
+      log.info(
+          "Successfully unlinked store {} from former partner {} in users-service",
+          storeId,
+          userId);
+    } catch (Exception e) {
+      log.warn(
+          "Failed to notify users-service about unlinking store {} from user {}: {}",
+          storeId,
+          userId,
+          e.getMessage());
+    }
+  }
+
+  @Override
   public java.util.Optional<String> getUserEmail(Long userId) {
     if (userId == null) {
       return java.util.Optional.empty();

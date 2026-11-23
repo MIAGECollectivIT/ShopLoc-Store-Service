@@ -11,4 +11,13 @@ public record StoreReactivateRequest(
             example = "FR7630006000011234567890189")
         @NotBlank(message = "Le nouveau RIB est obligatoire pour réactiver le commerce")
         @ValidRibOrIban
-        String rib) {}
+        String rib,
+    @Schema(
+            description = "Identifiant optionnel du commerçant réaffecté lors de la réactivation",
+            example = "10")
+        Long userId) {
+
+  public StoreReactivateRequest(String rib) {
+    this(rib, null);
+  }
+}

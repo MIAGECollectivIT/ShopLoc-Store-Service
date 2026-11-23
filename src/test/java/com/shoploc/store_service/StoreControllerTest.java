@@ -11,7 +11,9 @@ import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
+import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreNotRevokedException;
+import com.shoploc.store_service.exception.UserNotFoundException;
 import com.shoploc.store_service.exception.UserServiceUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -892,6 +894,7 @@ class StoreControllerTest {
     assertThat(response.getBody().getRevokedAt()).isNotNull();
     assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
     assertThat(response.getBody().getRib()).isEqualTo("REVOKED");
+    verify(userClient).unlinkStoreFromUser(eq(701L), eq(store.getId()));
   }
 
   @Test
@@ -958,20 +961,20 @@ class StoreControllerTest {
   @DisplayName(
       "POST /v1/stores/{id}/reactivate - Should successfully reactivate revoked store with new RIB")
   void shouldReactivateRevokedStoreWhenAdmin() {
-    Store store =
-        storeRepository.save(
-            new Store(
-                "Commerce Sortant",
-                "20 rue du Départ",
-                "https://img.com/depart.jpg",
-                "Mode",
-                "REVOKED",
-                701L));
-    store.setStatus(StoreStatus.REVOKED);
-    store.setRevokedAt(Instant.now());
-    store.setRevokedBy("admin@ville.fr");
-    store = storeRepository.save(store);
+    Store rawStore =
+        new Store(
+            "Commerce Sortant",
+            "20 rue du Départ",
+            "https://img.com/depart.jpg",
+            "Mode",
+            "REVOKED",
+            701L);
+    rawStore.setStatus(StoreStatus.REVOKED);
+    rawStore.setRevokedAt(Instant.now());
+    rawStore.setRevokedBy("admin@ville.fr");
+    Store store = storeRepository.save(rawStore);
 
+    when(userClient.userExists(701L)).thenReturn(true);
     StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
 
     ResponseEntity<StoreResponse> response =
@@ -984,6 +987,39 @@ class StoreControllerTest {
     assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
     assertThat(response.getBody().getRevokedAt()).isNull();
     assertThat(response.getBody().getRevokedBy()).isNull();
+    verify(userClient).linkStoreToUser(eq(701L), eq(store.getId()));
+  }
+
+  @Test
+  @DisplayName(
+      "POST /v1/stores/{id}/reactivate - Should reassign owner to new user on reactivation")
+  void shouldReactivateRevokedStoreWithNewOwner() {
+    Store rawStore =
+        new Store(
+            "Commerce Ancien Propriétaire",
+            "20 rue du Départ",
+            "https://img.com/depart.jpg",
+            "Mode",
+            "REVOKED",
+            701L);
+    rawStore.setStatus(StoreStatus.REVOKED);
+    rawStore.setRevokedAt(Instant.now());
+    rawStore.setRevokedBy("admin@ville.fr");
+    Store store = storeRepository.save(rawStore);
+
+    when(userClient.userExists(702L)).thenReturn(true);
+    StoreReactivateRequest request =
+        new StoreReactivateRequest("FR7630006000011234567890189", 702L);
+
+    ResponseEntity<StoreResponse> response =
+        storeController.reactivateStore(String.valueOf(store.getId()), request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(response.getBody().getUserId()).isEqualTo(702L);
+    verify(userClient).linkStoreToUser(eq(702L), eq(store.getId()));
+    verify(userClient).unlinkStoreFromUser(eq(701L), eq(store.getId()));
   }
 
   @Test
@@ -1079,6 +1115,181 @@ class StoreControllerTest {
 
     StorePatchRequest patchReq = new StorePatchRequest();
     patchReq.setName("Prise De Contrôle");
+
+    assertThatThrownBy(
+            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+        .isInstanceOf(com.shoploc.store_service.exception.AccessDeniedException.class);
+  }
+
+  @Test
+  @DisplayName(
+      "SLE-70 - PATCH /v1/stores/{id} - Admin can reassign owner of a REVOKED store without leaving it orphan")
+  void shouldReassignOwnerOfRevokedStoreWhenAdmin() {
+    Store rawStore =
+        new Store(
+            "Boutique Révoquée À Réassigner",
+            "10 rue du Sortant",
+            "https://img.com/sortant.jpg",
+            "Alimentation",
+            "REVOKED",
+            810L);
+    rawStore.setStatus(StoreStatus.REVOKED);
+    rawStore.setRevokedAt(Instant.now());
+    rawStore.setRevokedBy("admin@ville.fr");
+    Store store = storeRepository.save(rawStore);
+
+    when(userClient.userExists(850L)).thenReturn(true);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("ADMIN");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(1L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setUserId(850L);
+
+    ResponseEntity<StoreResponse> response =
+        storeController.patchStore(store.getUid().toString(), patchReq, servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getUserId()).isEqualTo(850L);
+    assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.REVOKED);
+
+    verify(userClient).linkStoreToUser(eq(850L), eq(store.getId()));
+    verify(userClient).unlinkStoreFromUser(eq(810L), eq(store.getId()));
+  }
+
+  @Test
+  @DisplayName(
+      "SLE-70 - PATCH /v1/stores/{id} - Revoked store should reject patch without userId even when Admin")
+  void shouldRejectPatchOnRevokedStoreWithoutUserIdWhenAdmin() {
+    Store rawStore =
+        new Store(
+            "Boutique Révoquée Lock",
+            "12 rue Verrouillée",
+            "https://img.com/lock.jpg",
+            "Mode",
+            "REVOKED",
+            811L);
+    rawStore.setStatus(StoreStatus.REVOKED);
+    rawStore.setRevokedAt(Instant.now());
+    rawStore.setRevokedBy("admin@ville.fr");
+    Store store = storeRepository.save(rawStore);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("ADMIN");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(1L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setName("Nouveau Nom Illégal");
+
+    assertThatThrownBy(
+            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+        .isInstanceOf(RevokedStoreException.class);
+  }
+
+  @Test
+  @DisplayName("SLE-70 - PATCH /v1/stores/{id} - Merchant cannot reassign owner of a revoked store")
+  void shouldRejectReassignOwnerOfRevokedStoreWhenMerchant() {
+    Store rawStore =
+        new Store(
+            "Boutique Révoquée Fraude",
+            "14 rue Fraude",
+            "https://img.com/fraude.jpg",
+            "Mode",
+            "REVOKED",
+            812L);
+    rawStore.setStatus(StoreStatus.REVOKED);
+    rawStore.setRevokedAt(Instant.now());
+    rawStore.setRevokedBy("admin@ville.fr");
+    Store store = storeRepository.save(rawStore);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(812L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setUserId(850L);
+
+    assertThatThrownBy(
+            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+        .isInstanceOf(RevokedStoreException.class);
+  }
+
+  @Test
+  @DisplayName(
+      "SLE-70 - PATCH /v1/stores/{id} - Reassigning owner to non-existent user throws UserNotFoundException")
+  void shouldRejectReassignOwnerWhenNewUserDoesNotExist() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Vers Inconnu",
+                "16 rue Inconnue",
+                "https://img.com/inc.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                813L));
+
+    when(userClient.userExists(9999L)).thenReturn(false);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("ADMIN");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(1L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setUserId(9999L);
+
+    assertThatThrownBy(
+            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+        .isInstanceOf(UserNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName(
+      "SLE-70 - PATCH /v1/stores/{id} - Reassigning owner to invalid ID (<= 0) throws IllegalArgumentException")
+  void shouldRejectReassignOwnerWhenUserIdIsZeroOrNegative() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Orpheline Rejet",
+                "18 rue Orpheline",
+                "https://img.com/orph.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                814L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("ADMIN");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(1L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setUserId(0L);
+
+    assertThatThrownBy(
+            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Un commerce ne peut pas être orphelin");
+  }
+
+  @Test
+  @DisplayName("SLE-70 - PATCH /v1/stores/{id} - Merchant cannot reassign owner on an ACTIVE store")
+  void shouldRejectReassignOwnerOnActiveStoreWhenMerchant() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Active Commercant",
+                "20 rue Active",
+                "https://img.com/act.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                815L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(815L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setUserId(850L);
 
     assertThatThrownBy(
             () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))

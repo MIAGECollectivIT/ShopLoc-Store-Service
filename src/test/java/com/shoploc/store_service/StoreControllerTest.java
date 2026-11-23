@@ -445,7 +445,6 @@ class StoreControllerTest {
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
     when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(UUID.randomUUID());
-    when(userClient.userExists(newOwner)).thenReturn(true);
 
     StorePatchRequest patchRequest = new StorePatchRequest();
     patchRequest.setName("Piratage");
@@ -1149,7 +1148,6 @@ class StoreControllerTest {
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
     when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(UUID.randomUUID());
-    when(userClient.userExists(newOwner)).thenReturn(true);
 
     StorePatchRequest patchReq = new StorePatchRequest();
     patchReq.setName("Détournement Commerce");
@@ -1175,7 +1173,6 @@ class StoreControllerTest {
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
     when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(UUID.randomUUID());
-    when(userClient.userExists(newOwner)).thenReturn(true);
 
     StorePatchRequest patchReq = new StorePatchRequest();
     patchReq.setName("Prise De Contrôle");

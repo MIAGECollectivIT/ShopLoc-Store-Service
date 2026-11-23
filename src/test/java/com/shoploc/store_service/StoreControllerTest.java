@@ -1006,4 +1006,82 @@ class StoreControllerTest {
             () -> storeController.reactivateStore(String.valueOf(store.getId()), request))
         .isInstanceOf(StoreNotRevokedException.class);
   }
+
+  @Test
+  @DisplayName(
+      "SECURITY - GET /v1/stores/{id} - Should anonymize revokedBy on public endpoint to prevent admin email enumeration")
+  void shouldNotExposeAdminEmailOnPublicEndpointForRevokedStore() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Révoquée Secu",
+                "1 rue Discrète",
+                "https://img.com/sec.jpg",
+                "Services",
+                "REVOKED",
+                801L));
+    store.setStatus(StoreStatus.REVOKED);
+    store.setRevokedAt(Instant.now());
+    store.setRevokedBy("superadmin.secret@shop-loc.fr");
+    storeRepository.save(store);
+
+    ResponseEntity<StoreResponse> publicResponse =
+        storeController.getStoreById(String.valueOf(store.getId()));
+
+    assertThat(publicResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(publicResponse.getBody()).isNotNull();
+    assertThat(publicResponse.getBody().getRevokedBy()).isEqualTo("ADMINISTRATEUR_SHOPLOC");
+  }
+
+  @Test
+  @DisplayName(
+      "SECURITY - PATCH /v1/stores/{id} - User 2 should NOT bypass ownership check on store owned by User 1")
+  void shouldRejectPatchWhenUser2AttemptsToModifyStoreOwnedByUser1() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce User 1",
+                "10 rue du Marché",
+                "https://img.com/marche.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                1L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(2L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setName("Détournement Commerce");
+
+    assertThatThrownBy(
+            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+        .isInstanceOf(com.shoploc.store_service.exception.AccessDeniedException.class);
+  }
+
+  @Test
+  @DisplayName(
+      "SECURITY - PATCH /v1/stores/{id} - Merchant should NOT be able to access another merchant's store (BOLA)")
+  void shouldRejectPatchWhenStoreBelongsToDifferentMerchant() {
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Autre Marchand",
+                "15 rue Sans Maître",
+                "https://img.com/autre.jpg",
+                "Commerce",
+                "FR7630006000011234567890189",
+                802L));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(777L);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setName("Prise De Contrôle");
+
+    assertThatThrownBy(
+            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+        .isInstanceOf(com.shoploc.store_service.exception.AccessDeniedException.class);
+  }
 }

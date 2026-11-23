@@ -130,7 +130,13 @@ public class StoreService {
     store.setRevokedBy(adminIdentifier);
     store.setRib("REVOKED");
 
-    return storeRepository.save(store);
+    Store savedStore = storeRepository.save(store);
+
+    if (savedStore.getUserId() != null) {
+      userClient.unlinkStoreFromUser(savedStore.getUserId(), savedStore.getId());
+    }
+
+    return savedStore;
   }
 
   @Transactional

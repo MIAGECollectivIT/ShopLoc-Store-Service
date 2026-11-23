@@ -129,6 +129,7 @@ class StoreServiceTest {
     assertThat(revoked.getRib()).isEqualTo("REVOKED");
     assertThat(revoked.getUrl()).isEqualTo("https://cdn.shoploc.fr/img.png");
     verify(storeRepository).save(store);
+    verify(userClient).unlinkStoreFromUser(10L, 1L);
   }
 
   @Test
@@ -277,6 +278,7 @@ class StoreServiceTest {
 
     assertThat(revoked.getStatus()).isEqualTo(StoreStatus.REVOKED);
     assertThat(revoked.getUserId()).isEqualTo(10L);
+    verify(userClient).unlinkStoreFromUser(10L, 1L);
   }
 
   @Test

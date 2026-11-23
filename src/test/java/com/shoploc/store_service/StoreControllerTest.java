@@ -894,6 +894,7 @@ class StoreControllerTest {
     assertThat(response.getBody().getRevokedAt()).isNotNull();
     assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
     assertThat(response.getBody().getRib()).isEqualTo("REVOKED");
+    verify(userClient).unlinkStoreFromUser(eq(701L), eq(store.getId()));
   }
 
   @Test

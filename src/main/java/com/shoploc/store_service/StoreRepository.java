@@ -19,5 +19,7 @@ public interface StoreRepository
 
   Optional<Store> findByUid(UUID uid);
 
+  List<Store> findByUidIn(List<UUID> uids);
+
   boolean existsByUid(UUID uid);
 }

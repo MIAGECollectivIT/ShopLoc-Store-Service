@@ -53,6 +53,12 @@ public class Store {
   @Column(name = "opening_hours", columnDefinition = "TEXT")
   private String openingHours;
 
+  @Column(name = "latitude")
+  private Double latitude;
+
+  @Column(name = "longitude")
+  private Double longitude;
+
   @Column(name = "absence_start_date")
   private Instant absenceStartDate;
 
@@ -352,6 +358,22 @@ public class Store {
 
   public void setRevokedBy(String revokedBy) {
     this.revokedBy = revokedBy;
+  }
+
+  public Double getLatitude() {
+    return latitude;
+  }
+
+  public void setLatitude(Double latitude) {
+    this.latitude = latitude;
+  }
+
+  public Double getLongitude() {
+    return longitude;
+  }
+
+  public void setLongitude(Double longitude) {
+    this.longitude = longitude;
   }
 
   public boolean isRevoked() {

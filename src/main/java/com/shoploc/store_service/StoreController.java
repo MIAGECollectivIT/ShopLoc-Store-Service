@@ -7,7 +7,9 @@ import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
 import com.shoploc.store_service.exception.AccessDeniedException;
+import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.security.RequiresRole;
+import com.shoploc.store_service.security.RoleInterceptor;
 import com.shoploc.store_service.storage.ImageResource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,11 +41,11 @@ public class StoreController {
   @GetMapping
   @Operation(summary = "Récupère tous les commerces (accès public - filtré sur actifs par défaut)")
   public List<StoreResponse> getAllStores(
-      @RequestParam(required = false) Long userId,
+      @RequestParam(required = false) UUID userId,
       @RequestParam(required = false, defaultValue = "false") boolean includeRevoked) {
     List<Store> stores;
     if (userId != null) {
-      stores = storeService.getStoresByUserId(userId);
+      stores = storeService.getStoresByOwnerUid(userId);
     } else if (includeRevoked) {
       stores = storeService.getAllStores(true);
     } else {
@@ -57,7 +59,7 @@ public class StoreController {
     return responseList;
   }
 
-  public List<StoreResponse> getAllStores(Long userId) {
+  public List<StoreResponse> getAllStores(UUID userId) {
     return getAllStores(userId, false);
   }
 
@@ -66,12 +68,12 @@ public class StoreController {
   @Operation(
       summary = "Récupère les commerces du commerçant authentifié via son token JWT (anti-IDOR)")
   public List<StoreResponse> getMyStores(HttpServletRequest servletRequest) {
-    Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
-    if (authenticatedDbId == null || authenticatedDbId <= 0) {
+    UUID authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    if (authenticatedUserId == null) {
       throw new AccessDeniedException(
           "Identifiant commerçant introuvable dans le jeton d'authentification");
     }
-    List<Store> stores = storeService.getStoresByUserId(authenticatedDbId);
+    List<Store> stores = storeService.getStoresByOwnerUid(authenticatedUserId);
     List<StoreResponse> responseList = new ArrayList<>();
     for (Store store : stores) {
       responseList.add(StoreResponse.fromEntity(store));
@@ -123,11 +125,10 @@ public class StoreController {
     return combined;
   }
 
-  @GetMapping("/{identifier}")
-  @Operation(
-      summary = "Récupère un commerce par son uid UUID ou son id numérique de repli (accès public)")
-  public ResponseEntity<StoreResponse> getStoreById(@PathVariable String identifier) {
-    Optional<Store> storeOptional = resolveStore(identifier);
+  @GetMapping("/{storeUid}")
+  @Operation(summary = "Récupère un commerce par son uid UUID (accès public)")
+  public ResponseEntity<StoreResponse> getStoreByUid(@PathVariable UUID storeUid) {
+    Optional<Store> storeOptional = storeService.getStoreByUid(storeUid);
     if (storeOptional.isEmpty()) {
       return ResponseEntity.notFound().build();
     }
@@ -137,34 +138,16 @@ public class StoreController {
     return ResponseEntity.ok(response);
   }
 
-  @GetMapping("/{identifier}/image")
+  @GetMapping("/{storeUid}/image")
   @Operation(
       summary =
           "Récupérer l'image binaire de la devanture d'un commerce hébergée sur S3 (avec Cache-Control - Accès public)")
-  public ResponseEntity<byte[]> getStoreImage(@PathVariable String identifier) {
-    ImageResource resource = storeService.getStoreImage(identifier);
+  public ResponseEntity<byte[]> getStoreImage(@PathVariable UUID storeUid) {
+    ImageResource resource = storeService.getStoreImage(storeUid);
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType(resource.getContentType()))
         .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
         .body(resource.getBytes());
-  }
-
-  private Optional<Store> resolveStore(String identifier) {
-    if (identifier == null || identifier.isBlank()) {
-      return Optional.empty();
-    }
-    String trimmed = identifier.trim();
-    try {
-      UUID uid = UUID.fromString(trimmed);
-      return storeService.getStoreByUid(uid);
-    } catch (IllegalArgumentException e) {
-      try {
-        Long id = Long.parseLong(trimmed);
-        return storeService.getStoreById(id);
-      } catch (NumberFormatException nfe) {
-        return Optional.empty();
-      }
-    }
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -176,7 +159,7 @@ public class StoreController {
       @Valid @RequestPart("store") StoreCreateRequest request,
       @RequestPart(value = "image", required = false) MultipartFile image,
       HttpServletRequest servletRequest) {
-    resolveAndValidateUserId(request, servletRequest);
+    resolveAndValidateOwnerUid(request, servletRequest);
     Store createdStore = storeService.createStore(request, image);
     StoreResponse response = StoreResponse.fromEntity(createdStore);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -189,53 +172,50 @@ public class StoreController {
           "Créer un nouveau commerce sans image ou avec URL directe (application/json) - Réservé aux administrateurs et commerçants")
   public ResponseEntity<StoreResponse> createStore(
       @Valid @RequestBody StoreCreateRequest request, HttpServletRequest servletRequest) {
-    resolveAndValidateUserId(request, servletRequest);
+    resolveAndValidateOwnerUid(request, servletRequest);
     Store createdStore = storeService.createStore(request);
     StoreResponse response = StoreResponse.fromEntity(createdStore);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
-  @PatchMapping("/{identifier}")
+  @PatchMapping("/{storeUid}")
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
       summary =
           "Mise à jour partielle des informations du commerce (SLE-54, SLE-245) - Réservé aux administrateurs et commerçants propriétaires")
   public ResponseEntity<StoreResponse> patchStore(
-      @PathVariable String identifier,
+      @PathVariable UUID storeUid,
       @Valid @RequestBody StorePatchRequest request,
       HttpServletRequest servletRequest) {
-    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    UUID authenticatedUserId = extractAuthenticatedUserId(servletRequest);
     String userRole = extractAuthenticatedUserRole(servletRequest);
-    Store updatedStore =
-        storeService.patchStore(identifier, request, authenticatedUserId, userRole);
+    Store updatedStore = storeService.patchStore(storeUid, request, authenticatedUserId, userRole);
     return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
   }
 
-  @PatchMapping(value = "/{identifier}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PatchMapping(value = "/{storeUid}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
       summary =
           "Mettre à jour la photo de vitrine du commerce sur S3 (SLE-54, SLE-246) - Réservé aux administrateurs et commerçants propriétaires")
   public ResponseEntity<StoreResponse> updateStoreImage(
-      @PathVariable String identifier,
+      @PathVariable UUID storeUid,
       @RequestPart("image") MultipartFile image,
       HttpServletRequest servletRequest) {
-    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    UUID authenticatedUserId = extractAuthenticatedUserId(servletRequest);
     String userRole = extractAuthenticatedUserRole(servletRequest);
     Store updatedStore =
-        storeService.updateStoreImage(identifier, image, authenticatedUserId, userRole);
+        storeService.updateStoreImage(storeUid, image, authenticatedUserId, userRole);
     return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
   }
 
-  @GetMapping("/{identifier}/absences")
+  @GetMapping("/{storeUid}/absences")
   @Operation(summary = "Consulter la liste des absences d'un commerce (SLE-54)")
-  public ResponseEntity<List<StoreAbsenceResponse>> getStoreAbsences(
-      @PathVariable String identifier) {
+  public ResponseEntity<List<StoreAbsenceResponse>> getStoreAbsences(@PathVariable UUID storeUid) {
     Store store =
         storeService
-            .getStoreByIdOrUid(identifier)
-            .orElseThrow(
-                () -> new com.shoploc.store_service.exception.StoreNotFoundException(identifier));
+            .getStoreByUid(storeUid)
+            .orElseThrow(() -> new StoreNotFoundException(storeUid));
     List<StoreAbsenceResponse> responses =
         store.getAbsences().stream()
             .map(StoreAbsenceResponse::fromEntity)
@@ -243,139 +223,144 @@ public class StoreController {
     return ResponseEntity.ok(responses);
   }
 
-  @PostMapping("/{identifier}/absences")
+  @PostMapping("/{storeUid}/absences")
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(summary = "Ajouter une absence à la liste d'un commerce (SLE-54)")
   public ResponseEntity<StoreResponse> addStoreAbsence(
-      @PathVariable String identifier,
+      @PathVariable UUID storeUid,
       @Valid @RequestBody StoreAbsenceRequest request,
       HttpServletRequest servletRequest) {
-    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    UUID authenticatedUserId = extractAuthenticatedUserId(servletRequest);
     String userRole = extractAuthenticatedUserRole(servletRequest);
     Store updatedStore =
-        storeService.addStoreAbsence(identifier, request, authenticatedUserId, userRole);
+        storeService.addStoreAbsence(storeUid, request, authenticatedUserId, userRole);
     return ResponseEntity.status(HttpStatus.CREATED).body(StoreResponse.fromEntity(updatedStore));
   }
 
-  @PutMapping("/{identifier}/absences/{absenceId}")
+  @PutMapping("/{storeUid}/absences/{absenceUid}")
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(summary = "Modifier une absence spécifique d'un commerce (SLE-54)")
   public ResponseEntity<StoreResponse> updateStoreAbsence(
-      @PathVariable String identifier,
-      @PathVariable Long absenceId,
+      @PathVariable UUID storeUid,
+      @PathVariable UUID absenceUid,
       @Valid @RequestBody StoreAbsenceRequest request,
       HttpServletRequest servletRequest) {
-    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    UUID authenticatedUserId = extractAuthenticatedUserId(servletRequest);
     String userRole = extractAuthenticatedUserRole(servletRequest);
     Store updatedStore =
         storeService.updateStoreAbsence(
-            identifier, absenceId, request, authenticatedUserId, userRole);
+            storeUid, absenceUid, request, authenticatedUserId, userRole);
     return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
   }
 
-  @DeleteMapping("/{identifier}/absences/{absenceId}")
+  @DeleteMapping("/{storeUid}/absences/{absenceUid}")
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(summary = "Supprimer une absence spécifique d'un commerce (SLE-54)")
-  public ResponseEntity<StoreResponse> deleteStoreAbsenceById(
-      @PathVariable String identifier,
-      @PathVariable Long absenceId,
+  public ResponseEntity<StoreResponse> deleteStoreAbsenceByUid(
+      @PathVariable UUID storeUid,
+      @PathVariable UUID absenceUid,
       HttpServletRequest servletRequest) {
-    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+    UUID authenticatedUserId = extractAuthenticatedUserId(servletRequest);
     String userRole = extractAuthenticatedUserRole(servletRequest);
     Store updatedStore =
-        storeService.deleteStoreAbsenceById(identifier, absenceId, authenticatedUserId, userRole);
+        storeService.deleteStoreAbsenceByUid(storeUid, absenceUid, authenticatedUserId, userRole);
     return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
   }
 
-  @DeleteMapping("/{identifier}/absence")
+  @DeleteMapping("/{storeUid}/absence")
   @RequiresRole({"ADMIN", "MERCHANT"})
   @Operation(
       summary =
           "Supprimer ou réinitialiser toutes les absences d'un commerce (SLE-54) - Réservé aux administrateurs et commerçants propriétaires")
   public ResponseEntity<StoreResponse> deleteStoreAbsence(
-      @PathVariable String identifier, HttpServletRequest servletRequest) {
-    Long authenticatedUserId = extractAuthenticatedUserId(servletRequest);
+      @PathVariable UUID storeUid, HttpServletRequest servletRequest) {
+    UUID authenticatedUserId = extractAuthenticatedUserId(servletRequest);
     String userRole = extractAuthenticatedUserRole(servletRequest);
-    Store updatedStore = storeService.clearStoreAbsence(identifier, authenticatedUserId, userRole);
+    Store updatedStore = storeService.clearStoreAbsence(storeUid, authenticatedUserId, userRole);
     return ResponseEntity.ok(StoreResponse.fromEntity(updatedStore));
   }
 
-  @PostMapping("/{identifier}/revoke")
+  @PostMapping("/{storeUid}/revoke")
   @RequiresRole("ADMIN")
   @Operation(
       summary =
           "Révoquer un commerce partenaire sortant du programme (SLE-70, SLE-255) - Réservé aux administrateurs")
   public ResponseEntity<StoreResponse> revokeStore(
-      @PathVariable String identifier, HttpServletRequest servletRequest) {
+      @PathVariable UUID storeUid, HttpServletRequest servletRequest) {
     String adminEmail =
         servletRequest != null
-            ? (String) servletRequest.getAttribute("authenticatedUserEmail")
+            ? (String) servletRequest.getAttribute(RoleInterceptor.ATTR_USER_EMAIL)
             : null;
     if (adminEmail == null || adminEmail.isBlank()) {
       adminEmail = "ADMIN";
     }
-    Store revokedStore = storeService.revokeStore(identifier, adminEmail);
+    Store revokedStore = storeService.revokeStore(storeUid, adminEmail);
     return ResponseEntity.ok(StoreResponse.fromEntity(revokedStore, true));
   }
 
-  @PostMapping("/{identifier}/reactivate")
+  @PostMapping("/{storeUid}/reactivate")
   @RequiresRole("ADMIN")
   @Operation(
       summary =
           "Réactiver un commerce partenaire révoqué avec nouveau RIB conventionnel (SLE-70, SLE-263) - Réservé aux administrateurs")
   public ResponseEntity<StoreResponse> reactivateStore(
-      @PathVariable String identifier, @Valid @RequestBody StoreReactivateRequest request) {
-    Store reactivatedStore = storeService.reactivateStore(identifier, request);
+      @PathVariable UUID storeUid, @Valid @RequestBody StoreReactivateRequest request) {
+    Store reactivatedStore = storeService.reactivateStore(storeUid, request);
     return ResponseEntity.ok(StoreResponse.fromEntity(reactivatedStore));
   }
 
-  private Long extractAuthenticatedUserId(HttpServletRequest servletRequest) {
+  private UUID extractAuthenticatedUserId(HttpServletRequest servletRequest) {
     if (servletRequest == null) {
       return null;
     }
-    Object dbIdObj = servletRequest.getAttribute("authenticatedUserDbId");
-    if (dbIdObj instanceof Long l) {
-      return l;
-    } else if (dbIdObj instanceof Number n) {
-      return n.longValue();
+    Object userIdObj = servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID);
+    if (userIdObj instanceof UUID uuid) {
+      return uuid;
+    }
+    if (userIdObj instanceof String str && !str.isBlank()) {
+      try {
+        return UUID.fromString(str.trim());
+      } catch (IllegalArgumentException ignored) {
+        return null;
+      }
     }
     return null;
   }
 
   private String extractAuthenticatedUserRole(HttpServletRequest servletRequest) {
     return servletRequest != null
-        ? (String) servletRequest.getAttribute("authenticatedUserRole")
+        ? (String) servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)
         : null;
   }
 
-  private void resolveAndValidateUserId(
+  private void resolveAndValidateOwnerUid(
       StoreCreateRequest request, HttpServletRequest servletRequest) {
     String role = extractAuthenticatedUserRole(servletRequest);
-    Long authenticatedDbId = extractAuthenticatedUserId(servletRequest);
+    UUID authenticatedUserId = extractAuthenticatedUserId(servletRequest);
 
     if ("MERCHANT".equalsIgnoreCase(role)) {
       // A merchant can only create a store for their own account (IDOR prevention)
-      if (authenticatedDbId == null || authenticatedDbId <= 0) {
+      if (authenticatedUserId == null) {
         throw new AccessDeniedException(
             "Identifiant commerçant introuvable dans le jeton d'authentification");
       }
-      if (request.getUserId() != null && !request.getUserId().equals(authenticatedDbId)) {
+      if (request.getOwnerUid() != null && !request.getOwnerUid().equals(authenticatedUserId)) {
         throw new AccessDeniedException(
             "Accès refusé : un commerçant ne peut créer un commerce que pour son propre compte (id "
-                + authenticatedDbId
+                + authenticatedUserId
                 + ")");
       }
-      request.setUserId(authenticatedDbId);
+      request.setOwnerUid(authenticatedUserId);
     } else {
       // Administrator or test/internal context without servletRequest session
-      if (request.getUserId() == null || request.getUserId() <= 0) {
-        request.setUserId(authenticatedDbId);
+      if (request.getOwnerUid() == null) {
+        request.setOwnerUid(authenticatedUserId);
       }
     }
 
-    if (request.getUserId() == null || request.getUserId() <= 0) {
+    if (request.getOwnerUid() == null) {
       throw new IllegalArgumentException(
-          "L'identifiant du partenaire propriétaire (userId) est obligatoire et doit être un entier valide.");
+          "L'identifiant du partenaire propriétaire (ownerUid) est obligatoire et doit être un UUID valide.");
     }
   }
 }

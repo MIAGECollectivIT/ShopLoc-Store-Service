@@ -29,7 +29,7 @@ public class Store {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "uid", nullable = false, unique = true)
+  @Column(name = "uid", nullable = false, unique = true, updatable = false)
   private UUID uid;
 
   @Column(nullable = false, length = 255)
@@ -47,8 +47,8 @@ public class Store {
   @Column(nullable = false, length = 34)
   private String rib;
 
-  @Column(name = "user_id", nullable = false)
-  private Long userId;
+  @Column(name = "owner_uid")
+  private UUID ownerUid;
 
   @Column(name = "opening_hours", columnDefinition = "TEXT")
   private String openingHours;
@@ -84,25 +84,32 @@ public class Store {
     this.uid = UUID.randomUUID();
   }
 
-  public Store(String name, String address, String url, String category, String rib, Long userId) {
+  public Store(
+      String name, String address, String url, String category, String rib, UUID ownerUid) {
     this();
     this.name = name;
     this.address = address;
     this.url = url;
     this.category = category;
     this.rib = rib;
-    this.userId = userId;
+    this.ownerUid = ownerUid;
   }
 
   public Store(
-      UUID uid, String name, String address, String url, String category, String rib, Long userId) {
+      UUID uid,
+      String name,
+      String address,
+      String url,
+      String category,
+      String rib,
+      UUID ownerUid) {
     this.uid = uid != null ? uid : UUID.randomUUID();
     this.name = name;
     this.address = address;
     this.url = url;
     this.category = category;
     this.rib = rib;
-    this.userId = userId;
+    this.ownerUid = ownerUid;
   }
 
   @PrePersist
@@ -283,12 +290,12 @@ public class Store {
     this.rib = rib;
   }
 
-  public Long getUserId() {
-    return userId;
+  public UUID getOwnerUid() {
+    return ownerUid;
   }
 
-  public void setUserId(Long userId) {
-    this.userId = userId;
+  public void setOwnerUid(UUID ownerUid) {
+    this.ownerUid = ownerUid;
   }
 
   public String getOpeningHours() {

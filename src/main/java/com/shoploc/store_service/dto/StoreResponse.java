@@ -7,14 +7,13 @@ import java.util.UUID;
 
 public class StoreResponse {
 
-  private Long id;
   private UUID uid;
   private String name;
   private String address;
   private String url;
   private String category;
   private String rib;
-  private Long userId;
+  private UUID ownerUid;
   private String openingHours;
   private Instant absenceStartDate;
   private Instant absenceEndDate;
@@ -29,28 +28,20 @@ public class StoreResponse {
   public StoreResponse() {}
 
   public StoreResponse(
-      Long id,
       UUID uid,
       String name,
       String address,
       String url,
       String category,
       String rib,
-      Long userId) {
-    this.id = id;
+      UUID ownerUid) {
     this.uid = uid;
     this.name = name;
     this.address = address;
     this.url = url;
     this.category = category;
     this.rib = rib;
-    this.userId = userId;
-  }
-
-  // Backward-compatible constructor for existing tests
-  public StoreResponse(
-      Long id, String name, String address, String url, String category, String rib, Long userId) {
-    this(id, null, name, address, url, category, rib, userId);
+    this.ownerUid = ownerUid;
   }
 
   public static StoreResponse fromEntity(Store store) {
@@ -63,14 +54,13 @@ public class StoreResponse {
     }
     StoreResponse response =
         new StoreResponse(
-            store.getId(),
             store.getUid(),
             store.getName(),
             store.getAddress(),
             store.getUrl(),
             store.getCategory(),
             store.getRib(),
-            store.getUserId());
+            store.getOwnerUid());
     response.setOpeningHours(store.getOpeningHours());
     response.setAbsenceStartDate(store.getAbsenceStartDate());
     response.setAbsenceEndDate(store.getAbsenceEndDate());
@@ -91,14 +81,6 @@ public class StoreResponse {
               .collect(java.util.stream.Collectors.toList()));
     }
     return response;
-  }
-
-  public Long getId() {
-    return id;
-  }
-
-  public void setId(Long id) {
-    this.id = id;
   }
 
   public UUID getUid() {
@@ -149,12 +131,12 @@ public class StoreResponse {
     this.rib = rib;
   }
 
-  public Long getUserId() {
-    return userId;
+  public UUID getOwnerUid() {
+    return ownerUid;
   }
 
-  public void setUserId(Long userId) {
-    this.userId = userId;
+  public void setOwnerUid(UUID ownerUid) {
+    this.ownerUid = ownerUid;
   }
 
   public String getOpeningHours() {

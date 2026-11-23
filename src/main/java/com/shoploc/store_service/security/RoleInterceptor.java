@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -27,7 +28,6 @@ public class RoleInterceptor implements HandlerInterceptor {
   public static final String TOKEN_PREFIX = "Bearer ";
 
   public static final String ATTR_USER_ID = "authenticatedUserId";
-  public static final String ATTR_USER_DB_ID = "authenticatedUserDbId";
   public static final String ATTR_USER_EMAIL = "authenticatedUserEmail";
   public static final String ATTR_USER_ROLE = "authenticatedUserRole";
   public static final String ATTR_CLAIMS = "jwtClaims";
@@ -102,35 +102,21 @@ public class RoleInterceptor implements HandlerInterceptor {
     String userRole = jwtValidatorService.extractRole(claims);
 
     Object userIdObj = claims.get("userId");
-    request.setAttribute(ATTR_USER_ID, userIdObj != null ? userIdObj.toString() : null);
-
-    Object dbIdObj = claims.get("dbId");
-    if (dbIdObj instanceof Number num) {
-      request.setAttribute(ATTR_USER_DB_ID, num.longValue());
-    } else if (dbIdObj != null) {
-      try {
-        request.setAttribute(ATTR_USER_DB_ID, Long.parseLong(dbIdObj.toString()));
-      } catch (NumberFormatException ignored) {
-      }
-    }
-
-    // Fallback if dbId is missing but userId or sub contains numerical ID
-    if (request.getAttribute(ATTR_USER_DB_ID) == null && userIdObj != null) {
-      if (userIdObj instanceof Number num) {
-        request.setAttribute(ATTR_USER_DB_ID, num.longValue());
-      } else {
+    UUID userUuid = null;
+    if (userIdObj instanceof UUID uuid) {
+      userUuid = uuid;
+    } else if (userIdObj != null) {
+      String rawUserId = userIdObj.toString().trim();
+      if (!rawUserId.isEmpty()) {
         try {
-          request.setAttribute(ATTR_USER_DB_ID, Long.parseLong(userIdObj.toString()));
-        } catch (NumberFormatException ignored) {
+          userUuid = UUID.fromString(rawUserId);
+        } catch (IllegalArgumentException ex) {
+          log.debug("Claim userId '{}' is not a valid UUID", rawUserId);
         }
       }
     }
-    if (request.getAttribute(ATTR_USER_DB_ID) == null && claims.getSubject() != null) {
-      try {
-        request.setAttribute(ATTR_USER_DB_ID, Long.parseLong(claims.getSubject()));
-      } catch (NumberFormatException ignored) {
-      }
-    }
+    request.setAttribute(ATTR_USER_ID, userUuid);
+
     request.setAttribute(ATTR_USER_EMAIL, claims.get("email", String.class));
     request.setAttribute(ATTR_USER_ROLE, userRole);
     request.setAttribute(ATTR_CLAIMS, claims);

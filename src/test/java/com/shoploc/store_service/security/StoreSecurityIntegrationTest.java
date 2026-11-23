@@ -83,24 +83,25 @@ class StoreSecurityIntegrationTest {
   }
 
   private String generateTestToken(String role, String email) {
-    return generateTestToken(role, email, UUID.randomUUID().toString(), 101L);
+    return generateTestToken(role, email, UUID.randomUUID().toString(), UUID.randomUUID());
   }
 
-  private String generateTestToken(String role, String email, String jti, Long dbId) {
+  private String generateTestToken(String role, String email, String jti, UUID userId) {
     long now = System.currentTimeMillis();
-    return Jwts.builder()
-        .id(jti)
-        .subject(UUID.randomUUID().toString())
-        .issuer("shoploc-auth-service")
-        .issuedAt(new Date(now))
-        .expiration(new Date(now + 3600000))
-        .claim("userId", UUID.randomUUID().toString())
-        .claim("dbId", dbId)
-        .claim("email", email)
-        .claim("role", role)
-        .claim("clientCode", "CL99999")
-        .signWith(signingKey)
-        .compact();
+    var builder =
+        Jwts.builder()
+            .id(jti)
+            .subject(userId != null ? userId.toString() : "service")
+            .issuer("shoploc-auth-service")
+            .issuedAt(new Date(now))
+            .expiration(new Date(now + 3600000))
+            .claim("email", email)
+            .claim("role", role)
+            .claim("clientCode", "CL99999");
+    if (userId != null) {
+      builder.claim("userId", userId.toString());
+    }
+    return builder.signWith(signingKey).compact();
   }
 
   @Test
@@ -113,7 +114,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/a.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            101L);
+            UUID.randomUUID());
 
     mockMvc
         .perform(
@@ -136,7 +137,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/a.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            101L);
+            UUID.randomUUID());
 
     mockMvc
         .perform(
@@ -158,7 +159,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/a.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            101L);
+            UUID.randomUUID());
     String clientToken = generateTestToken("CLIENT", "client@test.fr");
 
     mockMvc
@@ -175,6 +176,7 @@ class StoreSecurityIntegrationTest {
   @Test
   @DisplayName("POST /v1/stores with MERCHANT role JWT -> should allow creation (201 Created)")
   void shouldAllowStoreCreationWhenJwtRoleIsMerchant() throws Exception {
+    UUID merchantUid = UUID.randomUUID();
     Store store =
         new Store(
             "Boulangerie Artisanale",
@@ -182,7 +184,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/boulangerie.jpg",
             "Alimentation",
             "FR7630006000011234567890189",
-            102L);
+            merchantUid);
     when(storeService.createStore(any(StoreCreateRequest.class))).thenReturn(store);
 
     StoreCreateRequest request =
@@ -192,9 +194,10 @@ class StoreSecurityIntegrationTest {
             "https://img.com/boulangerie.jpg",
             "Alimentation",
             "FR7630006000011234567890189",
-            102L);
+            merchantUid);
     String merchantToken =
-        generateTestToken("MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), 102L);
+        generateTestToken(
+            "MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), merchantUid);
 
     mockMvc
         .perform(
@@ -204,55 +207,58 @@ class StoreSecurityIntegrationTest {
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.name").value("Boulangerie Artisanale"))
-        .andExpect(jsonPath("$.userId").value(102L));
+        .andExpect(jsonPath("$.ownerUid").value(merchantUid.toString()))
+        .andExpect(jsonPath("$.id").doesNotExist())
+        .andExpect(jsonPath("$.userId").doesNotExist());
   }
 
   @Test
   @DisplayName(
-      "POST /v1/stores with MERCHANT JWT and omitted (null) userId -> should auto-assign token ID (201 Created)")
-  void shouldAllowStoreCreationWhenMerchantOmitsUserIdInBody() throws Exception {
+      "POST /v1/stores with MERCHANT JWT and omitted (null) ownerUid -> should auto-assign token UUID (201 Created)")
+  void shouldAllowStoreCreationWhenMerchantOmitsOwnerUidInBody() throws Exception {
+    UUID merchantUid = UUID.randomUUID();
     Store store =
         new Store(
-            "Boulangerie Sans UserId",
+            "Boulangerie Sans OwnerUid",
             "5 Place du Marché",
             "https://img.com/boulangerie.jpg",
             "Alimentation",
             "FR7630006000011234567890189",
-            102L);
+            merchantUid);
     when(storeService.createStore(any(StoreCreateRequest.class))).thenReturn(store);
 
-    // userId is null in Front-end form request
-    StoreCreateRequest requestWithoutUserId =
+    StoreCreateRequest requestWithoutOwnerUid =
         new StoreCreateRequest(
-            "Boulangerie Sans UserId",
+            "Boulangerie Sans OwnerUid",
             "5 Place du Marché",
             "https://img.com/boulangerie.jpg",
             "Alimentation",
             "FR7630006000011234567890189",
             null);
     String merchantToken =
-        generateTestToken("MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), 102L);
+        generateTestToken(
+            "MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), merchantUid);
 
     mockMvc
         .perform(
             post("/v1/stores")
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestWithoutUserId)))
+                .content(objectMapper.writeValueAsString(requestWithoutOwnerUid)))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.name").value("Boulangerie Sans UserId"))
-        .andExpect(jsonPath("$.userId").value(102L));
+        .andExpect(jsonPath("$.name").value("Boulangerie Sans OwnerUid"))
+        .andExpect(jsonPath("$.ownerUid").value(merchantUid.toString()));
   }
 
   @Test
   @DisplayName(
-      "POST /v1/stores by MERCHANT attempting to spoof another userId -> should return 403 Forbidden (Anti-IDOR)")
-  void shouldDenyStoreCreationWhenMerchantTriesToSpoofAnotherUserId() throws Exception {
-    // The authenticated merchant has dbId = 102L
+      "POST /v1/stores by MERCHANT attempting to spoof another ownerUid -> should return 403 Forbidden (Anti-IDOR)")
+  void shouldDenyStoreCreationWhenMerchantTriesToSpoofAnotherOwnerUid() throws Exception {
+    UUID merchantUid = UUID.randomUUID();
     String merchantToken =
-        generateTestToken("MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), 102L);
+        generateTestToken(
+            "MERCHANT", "boulanger@shoploc.fr", UUID.randomUUID().toString(), merchantUid);
 
-    // But attempts to submit userId = 999L
     StoreCreateRequest request =
         new StoreCreateRequest(
             "Boulangerie Artisanale",
@@ -260,7 +266,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/boulangerie.jpg",
             "Alimentation",
             "FR7630006000011234567890189",
-            999L);
+            UUID.randomUUID());
 
     mockMvc
         .perform(
@@ -277,6 +283,8 @@ class StoreSecurityIntegrationTest {
   @Test
   @DisplayName("POST /v1/stores with ADMIN role JWT -> should allow creation (201 Created)")
   void shouldAllowStoreCreationWhenJwtRoleIsAdmin() throws Exception {
+    UUID adminUid = UUID.randomUUID();
+    UUID targetOwnerUid = UUID.randomUUID();
     Store store =
         new Store(
             "Super Boutique Admin",
@@ -284,7 +292,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/a.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            101L);
+            targetOwnerUid);
     when(storeService.createStore(any(StoreCreateRequest.class))).thenReturn(store);
 
     StoreCreateRequest request =
@@ -294,9 +302,9 @@ class StoreSecurityIntegrationTest {
             "https://img.com/a.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            101L);
+            targetOwnerUid);
     String adminToken =
-        generateTestToken("ADMIN", "admin@shoploc.fr", UUID.randomUUID().toString(), 101L);
+        generateTestToken("ADMIN", "admin@shoploc.fr", UUID.randomUUID().toString(), adminUid);
 
     mockMvc
         .perform(
@@ -306,7 +314,7 @@ class StoreSecurityIntegrationTest {
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.name").value("Super Boutique Admin"))
-        .andExpect(jsonPath("$.userId").value(101L));
+        .andExpect(jsonPath("$.ownerUid").value(targetOwnerUid.toString()));
   }
 
   @Test
@@ -315,7 +323,7 @@ class StoreSecurityIntegrationTest {
     String revokedJti = "revoked-uuid-" + UUID.randomUUID();
     jwtValidatorService.addRevokedJtiForTest(revokedJti);
 
-    String token = generateTestToken("ADMIN", "admin@shoploc.fr", revokedJti, 1L);
+    String token = generateTestToken("ADMIN", "admin@shoploc.fr", revokedJti, UUID.randomUUID());
     StoreCreateRequest request =
         new StoreCreateRequest(
             "Super Boutique Admin",
@@ -323,7 +331,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/a.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            101L);
+            UUID.randomUUID());
 
     mockMvc
         .perform(
@@ -333,6 +341,32 @@ class StoreSecurityIntegrationTest {
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.status").value(401));
+  }
+
+  @Test
+  @DisplayName("GET /v1/stores/me with MERCHANT JWT -> should extract UUID userId claim")
+  void shouldReturnMyStoresWithJwtUserIdUuid() throws Exception {
+    UUID merchantUid = UUID.randomUUID();
+    Store store =
+        new Store(
+            "Ma Boutique",
+            "10 rue de Lille",
+            "https://img.com/m.jpg",
+            "Mode",
+            "FR7630006000011234567890189",
+            merchantUid);
+    when(storeService.getStoresByOwnerUid(merchantUid)).thenReturn(List.of(store));
+
+    String token =
+        generateTestToken(
+            "MERCHANT", "merchant@shoploc.fr", UUID.randomUUID().toString(), merchantUid);
+    mockMvc
+        .perform(get("/v1/stores/me").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].uid").value(store.getUid().toString()))
+        .andExpect(jsonPath("$[0].ownerUid").value(merchantUid.toString()))
+        .andExpect(jsonPath("$[0].id").doesNotExist())
+        .andExpect(jsonPath("$[0].userId").doesNotExist());
   }
 
   @Test
@@ -360,16 +394,17 @@ class StoreSecurityIntegrationTest {
     String revokedJti = "revoked-visitor-" + UUID.randomUUID();
     jwtValidatorService.addRevokedJtiForTest(revokedJti);
 
-    String token = generateTestToken("CLIENT", "user@shoploc.fr", revokedJti, 50L);
+    String token = generateTestToken("CLIENT", "user@shoploc.fr", revokedJti, UUID.randomUUID());
     mockMvc
         .perform(get("/v1/stores").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk());
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{uid} without JWT -> should return 200 OK exposing id and uid")
+  @DisplayName("GET /v1/stores/{uid} without JWT -> should return 200 OK exposing uid without id")
   void shouldAllowStoreDetailConsultationWithoutToken() throws Exception {
     UUID uid = UUID.randomUUID();
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         new Store(
             "Boutique Publique",
@@ -377,7 +412,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/p.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            1L);
+            ownerUid);
     ReflectionTestUtils.setField(store, "id", 1L);
     ReflectionTestUtils.setField(store, "uid", uid);
     when(storeService.getStoreByUid(uid)).thenReturn(Optional.of(store));
@@ -387,32 +422,18 @@ class StoreSecurityIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Boutique Publique"))
         .andExpect(jsonPath("$.uid").value(uid.toString()))
-        .andExpect(jsonPath("$.id").value(1));
+        .andExpect(jsonPath("$.ownerUid").value(ownerUid.toString()))
+        .andExpect(jsonPath("$.id").doesNotExist())
+        .andExpect(jsonPath("$.userId").doesNotExist());
   }
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{id} with numeric ID -> should return 200 OK and expose id and uid (pragmatic fallback)")
-  void shouldAllowStoreConsultationByNumericId() throws Exception {
-    UUID uid = UUID.randomUUID();
-    Store store =
-        new Store(
-            "Boutique Numerique",
-            "1 rue Numeric",
-            "https://img.com/n.jpg",
-            "Mode",
-            "FR7630006000011234567890189",
-            1L);
-    ReflectionTestUtils.setField(store, "id", 1L);
-    ReflectionTestUtils.setField(store, "uid", uid);
-    when(storeService.getStoreById(1L)).thenReturn(Optional.of(store));
-
-    mockMvc
-        .perform(get("/v1/stores/1"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(1))
-        .andExpect(jsonPath("$.uid").value(uid.toString()))
-        .andExpect(jsonPath("$.name").value("Boutique Numerique"));
+      "GET /v1/stores/{id} and GET /v1/stores?userId=123 with non-UUID -> should return 400 Bad Request")
+  void shouldRejectNonUuidIdentifiersWith400() throws Exception {
+    mockMvc.perform(get("/v1/stores/1")).andExpect(status().isBadRequest());
+    mockMvc.perform(get("/v1/stores/1/image")).andExpect(status().isBadRequest());
+    mockMvc.perform(get("/v1/stores").param("userId", "123")).andExpect(status().isBadRequest());
   }
 
   @Test
@@ -421,7 +442,7 @@ class StoreSecurityIntegrationTest {
   void shouldAllowStoreImageConsultationWithoutToken() throws Exception {
     UUID uid = UUID.randomUUID();
     byte[] imageBytes = new byte[] {0x11, 0x22};
-    when(storeService.getStoreImage(uid.toString()))
+    when(storeService.getStoreImage(uid))
         .thenReturn(new com.shoploc.store_service.storage.ImageResource(imageBytes, "image/jpeg"));
 
     mockMvc
@@ -429,20 +450,6 @@ class StoreSecurityIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(content().contentType("image/jpeg"))
         .andExpect(header().string("Cache-Control", "public, max-age=86400"));
-  }
-
-  @Test
-  @DisplayName(
-      "GET /v1/stores/{id}/image with numeric ID -> should return 200 OK (fallback support)")
-  void shouldAllowStoreImageConsultationByNumericId() throws Exception {
-    byte[] imageBytes = new byte[] {0x11, 0x22};
-    when(storeService.getStoreImage("1"))
-        .thenReturn(new com.shoploc.store_service.storage.ImageResource(imageBytes, "image/jpeg"));
-
-    mockMvc
-        .perform(get("/v1/stores/1/image"))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType("image/jpeg"));
   }
 
   @Test
@@ -475,6 +482,7 @@ class StoreSecurityIntegrationTest {
   @DisplayName("PATCH /v1/stores/{uid} with MERCHANT role -> should return 200 OK")
   void shouldAllowPatchStoreForMerchant() throws Exception {
     UUID uid = UUID.randomUUID();
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         new Store(
             "Boutique Test",
@@ -482,13 +490,13 @@ class StoreSecurityIntegrationTest {
             "https://img.com/test.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            101L);
+            ownerUid);
     ReflectionTestUtils.setField(store, "id", 1L);
     ReflectionTestUtils.setField(store, "uid", uid);
 
     when(storeService.patchStore(any(), any(), any(), any())).thenReturn(store);
 
-    String token = generateTestToken("MERCHANT", "merchant@shoploc.fr", "jti-patch-ok", 101L);
+    String token = generateTestToken("MERCHANT", "merchant@shoploc.fr", "jti-patch-ok", ownerUid);
     mockMvc
         .perform(
             patch("/v1/stores/" + uid)
@@ -535,6 +543,7 @@ class StoreSecurityIntegrationTest {
   @DisplayName("PATCH /v1/stores/{uid}/image with MERCHANT role -> should return 200 OK")
   void shouldAllowUpdateStoreImageForMerchant() throws Exception {
     UUID uid = UUID.randomUUID();
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         new Store(
             "Boutique Vitrine",
@@ -542,7 +551,7 @@ class StoreSecurityIntegrationTest {
             "https://cdn.shoploc.fr/vitrine.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            101L);
+            ownerUid);
     ReflectionTestUtils.setField(store, "id", 1L);
     ReflectionTestUtils.setField(store, "uid", uid);
 
@@ -551,7 +560,7 @@ class StoreSecurityIntegrationTest {
     org.springframework.mock.web.MockMultipartFile imageFile =
         new org.springframework.mock.web.MockMultipartFile(
             "image", "vitrine.jpg", "image/jpeg", new byte[] {0x11, 0x22});
-    String token = generateTestToken("MERCHANT", "merchant@shoploc.fr", "jti-img-ok", 101L);
+    String token = generateTestToken("MERCHANT", "merchant@shoploc.fr", "jti-img-ok", ownerUid);
 
     mockMvc
         .perform(
@@ -572,7 +581,7 @@ class StoreSecurityIntegrationTest {
             "https://img.com/search.jpg",
             "Boulangerie",
             "FR7630006000011234567890189",
-            100L);
+            UUID.randomUUID());
     when(storeService.searchStores(any(), any())).thenReturn(List.of(store));
 
     mockMvc
@@ -581,6 +590,8 @@ class StoreSecurityIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].name").value("Boulangerie Publique"))
         .andExpect(jsonPath("$[0].category").value("Boulangerie"))
-        .andExpect(jsonPath("$[0].id").doesNotExist());
+        .andExpect(jsonPath("$[0].id").doesNotExist())
+        .andExpect(jsonPath("$[0].userId").doesNotExist())
+        .andExpect(jsonPath("$[0].uid").exists());
   }
 }

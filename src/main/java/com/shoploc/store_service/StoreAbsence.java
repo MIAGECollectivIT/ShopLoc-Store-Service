@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 @Entity
 @Table(name = "store_absences")
@@ -13,6 +14,9 @@ public class StoreAbsence {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  @Column(name = "uid", nullable = false, unique = true, updatable = false)
+  private UUID uid;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "store_id", nullable = false)
@@ -31,14 +35,27 @@ public class StoreAbsence {
   @Column(name = "created_at")
   private Instant createdAt = Instant.now();
 
-  public StoreAbsence() {}
+  public StoreAbsence() {
+    this.uid = UUID.randomUUID();
+  }
 
   public StoreAbsence(Store store, Instant startDate, Instant endDate, String reason) {
+    this();
     this.store = store;
     this.startDate = startDate;
     this.endDate = endDate;
     this.reason = reason;
     this.createdAt = Instant.now();
+  }
+
+  @PrePersist
+  public void prePersist() {
+    if (this.uid == null) {
+      this.uid = UUID.randomUUID();
+    }
+    if (this.createdAt == null) {
+      this.createdAt = Instant.now();
+    }
   }
 
   public boolean isActiveAt(Instant instant) {
@@ -81,6 +98,14 @@ public class StoreAbsence {
 
   public void setId(Long id) {
     this.id = id;
+  }
+
+  public UUID getUid() {
+    return uid;
+  }
+
+  public void setUid(UUID uid) {
+    this.uid = uid;
   }
 
   public Store getStore() {

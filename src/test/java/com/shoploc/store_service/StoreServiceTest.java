@@ -14,6 +14,7 @@ import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,16 +31,18 @@ class StoreServiceTest {
   @Mock private ImageStorageService imageStorageService;
 
   private StoreService storeService;
+  private UUID ownerUid;
 
   @BeforeEach
   void setUp() {
     storeService = new StoreService(storeRepository, userClient, imageStorageService);
+    ownerUid = UUID.randomUUID();
   }
 
   @Test
   @DisplayName("searchStores - Should call findAll(spec) when both query and categories are null")
   void shouldCallFindAllWhenNoFilters() {
-    Store store = new Store("Test", "Addr", "url", "Cat", "FR7630006000011234567890189", 1L);
+    Store store = new Store("Test", "Addr", "url", "Cat", "FR7630006000011234567890189", ownerUid);
     when(storeRepository.findAll(any(Specification.class))).thenReturn(List.of(store));
 
     List<Store> result = storeService.searchStores(null, null);
@@ -52,7 +55,7 @@ class StoreServiceTest {
   @DisplayName(
       "searchStores - Should call findAll(spec) when query is blank and categories is empty")
   void shouldCallFindAllWhenBlankAndEmptyFilters() {
-    Store store = new Store("Test", "Addr", "url", "Cat", "FR7630006000011234567890189", 1L);
+    Store store = new Store("Test", "Addr", "url", "Cat", "FR7630006000011234567890189", ownerUid);
     when(storeRepository.findAll(any(Specification.class))).thenReturn(List.of(store));
 
     List<Store> result = storeService.searchStores("   ", Collections.emptyList());
@@ -64,7 +67,8 @@ class StoreServiceTest {
   @Test
   @DisplayName("searchStores - Should call findAll(spec) when query is provided")
   void shouldCallFindAllSpecWhenQueryProvided() {
-    Store store = new Store("Boulangerie", "Addr", "url", "Cat", "FR7630006000011234567890189", 1L);
+    Store store =
+        new Store("Boulangerie", "Addr", "url", "Cat", "FR7630006000011234567890189", ownerUid);
     when(storeRepository.findAll(any(Specification.class))).thenReturn(List.of(store));
 
     List<Store> result = storeService.searchStores("boulangerie", null);
@@ -77,7 +81,7 @@ class StoreServiceTest {
   @DisplayName("searchStores - Should call findAll(spec) when categories are provided")
   void shouldCallFindAllSpecWhenCategoriesProvided() {
     Store store =
-        new Store("Test", "Addr", "url", "Boulangerie", "FR7630006000011234567890189", 1L);
+        new Store("Test", "Addr", "url", "Boulangerie", "FR7630006000011234567890189", ownerUid);
     when(storeRepository.findAll(any(Specification.class))).thenReturn(List.of(store));
 
     List<Store> result = storeService.searchStores(null, List.of("Boulangerie"));
@@ -91,7 +95,7 @@ class StoreServiceTest {
       "searchStores - Should call findAll(spec) when both query and categories are provided")
   void shouldCallFindAllSpecWhenBothProvided() {
     Store store =
-        new Store("Paul", "Addr", "url", "Boulangerie", "FR7630006000011234567890189", 1L);
+        new Store("Paul", "Addr", "url", "Boulangerie", "FR7630006000011234567890189", ownerUid);
     when(storeRepository.findAll(any(Specification.class))).thenReturn(List.of(store));
 
     List<Store> result = storeService.searchStores("Paul", List.of("Boulangerie"));
@@ -104,20 +108,22 @@ class StoreServiceTest {
   @DisplayName(
       "revokeStore - Should transition active store to REVOKED, set audit fields and anonymize RIB/URL")
   void shouldRevokeActiveStore() {
+    UUID storeUid = UUID.randomUUID();
     Store store =
         new Store(
+            storeUid,
             "Boulangerie Paul",
             "10 rue Royale",
             "https://cdn.shoploc.fr/img.png",
             "Alimentation",
             "FR7630006000011234567890189",
-            10L);
+            ownerUid);
     store.setId(1L);
-    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
     when(storeRepository.save(any(Store.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    Store revoked = storeService.revokeStore("1", "admin@ville.fr");
+    Store revoked = storeService.revokeStore(storeUid, "admin@ville.fr");
 
     assertThat(revoked.getStatus()).isEqualTo(StoreStatus.REVOKED);
     assertThat(revoked.isRevoked()).isTrue();
@@ -131,22 +137,31 @@ class StoreServiceTest {
   @Test
   @DisplayName("revokeStore - Should throw StoreNotFoundException when store not found")
   void shouldThrowWhenRevokingNonExistentStore() {
-    when(storeRepository.findById(999L)).thenReturn(Optional.empty());
+    UUID unknownUid = UUID.randomUUID();
+    when(storeRepository.findByUid(unknownUid)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> storeService.revokeStore("999", "admin@ville.fr"))
+    assertThatThrownBy(() -> storeService.revokeStore(unknownUid, "admin@ville.fr"))
         .isInstanceOf(StoreNotFoundException.class);
   }
 
   @Test
   @DisplayName("revokeStore - Should throw StoreAlreadyRevokedException when store already revoked")
   void shouldThrowWhenRevokingAlreadyRevokedStore() {
+    UUID storeUid = UUID.randomUUID();
     Store store =
-        new Store("Boulangerie Paul", "10 rue Royale", null, "Alimentation", "REVOKED", 10L);
+        new Store(
+            storeUid,
+            "Boulangerie Paul",
+            "10 rue Royale",
+            null,
+            "Alimentation",
+            "REVOKED",
+            ownerUid);
     store.setId(1L);
     store.setStatus(StoreStatus.REVOKED);
-    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
 
-    assertThatThrownBy(() -> storeService.revokeStore("1", "admin@ville.fr"))
+    assertThatThrownBy(() -> storeService.revokeStore(storeUid, "admin@ville.fr"))
         .isInstanceOf(StoreAlreadyRevokedException.class);
   }
 
@@ -154,25 +169,27 @@ class StoreServiceTest {
   @DisplayName(
       "reactivateStore - Should transition REVOKED store to ACTIVE, clear audit fields, preserve photo and set new valid RIB")
   void shouldReactivateRevokedStore() {
+    UUID storeUid = UUID.randomUUID();
     Store store =
         new Store(
+            storeUid,
             "Boulangerie Paul",
             "10 rue Royale",
             "https://cdn.shoploc.fr/img.png",
             "Alimentation",
             "REVOKED",
-            10L);
+            ownerUid);
     store.setId(1L);
     store.setStatus(StoreStatus.REVOKED);
     store.setRevokedAt(java.time.Instant.now());
     store.setRevokedBy("admin@ville.fr");
-    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
     when(storeRepository.save(any(Store.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     StoreReactivateRequest request =
         new StoreReactivateRequest("FR76 3000 6000 0112 3456 7890 189");
-    Store reactivated = storeService.reactivateStore("1", request);
+    Store reactivated = storeService.reactivateStore(storeUid, request);
 
     assertThat(reactivated.getStatus()).isEqualTo(StoreStatus.ACTIVE);
     assertThat(reactivated.isRevoked()).isFalse();
@@ -187,36 +204,46 @@ class StoreServiceTest {
   @DisplayName(
       "reactivateStore - Should throw StoreNotRevokedException when store is currently ACTIVE")
   void shouldThrowWhenReactivatingActiveStore() {
+    UUID storeUid = UUID.randomUUID();
     Store store =
         new Store(
+            storeUid,
             "Boulangerie Paul",
             "10 rue Royale",
             "https://cdn.shoploc.fr/img.png",
             "Alimentation",
             "FR7630006000011234567890189",
-            10L);
+            ownerUid);
     store.setId(1L);
     store.setStatus(StoreStatus.ACTIVE);
-    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
 
     StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
 
-    assertThatThrownBy(() -> storeService.reactivateStore("1", request))
+    assertThatThrownBy(() -> storeService.reactivateStore(storeUid, request))
         .isInstanceOf(StoreNotRevokedException.class);
   }
 
   @Test
   @DisplayName("reactivateStore - Should throw IllegalArgumentException when RIB format is invalid")
   void shouldThrowWhenReactivatingWithInvalidRib() {
+    UUID storeUid = UUID.randomUUID();
     Store store =
-        new Store("Boulangerie Paul", "10 rue Royale", null, "Alimentation", "REVOKED", 10L);
+        new Store(
+            storeUid,
+            "Boulangerie Paul",
+            "10 rue Royale",
+            null,
+            "Alimentation",
+            "REVOKED",
+            ownerUid);
     store.setId(1L);
     store.setStatus(StoreStatus.REVOKED);
-    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(storeRepository.findByUid(storeUid)).thenReturn(Optional.of(store));
 
     StoreReactivateRequest request = new StoreReactivateRequest("INVALID_RIB_123");
 
-    assertThatThrownBy(() -> storeService.reactivateStore("1", request))
+    assertThatThrownBy(() -> storeService.reactivateStore(storeUid, request))
         .isInstanceOf(IllegalArgumentException.class);
   }
 }

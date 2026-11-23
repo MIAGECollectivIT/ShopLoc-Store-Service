@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -27,6 +28,23 @@ public class GlobalExceptionHandler {
     body.put("error", "Bad Request");
     body.put("message", "Validation des données d'entrée échouée");
     body.put("fieldErrors", fieldErrors);
+
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<Map<String, Object>> handleTypeMismatchException(
+      MethodArgumentTypeMismatchException ex) {
+    Map<String, Object> body = new HashMap<>();
+    body.put("timestamp", Instant.now().toString());
+    body.put("status", HttpStatus.BAD_REQUEST.value());
+    body.put("error", "Bad Request");
+    String paramName = ex.getName();
+    String requiredType =
+        ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "valide";
+    body.put(
+        "message",
+        String.format("Paramètre '%s' invalide : format %s attendu", paramName, requiredType));
 
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
   }

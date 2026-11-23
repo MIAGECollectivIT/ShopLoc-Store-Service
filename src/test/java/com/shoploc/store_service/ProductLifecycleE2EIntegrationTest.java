@@ -51,6 +51,7 @@ class ProductLifecycleE2EIntegrationTest {
   @Autowired private JwtValidatorService jwtValidatorService;
 
   private Store store;
+  private UUID merchantUserUid;
   private String merchantToken;
   private String clientToken;
   private String serviceToken;
@@ -79,6 +80,7 @@ class ProductLifecycleE2EIntegrationTest {
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
 
+    merchantUserUid = UUID.randomUUID();
     store =
         storeRepository.save(
             new Store(
@@ -87,28 +89,29 @@ class ProductLifecycleE2EIntegrationTest {
                 "https://cdn.shoploc.fr/patisserie.jpg",
                 "Boulangerie-Pâtisserie",
                 "FR7630006000011234567890189",
-                100L));
+                merchantUserUid));
 
-    merchantToken = createToken("MERCHANT", 100L);
-    clientToken = createToken("CLIENT", 200L);
+    merchantToken = createToken("MERCHANT", merchantUserUid);
+    clientToken = createToken("CLIENT", UUID.randomUUID());
     serviceToken = createToken("SERVICE", null);
   }
 
-  private String createToken(String role, Long dbId) {
-    return Jwts.builder()
-        .header()
-        .keyId("test-key")
-        .and()
-        .id(UUID.randomUUID().toString())
-        .subject(UUID.randomUUID().toString())
-        .issuer("shoploc-auth-service")
-        .expiration(new Date(System.currentTimeMillis() + 3600000))
-        .claim("role", role)
-        .claim("dbId", dbId)
-        .claim("userId", UUID.randomUUID().toString())
-        .claim("email", role.toLowerCase() + "@shoploc.fr")
-        .signWith(testKeyPair.getPrivate(), Jwts.SIG.RS256)
-        .compact();
+  private String createToken(String role, UUID userId) {
+    var builder =
+        Jwts.builder()
+            .header()
+            .keyId("test-key")
+            .and()
+            .id(UUID.randomUUID().toString())
+            .subject(userId != null ? userId.toString() : "service-account")
+            .issuer("shoploc-auth-service")
+            .expiration(new Date(System.currentTimeMillis() + 3600000))
+            .claim("role", role)
+            .claim("email", role.toLowerCase() + "@shoploc.fr");
+    if (userId != null) {
+      builder.claim("userId", userId.toString());
+    }
+    return builder.signWith(testKeyPair.getPrivate(), Jwts.SIG.RS256).compact();
   }
 
   @Test
@@ -133,26 +136,30 @@ class ProductLifecycleE2EIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(createRequest)))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id").exists())
+            .andExpect(jsonPath("$.uid").exists())
+            .andExpect(jsonPath("$.storeUid").value(store.getUid().toString()))
+            .andExpect(jsonPath("$.id").doesNotExist())
+            .andExpect(jsonPath("$.storeId").doesNotExist())
             .andExpect(jsonPath("$.reference").value("REF-E2E-ECLAIR"))
             .andExpect(jsonPath("$.stockQuantity").value(10))
             .andReturn();
 
     JsonNode createdJson = objectMapper.readTree(createResult.getResponse().getContentAsString());
-    Long productId = createdJson.get("id").asLong();
+    String productUid = createdJson.get("uid").asText();
 
     // 2. The client browses the public storefront (without token)
     mockMvc
         .perform(get("/v1/stores/" + store.getUid() + "/products"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1))
-        .andExpect(jsonPath("$[0].id").value(productId))
+        .andExpect(jsonPath("$[0].uid").value(productUid))
+        .andExpect(jsonPath("$[0].storeUid").value(store.getUid().toString()))
         .andExpect(jsonPath("$[0].stockQuantity").value(10));
 
     // 3. The client views product details
     mockMvc
         .perform(
-            get("/v1/stores/" + store.getUid() + "/products/" + productId)
+            get("/v1/stores/" + store.getUid() + "/products/" + productUid)
                 .header("Authorization", "Bearer " + clientToken))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Éclair au Chocolat"))
@@ -162,7 +169,7 @@ class ProductLifecycleE2EIntegrationTest {
     StockUpdateRequest order1 = StockUpdateRequest.ofDelta(-3);
     mockMvc
         .perform(
-            patch("/v1/stores/" + store.getUid() + "/products/" + productId + "/stock")
+            patch("/v1/stores/" + store.getUid() + "/products/" + productUid + "/stock")
                 .header("Authorization", "Bearer " + serviceToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(order1)))
@@ -173,7 +180,7 @@ class ProductLifecycleE2EIntegrationTest {
     StockUpdateRequest order2 = StockUpdateRequest.ofDelta(-7);
     mockMvc
         .perform(
-            patch("/v1/stores/" + store.getUid() + "/products/" + productId + "/stock")
+            patch("/v1/stores/" + store.getUid() + "/products/" + productUid + "/stock")
                 .header("Authorization", "Bearer " + serviceToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(order2)))
@@ -185,7 +192,7 @@ class ProductLifecycleE2EIntegrationTest {
     StockUpdateRequest order3 = StockUpdateRequest.ofDelta(-1);
     mockMvc
         .perform(
-            patch("/v1/stores/" + store.getUid() + "/products/" + productId + "/stock")
+            patch("/v1/stores/" + store.getUid() + "/products/" + productUid + "/stock")
                 .header("Authorization", "Bearer " + serviceToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(order3)))
@@ -195,14 +202,14 @@ class ProductLifecycleE2EIntegrationTest {
             jsonPath("$.message")
                 .value(
                     "Stock insuffisant pour le produit "
-                        + productId
+                        + productUid
                         + " (actuel: 0, demandé: -1)"));
 
     // 7. The merchant restocks 15 items (+15)
     StockUpdateRequest restock = StockUpdateRequest.ofDelta(15);
     mockMvc
         .perform(
-            patch("/v1/stores/" + store.getUid() + "/products/" + productId + "/stock")
+            patch("/v1/stores/" + store.getUid() + "/products/" + productUid + "/stock")
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(restock)))
@@ -221,7 +228,7 @@ class ProductLifecycleE2EIntegrationTest {
 
     mockMvc
         .perform(
-            put("/v1/stores/" + store.getUid() + "/products/" + productId)
+            put("/v1/stores/" + store.getUid() + "/products/" + productUid)
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateReq)))
@@ -232,13 +239,13 @@ class ProductLifecycleE2EIntegrationTest {
     // 9. The merchant deletes the item from the catalog
     mockMvc
         .perform(
-            delete("/v1/stores/" + store.getUid() + "/products/" + productId)
+            delete("/v1/stores/" + store.getUid() + "/products/" + productUid)
                 .header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isNoContent());
 
     // 10. Accessing the deleted item must return 404 Not Found
     mockMvc
-        .perform(get("/v1/stores/" + store.getUid() + "/products/" + productId))
+        .perform(get("/v1/stores/" + store.getUid() + "/products/" + productUid))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.status").value(404));
 

@@ -4,8 +4,8 @@ import com.shoploc.store_service.Store;
 import com.shoploc.store_service.validation.RibIbanHelper;
 import com.shoploc.store_service.validation.ValidRibOrIban;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 
 public class StoreCreateRequest {
 
@@ -28,19 +28,18 @@ public class StoreCreateRequest {
   @ValidRibOrIban(message = "Le format ou la clé algorithmique du RIB/IBAN est invalide")
   private String rib;
 
-  @Positive(message = "L'identifiant du partenaire propriétaire doit être un identifiant valide")
-  private Long userId;
+  private UUID ownerUid;
 
   public StoreCreateRequest() {}
 
   public StoreCreateRequest(
-      String name, String address, String url, String category, String rib, Long userId) {
+      String name, String address, String url, String category, String rib, UUID ownerUid) {
     this.name = name;
     this.address = address;
     this.url = url;
     this.category = category;
     this.rib = rib;
-    this.userId = userId;
+    this.ownerUid = ownerUid;
   }
 
   public Store toEntity() {
@@ -50,7 +49,7 @@ public class StoreCreateRequest {
     store.setUrl(cleanTrim(url));
     store.setCategory(cleanTrim(category));
     store.setRib(RibIbanHelper.clean(rib));
-    store.setUserId(userId);
+    store.setOwnerUid(ownerUid);
     return store;
   }
 
@@ -101,11 +100,11 @@ public class StoreCreateRequest {
     this.rib = rib;
   }
 
-  public Long getUserId() {
-    return userId;
+  public UUID getOwnerUid() {
+    return ownerUid;
   }
 
-  public void setUserId(Long userId) {
-    this.userId = userId;
+  public void setOwnerUid(UUID ownerUid) {
+    this.ownerUid = ownerUid;
   }
 }

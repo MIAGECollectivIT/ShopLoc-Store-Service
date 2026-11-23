@@ -65,7 +65,8 @@ class ProductSecurityIntegrationTest {
     testKeyPair = kpg.generateKeyPair();
   }
 
-  private static final String STORE_UID = "11111111-1111-1111-1111-111111111111";
+  private static final UUID STORE_UID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+  private static final UUID PRODUCT_UID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
   @BeforeEach
   void setUp() {
@@ -76,8 +77,6 @@ class ProductSecurityIntegrationTest {
 
     roleInterceptor = new RoleInterceptor(jwtValidatorService);
 
-    org.mockito.Mockito.lenient().when(productService.resolveStoreId(eq(STORE_UID))).thenReturn(1L);
-
     mockMvc =
         MockMvcBuilders.standaloneSetup(productController)
             .addInterceptors(roleInterceptor)
@@ -85,37 +84,39 @@ class ProductSecurityIntegrationTest {
             .build();
   }
 
-  private String createToken(String role, Long dbId) {
-    return createToken(role, dbId, 3600000L);
+  private String createToken(String role, UUID userId) {
+    return createToken(role, userId, 3600000L);
   }
 
-  private String createToken(String role, Long dbId, long ttlMs) {
-    return Jwts.builder()
-        .header()
-        .keyId("test-key")
-        .and()
-        .id(UUID.randomUUID().toString())
-        .subject(UUID.randomUUID().toString())
-        .issuer("shoploc-auth-service")
-        .expiration(new Date(System.currentTimeMillis() + ttlMs))
-        .claim("role", role)
-        .claim("dbId", dbId)
-        .claim("userId", UUID.randomUUID().toString())
-        .claim("email", "test@test.fr")
-        .signWith(testKeyPair.getPrivate(), Jwts.SIG.RS256)
-        .compact();
+  private String createToken(String role, UUID userId, long ttlMs) {
+    var builder =
+        Jwts.builder()
+            .header()
+            .keyId("test-key")
+            .and()
+            .id(UUID.randomUUID().toString())
+            .subject(userId != null ? userId.toString() : "service-account")
+            .issuer("shoploc-auth-service")
+            .expiration(new Date(System.currentTimeMillis() + ttlMs))
+            .claim("role", role)
+            .claim("email", "test@test.fr");
+    if (userId != null) {
+      builder.claim("userId", userId.toString());
+    }
+    return builder.signWith(testKeyPair.getPrivate(), Jwts.SIG.RS256).compact();
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{storeId}/products is public and should return 200 OK without token")
+  @DisplayName(
+      "GET /v1/stores/{storeUid}/products is public and should return 200 OK without token")
   void shouldAllowPublicCatalogConsultation() throws Exception {
-    when(productService.getProductsByStore(1L)).thenReturn(List.of());
+    when(productService.getProductsByStore(STORE_UID)).thenReturn(List.of());
 
     mockMvc.perform(get("/v1/stores/" + STORE_UID + "/products")).andExpect(status().isOk());
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{storeId}/products without token should return 401 Unauthorized")
+  @DisplayName("POST /v1/stores/{storeUid}/products without token should return 401 Unauthorized")
   void shouldDenyCreateProductWithoutToken() throws Exception {
     ProductCreateRequest request =
         new ProductCreateRequest("REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
@@ -129,9 +130,9 @@ class ProductSecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{storeId}/products with CLIENT role should return 403 Forbidden")
+  @DisplayName("POST /v1/stores/{storeUid}/products with CLIENT role should return 403 Forbidden")
   void shouldDenyCreateProductWithClientRole() throws Exception {
-    String clientToken = createToken("CLIENT", 42L);
+    String clientToken = createToken("CLIENT", UUID.randomUUID());
     ProductCreateRequest request =
         new ProductCreateRequest("REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
 
@@ -146,16 +147,17 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "POST /v1/stores/{storeId}/products with MERCHANT role on owned store should succeed (201 Created)")
+      "POST /v1/stores/{storeUid}/products with MERCHANT role on owned store should succeed (201 Created)")
   void shouldAllowCreateProductWithMerchantRole() throws Exception {
-    String merchantToken = createToken("MERCHANT", 100L);
+    UUID merchantUid = UUID.randomUUID();
+    String merchantToken = createToken("MERCHANT", merchantUid);
     ProductCreateRequest request =
         new ProductCreateRequest("REF-001", "Baguette", "Desc", new BigDecimal("1.20"), null, 10);
 
     ProductResponse response =
         new ProductResponse(
-            1L,
-            1L,
+            PRODUCT_UID,
+            STORE_UID,
             "REF-001",
             "Baguette",
             "Desc",
@@ -164,7 +166,7 @@ class ProductSecurityIntegrationTest {
             10,
             Instant.now(),
             Instant.now());
-    when(productService.createProduct(eq(1L), any(), any(), eq(100L), eq("MERCHANT")))
+    when(productService.createProduct(eq(STORE_UID), any(), any(), eq(merchantUid), eq("MERCHANT")))
         .thenReturn(response);
 
     mockMvc
@@ -174,22 +176,26 @@ class ProductSecurityIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.id").value(1L))
+        .andExpect(jsonPath("$.uid").value(PRODUCT_UID.toString()))
+        .andExpect(jsonPath("$.storeUid").value(STORE_UID.toString()))
+        .andExpect(jsonPath("$.id").doesNotExist())
+        .andExpect(jsonPath("$.storeId").doesNotExist())
         .andExpect(jsonPath("$.name").value("Baguette"));
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{storeId}/products with ADMIN role should succeed on any store")
+  @DisplayName("POST /v1/stores/{storeUid}/products with ADMIN role should succeed on any store")
   void shouldAllowCreateProductWithAdminRole() throws Exception {
-    String adminToken = createToken("ADMIN", 1L);
+    UUID adminUid = UUID.randomUUID();
+    String adminToken = createToken("ADMIN", adminUid);
     ProductCreateRequest request =
         new ProductCreateRequest(
             "REF-ADMIN-01", "Boutique", "Desc", new BigDecimal("2.50"), null, 5);
 
     ProductResponse response =
         new ProductResponse(
-            2L,
-            1L,
+            PRODUCT_UID,
+            STORE_UID,
             "REF-ADMIN-01",
             "Boutique",
             "Desc",
@@ -198,7 +204,7 @@ class ProductSecurityIntegrationTest {
             5,
             Instant.now(),
             Instant.now());
-    when(productService.createProduct(eq(1L), any(), any(), eq(1L), eq("ADMIN")))
+    when(productService.createProduct(eq(STORE_UID), any(), any(), eq(adminUid), eq("ADMIN")))
         .thenReturn(response);
 
     mockMvc
@@ -208,19 +214,19 @@ class ProductSecurityIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.id").value(2L));
+        .andExpect(jsonPath("$.uid").value(PRODUCT_UID.toString()));
   }
 
   @Test
   @DisplayName(
-      "PUT /v1/stores/{storeId}/products/{productId} without token should return 401 Unauthorized")
+      "PUT /v1/stores/{storeUid}/products/{productUid} without token should return 401 Unauthorized")
   void shouldDenyUpdateProductWithoutToken() throws Exception {
     ProductUpdateRequest request =
         new ProductUpdateRequest("REF-01", "Nouveau nom", "Desc", new BigDecimal("2.00"), null, 10);
 
     mockMvc
         .perform(
-            put("/v1/stores/" + STORE_UID + "/products/10")
+            put("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized());
@@ -228,15 +234,15 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "PUT /v1/stores/{storeId}/products/{productId} with CLIENT role should return 403 Forbidden")
+      "PUT /v1/stores/{storeUid}/products/{productUid} with CLIENT role should return 403 Forbidden")
   void shouldDenyUpdateProductWithClientRole() throws Exception {
-    String clientToken = createToken("CLIENT", 50L);
+    String clientToken = createToken("CLIENT", UUID.randomUUID());
     ProductUpdateRequest request =
         new ProductUpdateRequest("REF-01", "Nom", "Desc", new BigDecimal("2.00"), null, 10);
 
     mockMvc
         .perform(
-            put("/v1/stores/" + STORE_UID + "/products/10")
+            put("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID)
                 .header("Authorization", "Bearer " + clientToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -245,16 +251,17 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "PUT /v1/stores/{storeId}/products/{productId} with MERCHANT role on owned store should succeed (200 OK)")
+      "PUT /v1/stores/{storeUid}/products/{productUid} with MERCHANT role on owned store should succeed (200 OK)")
   void shouldAllowUpdateProductWithMerchantRole() throws Exception {
-    String merchantToken = createToken("MERCHANT", 100L);
+    UUID merchantUid = UUID.randomUUID();
+    String merchantToken = createToken("MERCHANT", merchantUid);
     ProductUpdateRequest request =
         new ProductUpdateRequest("REF-01", "Nom Modifié", "Desc", new BigDecimal("2.50"), null, 15);
 
     ProductResponse response =
         new ProductResponse(
-            10L,
-            1L,
+            PRODUCT_UID,
+            STORE_UID,
             "REF-01",
             "Nom Modifié",
             "Desc",
@@ -263,12 +270,13 @@ class ProductSecurityIntegrationTest {
             15,
             Instant.now(),
             Instant.now());
-    when(productService.updateProduct(eq(1L), eq(10L), any(), any(), eq(100L), eq("MERCHANT")))
+    when(productService.updateProduct(
+            eq(STORE_UID), eq(PRODUCT_UID), any(), any(), eq(merchantUid), eq("MERCHANT")))
         .thenReturn(response);
 
     mockMvc
         .perform(
-            put("/v1/stores/" + STORE_UID + "/products/10")
+            put("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID)
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -278,64 +286,65 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "DELETE /v1/stores/{storeId}/products/{productId} without token should return 401 Unauthorized")
+      "DELETE /v1/stores/{storeUid}/products/{productUid} without token should return 401 Unauthorized")
   void shouldDenyDeleteProductWithoutToken() throws Exception {
     mockMvc
-        .perform(delete("/v1/stores/" + STORE_UID + "/products/10"))
+        .perform(delete("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID))
         .andExpect(status().isUnauthorized());
   }
 
   @Test
   @DisplayName(
-      "DELETE /v1/stores/{storeId}/products/{productId} with CLIENT role should return 403 Forbidden")
+      "DELETE /v1/stores/{storeUid}/products/{productUid} with CLIENT role should return 403 Forbidden")
   void shouldDenyDeleteProductWithClientRole() throws Exception {
-    String clientToken = createToken("CLIENT", 20L);
+    String clientToken = createToken("CLIENT", UUID.randomUUID());
 
     mockMvc
         .perform(
-            delete("/v1/stores/" + STORE_UID + "/products/10")
+            delete("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID)
                 .header("Authorization", "Bearer " + clientToken))
         .andExpect(status().isForbidden());
   }
 
   @Test
   @DisplayName(
-      "DELETE /v1/stores/{storeId}/products/{productId} by non-owner merchant should return 403 Forbidden")
+      "DELETE /v1/stores/{storeUid}/products/{productUid} by non-owner merchant should return 403 Forbidden")
   void shouldDenyDeleteProductForNonOwnerMerchant() throws Exception {
-    String merchantToken = createToken("MERCHANT", 999L);
+    UUID otherMerchantUid = UUID.randomUUID();
+    String merchantToken = createToken("MERCHANT", otherMerchantUid);
     doThrow(new AccessDeniedException("Accès refusé"))
         .when(productService)
-        .deleteProduct(eq(1L), eq(10L), eq(999L), eq("MERCHANT"));
+        .deleteProduct(eq(STORE_UID), eq(PRODUCT_UID), eq(otherMerchantUid), eq("MERCHANT"));
 
     mockMvc
         .perform(
-            delete("/v1/stores/" + STORE_UID + "/products/10")
+            delete("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID)
                 .header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isForbidden());
   }
 
   @Test
   @DisplayName(
-      "DELETE /v1/stores/{storeId}/products/{productId} by owner merchant should return 204 No Content")
+      "DELETE /v1/stores/{storeUid}/products/{productUid} by owner merchant should return 204 No Content")
   void shouldAllowMerchantToDeleteProduct() throws Exception {
-    String merchantToken = createToken("MERCHANT", 100L);
+    String merchantToken = createToken("MERCHANT", UUID.randomUUID());
 
     mockMvc
         .perform(
-            delete("/v1/stores/" + STORE_UID + "/products/10")
+            delete("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID)
                 .header("Authorization", "Bearer " + merchantToken))
         .andExpect(status().isNoContent());
   }
 
   @Test
   @DisplayName(
-      "PATCH /v1/stores/{storeId}/products/{productId}/stock without token should return 401 Unauthorized")
+      "PATCH /v1/stores/{storeUid}/products/{productUid}/stock without token should return 401 Unauthorized")
   void shouldDenyPatchStockWithoutToken() throws Exception {
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
 
     mockMvc
         .perform(
-            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID + "/stock")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized());
@@ -343,15 +352,14 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/stores/{storeId}/products/{productId}/stock with expired token should return 401 Unauthorized")
+      "PATCH /v1/stores/{storeUid}/products/{productUid}/stock with expired token should return 401 Unauthorized")
   void shouldDenyPatchStockWithExpiredToken() throws Exception {
-    // Token expired 10 seconds ago
     String expiredToken = createToken("SERVICE", null, -10000L);
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
 
     mockMvc
         .perform(
-            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID + "/stock")
                 .header("Authorization", "Bearer " + expiredToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -360,15 +368,15 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/stores/{storeId}/products/{productId}/stock with SERVICE role (M2M) should return 200 OK")
+      "PATCH /v1/stores/{storeUid}/products/{productUid}/stock with SERVICE role (M2M) should return 200 OK")
   void shouldAllowServiceRoleToPatchStock() throws Exception {
     String serviceToken = createToken("SERVICE", null);
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-2);
 
     ProductResponse response =
         new ProductResponse(
-            10L,
-            1L,
+            PRODUCT_UID,
+            STORE_UID,
             "REF-001",
             "Croissant",
             "Desc",
@@ -377,12 +385,12 @@ class ProductSecurityIntegrationTest {
             18,
             Instant.now(),
             Instant.now());
-    when(productService.updateStock(eq(1L), eq(10L), any(), any(), eq("SERVICE")))
+    when(productService.updateStock(eq(STORE_UID), eq(PRODUCT_UID), any(), any(), eq("SERVICE")))
         .thenReturn(response);
 
     mockMvc
         .perform(
-            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID + "/stock")
                 .header("Authorization", "Bearer " + serviceToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -392,15 +400,16 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/stores/{storeId}/products/{productId}/stock with MERCHANT role on owned store should succeed")
+      "PATCH /v1/stores/{storeUid}/products/{productUid}/stock with MERCHANT role on owned store should succeed")
   void shouldAllowMerchantToPatchStockOnOwnedStore() throws Exception {
-    String merchantToken = createToken("MERCHANT", 100L);
+    UUID merchantUid = UUID.randomUUID();
+    String merchantToken = createToken("MERCHANT", merchantUid);
     StockUpdateRequest request = StockUpdateRequest.ofAbsolute(30);
 
     ProductResponse response =
         new ProductResponse(
-            10L,
-            1L,
+            PRODUCT_UID,
+            STORE_UID,
             "REF-001",
             "Croissant",
             "Desc",
@@ -409,12 +418,13 @@ class ProductSecurityIntegrationTest {
             30,
             Instant.now(),
             Instant.now());
-    when(productService.updateStock(eq(1L), eq(10L), any(), eq(100L), eq("MERCHANT")))
+    when(productService.updateStock(
+            eq(STORE_UID), eq(PRODUCT_UID), any(), eq(merchantUid), eq("MERCHANT")))
         .thenReturn(response);
 
     mockMvc
         .perform(
-            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID + "/stock")
                 .header("Authorization", "Bearer " + merchantToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -424,27 +434,25 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/stores/{storeId}/products/{productId}/stock with CLIENT role should be denied (403 Forbidden)")
+      "PATCH /v1/stores/{storeUid}/products/{productUid}/stock with CLIENT role should be denied (403 Forbidden)")
   void shouldDenyClientFromPatchingStock() throws Exception {
-    String clientToken = createToken("CLIENT", 50L);
+    String clientToken = createToken("CLIENT", UUID.randomUUID());
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-1);
 
     mockMvc
         .perform(
-            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID + "/stock")
                 .header("Authorization", "Bearer " + clientToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isForbidden());
   }
 
-  // --- ANTI-SPOOFING & SECURITY TESTS: HEADER SPOOFING ---
-
   @Test
   @DisplayName(
       "Anti-spoofing: CLIENT token injecting X-User-Role: ADMIN on POST should be rejected (403 Forbidden)")
   void shouldRejectHeaderSpoofingWhenClientInjectsAdminHeaderOnCreate() throws Exception {
-    String clientToken = createToken("CLIENT", 50L);
+    String clientToken = createToken("CLIENT", UUID.randomUUID());
     ProductCreateRequest request =
         new ProductCreateRequest(
             "REF-SPOOF-01", "Article Piraté", "Desc", new BigDecimal("10.00"), null, 5);
@@ -468,11 +476,11 @@ class ProductSecurityIntegrationTest {
   @DisplayName(
       "Anti-spoofing: CLIENT token injecting X-User-Role: MERCHANT on DELETE should be rejected (403 Forbidden)")
   void shouldRejectHeaderSpoofingWhenClientInjectsMerchantHeaderOnDelete() throws Exception {
-    String clientToken = createToken("CLIENT", 50L);
+    String clientToken = createToken("CLIENT", UUID.randomUUID());
 
     mockMvc
         .perform(
-            delete("/v1/stores/" + STORE_UID + "/products/10")
+            delete("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID)
                 .header("Authorization", "Bearer " + clientToken)
                 .header("X-User-Role", "MERCHANT")
                 .header("X-User-Db-Id", "100")
@@ -505,12 +513,12 @@ class ProductSecurityIntegrationTest {
   @DisplayName(
       "Anti-spoofing: CLIENT token injecting X-User-Role: SERVICE on stock PATCH should be rejected (403 Forbidden)")
   void shouldRejectHeaderSpoofingWhenClientInjectsServiceHeaderOnStock() throws Exception {
-    String clientToken = createToken("CLIENT", 50L);
+    String clientToken = createToken("CLIENT", UUID.randomUUID());
     StockUpdateRequest request = StockUpdateRequest.ofDelta(-5);
 
     mockMvc
         .perform(
-            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID + "/stock")
                 .header("Authorization", "Bearer " + clientToken)
                 .header("X-User-Role", "SERVICE")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -521,10 +529,11 @@ class ProductSecurityIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{id}/products with numeric ID -> should return 200 OK (fallback support)")
-  void shouldAllowNumericStoreIdOnProductEndpoint() throws Exception {
-    when(productService.resolveStoreId("1")).thenReturn(1L);
-    when(productService.getProductsByStore(1L)).thenReturn(java.util.Collections.emptyList());
-    mockMvc.perform(get("/v1/stores/1/products")).andExpect(status().isOk());
+      "GET /v1/stores/1/products and GET /v1/stores/{uid}/products/10 -> should reject numeric IDs with 400 Bad Request")
+  void shouldRejectNumericStoreAndProductIdsWith400() throws Exception {
+    mockMvc.perform(get("/v1/stores/1/products")).andExpect(status().isBadRequest());
+    mockMvc
+        .perform(get("/v1/stores/" + STORE_UID + "/products/10"))
+        .andExpect(status().isBadRequest());
   }
 }

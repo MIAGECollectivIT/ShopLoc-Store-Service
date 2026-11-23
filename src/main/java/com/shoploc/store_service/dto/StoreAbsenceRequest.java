@@ -3,10 +3,11 @@ package com.shoploc.store_service.dto;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.UUID;
 
 public class StoreAbsenceRequest {
 
-  private Long id;
+  private UUID uid;
 
   @NotNull(message = "La date de début est obligatoire")
   private Instant startDate;
@@ -18,8 +19,8 @@ public class StoreAbsenceRequest {
 
   public StoreAbsenceRequest() {}
 
-  public StoreAbsenceRequest(Long id, Instant startDate, Instant endDate, String reason) {
-    this.id = id;
+  public StoreAbsenceRequest(UUID uid, Instant startDate, Instant endDate, String reason) {
+    this.uid = uid;
     this.startDate = startDate;
     this.endDate = endDate;
     this.reason = reason;
@@ -29,12 +30,12 @@ public class StoreAbsenceRequest {
     this(null, startDate, endDate, reason);
   }
 
-  public Long getId() {
-    return id;
+  public UUID getUid() {
+    return uid;
   }
 
-  public void setId(Long id) {
-    this.id = id;
+  public void setUid(UUID uid) {
+    this.uid = uid;
   }
 
   public Instant getStartDate() {

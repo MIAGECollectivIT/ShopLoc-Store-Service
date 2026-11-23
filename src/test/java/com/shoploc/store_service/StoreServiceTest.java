@@ -6,10 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.shoploc.store_service.client.UserClient;
+import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreReactivateRequest;
+import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreAlreadyRevokedException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.exception.StoreNotRevokedException;
+import com.shoploc.store_service.exception.UserNotFoundException;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.Collections;
 import java.util.List;
@@ -218,5 +221,103 @@ class StoreServiceTest {
 
     assertThatThrownBy(() -> storeService.reactivateStore("1", request))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  @DisplayName("revokeStore - Should preserve owner userId and ensure store is never orphan")
+  void shouldPreserveOwnerOnRevoke() {
+    Store store =
+        new Store(
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "FR7630006000011234567890189",
+            10L);
+    store.setId(1L);
+    store.setStatus(StoreStatus.ACTIVE);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(storeRepository.save(any(Store.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    Store revoked = storeService.revokeStore("1", "admin@ville.fr");
+
+    assertThat(revoked.getStatus()).isEqualTo(StoreStatus.REVOKED);
+    assertThat(revoked.getUserId()).isEqualTo(10L);
+  }
+
+  @Test
+  @DisplayName("patchStore - Should allow ADMIN to reassign owner of REVOKED store")
+  void shouldAllowAdminToReassignOwnerOfRevokedStore() {
+    Store store =
+        new Store(
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "REVOKED",
+            10L);
+    store.setId(1L);
+    store.setStatus(StoreStatus.REVOKED);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(userClient.userExists(25L)).thenReturn(true);
+    when(storeRepository.save(any(Store.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setUserId(25L);
+
+    Store updated = storeService.patchStore("1", patchReq, 1L, "ADMIN");
+
+    assertThat(updated.getUserId()).isEqualTo(25L);
+    assertThat(updated.getStatus()).isEqualTo(StoreStatus.REVOKED);
+
+    verify(userClient).linkStoreToUser(25L, 1L);
+    verify(userClient).unlinkStoreFromUser(10L, 1L);
+  }
+
+  @Test
+  @DisplayName("patchStore - Should reject patching REVOKED store without userId even when ADMIN")
+  void shouldRejectPatchingRevokedStoreWithoutUserIdWhenAdmin() {
+    Store store =
+        new Store(
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "REVOKED",
+            10L);
+    store.setId(1L);
+    store.setStatus(StoreStatus.REVOKED);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setName("Nouveau Nom Interdit");
+
+    assertThatThrownBy(() -> storeService.patchStore("1", patchReq, 1L, "ADMIN"))
+        .isInstanceOf(RevokedStoreException.class);
+  }
+
+  @Test
+  @DisplayName("patchStore - Should reject reassigning to non-existent user")
+  void shouldRejectReassigningToNonExistentUser() {
+    Store store =
+        new Store(
+            "Boulangerie Paul",
+            "10 rue Royale",
+            "https://cdn.shoploc.fr/img.png",
+            "Alimentation",
+            "FR7630006000011234567890189",
+            10L);
+    store.setId(1L);
+    store.setStatus(StoreStatus.ACTIVE);
+    when(storeRepository.findById(1L)).thenReturn(Optional.of(store));
+    when(userClient.userExists(999L)).thenReturn(false);
+
+    StorePatchRequest patchReq = new StorePatchRequest();
+    patchReq.setUserId(999L);
+
+    assertThatThrownBy(() -> storeService.patchStore("1", patchReq, 1L, "ADMIN"))
+        .isInstanceOf(UserNotFoundException.class);
   }
 }

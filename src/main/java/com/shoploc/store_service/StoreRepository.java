@@ -11,11 +11,11 @@ import org.springframework.stereotype.Repository;
 public interface StoreRepository
     extends JpaRepository<Store, Long>, JpaSpecificationExecutor<Store> {
 
-  List<Store> findByUserId(Long userId);
+  List<Store> findByOwnerUid(UUID ownerUid);
 
   List<Store> findByStatus(StoreStatus status);
 
-  List<Store> findByUserIdAndStatus(Long userId, StoreStatus status);
+  List<Store> findByOwnerUidAndStatus(UUID ownerUid, StoreStatus status);
 
   Optional<Store> findByUid(UUID uid);
 

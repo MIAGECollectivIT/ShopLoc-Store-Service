@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ class ProductPersistenceTest {
                 "https://cdn.shoploc.fr/store.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                100L));
+                UUID.randomUUID()));
 
     otherStore =
         storeRepository.save(
@@ -44,11 +45,11 @@ class ProductPersistenceTest {
                 "https://cdn.shoploc.fr/other.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                101L));
+                UUID.randomUUID()));
   }
 
   @Test
-  @DisplayName("Should persist product with all fields and automatic timestamps")
+  @DisplayName("Should persist product with UID, all fields and automatic timestamps")
   void shouldPersistProductWithAllFieldsAndTimestamps() {
     Product product =
         new Product(
@@ -63,6 +64,7 @@ class ProductPersistenceTest {
     Product saved = productRepository.saveAndFlush(product);
 
     assertThat(saved.getId()).isNotNull();
+    assertThat(saved.getUid()).isNotNull();
     assertThat(saved.getStoreId()).isEqualTo(testStore.getId());
     assertThat(saved.getReference()).isEqualTo("REF-PAIN-01");
     assertThat(saved.getName()).isEqualTo("Pain de seigle");
@@ -71,6 +73,9 @@ class ProductPersistenceTest {
     assertThat(saved.getStockQuantity()).isEqualTo(15);
     assertThat(saved.getCreatedAt()).isNotNull();
     assertThat(saved.getUpdatedAt()).isNotNull();
+    assertThat(productRepository.findByUid(saved.getUid())).isPresent();
+    assertThat(productRepository.findByStoreIdAndUid(testStore.getId(), saved.getUid()))
+        .isPresent();
   }
 
   @Test
@@ -128,6 +133,7 @@ class ProductPersistenceTest {
     Product savedP2 = productRepository.saveAndFlush(p2);
 
     assertThat(savedP2.getId()).isNotNull();
+    assertThat(savedP2.getUid()).isNotNull();
     assertThat(productRepository.findByStoreId(testStore.getId())).hasSize(1);
     assertThat(productRepository.findByStoreId(otherStore.getId())).hasSize(1);
   }

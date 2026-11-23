@@ -58,44 +58,44 @@ public class ProductService {
   }
 
   @Transactional(readOnly = true)
-  public List<ProductResponse> getProductsByStore(Long storeId) {
-    Store store = findStoreOrThrow(storeId);
+  public List<ProductResponse> getProductsByStore(UUID storeUid) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
       return List.of();
     }
-    return productRepository.findByStoreId(storeId).stream()
-        .map(ProductResponse::fromEntity)
+    return productRepository.findByStoreId(store.getId()).stream()
+        .map(product -> ProductResponse.fromEntity(product, store.getUid()))
         .toList();
   }
 
   @Transactional(readOnly = true)
-  public ProductResponse getProductById(Long storeId, Long productId) {
-    Store store = findStoreOrThrow(storeId);
+  public ProductResponse getProductByUid(UUID storeUid, UUID productUid) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(String.valueOf(storeId));
+      throw new RevokedStoreException(storeUid.toString());
     }
     Product product =
         productRepository
-            .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(productId));
-    return ProductResponse.fromEntity(product);
+            .findByStoreIdAndUid(store.getId(), productUid)
+            .orElseThrow(() -> new ProductNotFoundException(productUid));
+    return ProductResponse.fromEntity(product, store.getUid());
   }
 
   @Transactional
   public ProductResponse createProduct(
-      Long storeId,
+      UUID storeUid,
       ProductCreateRequest request,
       MultipartFile image,
-      Long authenticatedUserId,
+      UUID authenticatedUserId,
       String userRole) {
-    Store store = findStoreOrThrow(storeId);
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(String.valueOf(storeId));
+      throw new RevokedStoreException(storeUid.toString());
     }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     String normalizedRef = request.getReference().trim();
-    if (productRepository.existsByStoreIdAndReference(storeId, normalizedRef)) {
+    if (productRepository.existsByStoreIdAndReference(store.getId(), normalizedRef)) {
       throw new ProductReferenceAlreadyExistsException(normalizedRef);
     }
 
@@ -103,12 +103,12 @@ public class ProductService {
     if (image != null && !image.isEmpty()) {
       imageUrl = imageStorageService.uploadProductImage(image);
       log.info(
-          "Image uploadée avec succès pour le produit dans le magasin {} : {}", storeId, imageUrl);
+          "Image uploadée avec succès pour le produit dans le magasin {} : {}", storeUid, imageUrl);
     }
 
     Product product =
         new Product(
-            storeId,
+            store.getId(),
             normalizedRef,
             request.getName().trim(),
             request.getDescription(),
@@ -119,34 +119,35 @@ public class ProductService {
 
     Product savedProduct = productRepository.save(product);
     log.info(
-        "Nouveau produit '{}' (id={}) créé avec succès dans le commerce {}",
+        "Nouveau produit '{}' (uid={}) créé avec succès dans le commerce {}",
         savedProduct.getName(),
-        savedProduct.getId(),
-        storeId);
-    return ProductResponse.fromEntity(savedProduct);
+        savedProduct.getUid(),
+        storeUid);
+    return ProductResponse.fromEntity(savedProduct, store.getUid());
   }
 
   @Transactional
   public ProductResponse updateProduct(
-      Long storeId,
-      Long productId,
+      UUID storeUid,
+      UUID productUid,
       ProductUpdateRequest request,
       MultipartFile image,
-      Long authenticatedUserId,
+      UUID authenticatedUserId,
       String userRole) {
-    Store store = findStoreOrThrow(storeId);
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(String.valueOf(storeId));
+      throw new RevokedStoreException(storeUid.toString());
     }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
         productRepository
-            .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(productId));
+            .findByStoreIdAndUid(store.getId(), productUid)
+            .orElseThrow(() -> new ProductNotFoundException(productUid));
 
     String normalizedRef = request.getReference().trim();
-    if (productRepository.existsByStoreIdAndReferenceAndIdNot(storeId, normalizedRef, productId)) {
+    if (productRepository.existsByStoreIdAndReferenceAndUidNot(
+        store.getId(), normalizedRef, productUid)) {
       throw new ProductReferenceAlreadyExistsException(normalizedRef);
     }
 
@@ -172,44 +173,44 @@ public class ProductService {
 
     Product updatedProduct = productRepository.save(product);
     log.info(
-        "Produit id={} mis à jour avec succès dans le commerce {}",
-        updatedProduct.getId(),
-        storeId);
-    return ProductResponse.fromEntity(updatedProduct);
+        "Produit uid={} mis à jour avec succès dans le commerce {}",
+        updatedProduct.getUid(),
+        storeUid);
+    return ProductResponse.fromEntity(updatedProduct, store.getUid());
   }
 
   @Transactional
   public void deleteProduct(
-      Long storeId, Long productId, Long authenticatedUserId, String userRole) {
-    Store store = findStoreOrThrow(storeId);
+      UUID storeUid, UUID productUid, UUID authenticatedUserId, String userRole) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(String.valueOf(storeId));
+      throw new RevokedStoreException(storeUid.toString());
     }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
         productRepository
-            .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(productId));
+            .findByStoreIdAndUid(store.getId(), productUid)
+            .orElseThrow(() -> new ProductNotFoundException(productUid));
 
     if (product.getImageUrl() != null && !product.getImageUrl().isBlank()) {
       imageStorageService.deleteImage(product.getImageUrl());
     }
 
     productRepository.delete(product);
-    log.info("Produit id={} supprimé avec succès du commerce {}", productId, storeId);
+    log.info("Produit uid={} supprimé avec succès du commerce {}", productUid, storeUid);
   }
 
   @Transactional
   public ProductResponse updateProductImage(
-      Long storeId,
-      Long productId,
+      UUID storeUid,
+      UUID productUid,
       MultipartFile image,
-      Long authenticatedUserId,
+      UUID authenticatedUserId,
       String userRole) {
-    Store store = findStoreOrThrow(storeId);
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(String.valueOf(storeId));
+      throw new RevokedStoreException(storeUid.toString());
     }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
@@ -219,8 +220,8 @@ public class ProductService {
 
     Product product =
         productRepository
-            .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(productId));
+            .findByStoreIdAndUid(store.getId(), productUid)
+            .orElseThrow(() -> new ProductNotFoundException(productUid));
 
     if (product.getImageUrl() != null && !product.getImageUrl().isBlank()) {
       imageStorageService.deleteImage(product.getImageUrl());
@@ -230,67 +231,67 @@ public class ProductService {
     product.setImageUrl(newImageUrl);
 
     Product saved = productRepository.save(product);
-    log.info("Photo du produit id={} mise à jour sur S3 : {}", productId, newImageUrl);
-    return ProductResponse.fromEntity(saved);
+    log.info("Photo du produit uid={} mise à jour sur S3 : {}", productUid, newImageUrl);
+    return ProductResponse.fromEntity(saved, store.getUid());
   }
 
   @Transactional
   public ProductResponse updateProductImageUrl(
-      Long storeId, Long productId, String imageUrl, Long authenticatedUserId, String userRole) {
-    Store store = findStoreOrThrow(storeId);
+      UUID storeUid, UUID productUid, String imageUrl, UUID authenticatedUserId, String userRole) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(String.valueOf(storeId));
+      throw new RevokedStoreException(storeUid.toString());
     }
     validateStoreOwnership(store, authenticatedUserId, userRole);
 
     Product product =
         productRepository
-            .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(productId));
+            .findByStoreIdAndUid(store.getId(), productUid)
+            .orElseThrow(() -> new ProductNotFoundException(productUid));
 
     product.setImageUrl(imageUrl);
     Product saved = productRepository.save(product);
-    log.info("URL de photo du produit id={} mise à jour : {}", productId, imageUrl);
-    return ProductResponse.fromEntity(saved);
+    log.info("URL de photo du produit uid={} mise à jour : {}", productUid, imageUrl);
+    return ProductResponse.fromEntity(saved, store.getUid());
   }
 
   @Transactional(readOnly = true)
-  public ImageResource getProductImage(Long storeId, Long productId) {
-    Store store = findStoreOrThrow(storeId);
+  public ImageResource getProductImage(UUID storeUid, UUID productUid) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(String.valueOf(storeId));
+      throw new RevokedStoreException(storeUid.toString());
     }
     Product product =
         productRepository
-            .findByIdAndStoreId(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(productId));
+            .findByStoreIdAndUid(store.getId(), productUid)
+            .orElseThrow(() -> new ProductNotFoundException(productUid));
 
     if (product.getImageUrl() == null || product.getImageUrl().isBlank()) {
-      throw new ProductImageNotFoundException(productId);
+      throw new ProductImageNotFoundException(productUid);
     }
 
     return imageStorageService
         .downloadImage(product.getImageUrl())
-        .orElseThrow(() -> new ProductImageNotFoundException(productId));
+        .orElseThrow(() -> new ProductImageNotFoundException(productUid));
   }
 
   @Transactional
   public ProductResponse updateStock(
-      Long storeId,
-      Long productId,
+      UUID storeUid,
+      UUID productUid,
       StockUpdateRequest request,
-      Long authenticatedUserId,
+      UUID authenticatedUserId,
       String userRole) {
-    Store store = findStoreOrThrow(storeId);
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(String.valueOf(storeId));
+      throw new RevokedStoreException(storeUid.toString());
     }
     validateStockUpdateAuthorization(store, authenticatedUserId, userRole);
 
     Product product =
         productRepository
-            .findByIdAndStoreIdForUpdate(productId, storeId)
-            .orElseThrow(() -> new ProductNotFoundException(productId));
+            .findByStoreIdAndUidForUpdate(store.getId(), productUid)
+            .orElseThrow(() -> new ProductNotFoundException(productUid));
 
     int currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
     int targetStock;
@@ -307,7 +308,7 @@ public class ProductService {
     if (targetStock < 0) {
       throw new InsufficientStockException(
           "Stock insuffisant pour le produit "
-              + productId
+              + productUid
               + " (actuel: "
               + currentStock
               + ", demandé: "
@@ -318,9 +319,9 @@ public class ProductService {
     product.setStockQuantity(targetStock);
     Product saved = productRepository.save(product);
     log.info(
-        "Stock ajusté pour produit id={} dans magasin {} : ancien={} -> nouveau={}",
-        productId,
-        storeId,
+        "Stock ajusté pour produit uid={} dans magasin {} : ancien={} -> nouveau={}",
+        productUid,
+        storeUid,
         currentStock,
         targetStock);
 
@@ -329,7 +330,7 @@ public class ProductService {
       triggerStockAlert(store, saved, targetStock, alertThreshold);
     }
 
-    return ProductResponse.fromEntity(saved);
+    return ProductResponse.fromEntity(saved, store.getUid());
   }
 
   private void triggerStockAlert(
@@ -338,8 +339,8 @@ public class ProductService {
       return;
     }
     String merchantEmail = null;
-    if (userClient != null && store.getUserId() != null) {
-      merchantEmail = userClient.getUserEmail(store.getUserId()).orElse(null);
+    if (userClient != null && store.getOwnerUid() != null) {
+      merchantEmail = userClient.getUserEmail(store.getOwnerUid()).orElse(null);
     }
     if (merchantEmail != null && !merchantEmail.isBlank()) {
       stockAlertEmailService.sendStockAlertAsync(
@@ -358,60 +359,35 @@ public class ProductService {
     }
   }
 
-  public Long resolveStoreId(String storeIdentifier) {
-    if (storeIdentifier == null || storeIdentifier.isBlank()) {
-      throw new StoreNotFoundException(storeIdentifier);
+  private Store findStoreByUidOrThrow(UUID storeUid) {
+    if (storeUid == null) {
+      throw new StoreNotFoundException((UUID) null);
     }
-    String trimmed = storeIdentifier.trim();
-    try {
-      UUID uid = UUID.fromString(trimmed);
-      return storeRepository
-          .findByUid(uid)
-          .map(Store::getId)
-          .orElseThrow(() -> new StoreNotFoundException(storeIdentifier));
-    } catch (IllegalArgumentException e) {
-      try {
-        Long id = Long.parseLong(trimmed);
-        if (storeRepository.existsById(id)) {
-          return id;
-        }
-        throw new StoreNotFoundException(storeIdentifier);
-      } catch (NumberFormatException nfe) {
-        throw new StoreNotFoundException(storeIdentifier);
-      }
-    }
+    return storeRepository
+        .findByUid(storeUid)
+        .orElseThrow(() -> new StoreNotFoundException(storeUid));
   }
 
-  private void verifyStoreExists(Long storeId) {
-    if (!storeRepository.existsById(storeId)) {
-      throw new StoreNotFoundException(storeId);
-    }
-  }
-
-  private Store findStoreOrThrow(Long storeId) {
-    return storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
-  }
-
-  private void validateStoreOwnership(Store store, Long authenticatedUserId, String userRole) {
+  private void validateStoreOwnership(Store store, UUID authenticatedUserId, String userRole) {
     if ("ADMIN".equalsIgnoreCase(userRole)) {
       return;
     }
 
     if ("MERCHANT".equalsIgnoreCase(userRole)) {
-      if (authenticatedUserId == null || !store.getUserId().equals(authenticatedUserId)) {
+      if (authenticatedUserId == null || !authenticatedUserId.equals(store.getOwnerUid())) {
         throw new AccessDeniedException(
             "Accès refusé : vous n'êtes pas le commerçant gestionnaire de ce commerce");
       }
       return;
     }
 
-    if (authenticatedUserId != null && !store.getUserId().equals(authenticatedUserId)) {
+    if (authenticatedUserId == null || !authenticatedUserId.equals(store.getOwnerUid())) {
       throw new AccessDeniedException("Accès refusé : propriétaire du magasin non concordant");
     }
   }
 
   private void validateStockUpdateAuthorization(
-      Store store, Long authenticatedUserId, String userRole) {
+      Store store, UUID authenticatedUserId, String userRole) {
     // SERVICE and ADMIN roles can modify stock for any store
     if ("SERVICE".equalsIgnoreCase(userRole) || "ADMIN".equalsIgnoreCase(userRole)) {
       return;
@@ -419,14 +395,14 @@ public class ProductService {
 
     // The merchant can only modify stock for their own store
     if ("MERCHANT".equalsIgnoreCase(userRole)) {
-      if (authenticatedUserId == null || !store.getUserId().equals(authenticatedUserId)) {
+      if (authenticatedUserId == null || !authenticatedUserId.equals(store.getOwnerUid())) {
         throw new AccessDeniedException(
             "Accès refusé : vous n'êtes pas le commerçant gestionnaire de ce commerce");
       }
       return;
     }
 
-    if (authenticatedUserId != null && !store.getUserId().equals(authenticatedUserId)) {
+    if (authenticatedUserId == null || !authenticatedUserId.equals(store.getOwnerUid())) {
       throw new AccessDeniedException("Accès refusé pour la mise à jour du stock");
     }
   }

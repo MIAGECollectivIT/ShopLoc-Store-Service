@@ -10,6 +10,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(
@@ -24,6 +25,9 @@ public class Product {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  @Column(name = "uid", nullable = false, unique = true, updatable = false)
+  private UUID uid;
 
   @Column(name = "store_id", nullable = false)
   private Long storeId;
@@ -55,7 +59,9 @@ public class Product {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
-  public Product() {}
+  public Product() {
+    this.uid = UUID.randomUUID();
+  }
 
   public Product(
       Long storeId,
@@ -77,6 +83,7 @@ public class Product {
       String imageUrl,
       Integer stockQuantity,
       Integer alertThreshold) {
+    this();
     this.storeId = storeId;
     this.reference = reference;
     this.name = name;
@@ -89,6 +96,9 @@ public class Product {
 
   @PrePersist
   protected void onCreate() {
+    if (this.uid == null) {
+      this.uid = UUID.randomUUID();
+    }
     Instant now = Instant.now();
     this.createdAt = now;
     this.updatedAt = now;
@@ -111,6 +121,14 @@ public class Product {
 
   public void setId(Long id) {
     this.id = id;
+  }
+
+  public UUID getUid() {
+    return uid;
+  }
+
+  public void setUid(UUID uid) {
+    this.uid = uid;
   }
 
   public Long getStoreId() {

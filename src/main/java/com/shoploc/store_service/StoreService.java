@@ -16,8 +16,13 @@ import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import com.shoploc.store_service.validation.RibIbanHelper;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,11 +65,6 @@ public class StoreService {
   }
 
   @Transactional(readOnly = true)
-  public Optional<Store> getStoreById(Long id) {
-    return storeRepository.findById(id);
-  }
-
-  @Transactional(readOnly = true)
   public Optional<Store> getStoreByUid(UUID uid) {
     if (uid == null) {
       return Optional.empty();
@@ -73,54 +73,35 @@ public class StoreService {
   }
 
   @Transactional(readOnly = true)
-  public Optional<Store> getStoreByIdOrUid(String identifier) {
-    if (identifier == null || identifier.isBlank()) {
-      return Optional.empty();
+  public List<Store> getStoresByOwnerUid(UUID ownerUid) {
+    if (ownerUid == null) {
+      return List.of();
     }
-    String trimmed = identifier.trim();
-    try {
-      UUID uid = UUID.fromString(trimmed);
-      return storeRepository.findByUid(uid);
-    } catch (IllegalArgumentException e) {
-      try {
-        Long id = Long.parseLong(trimmed);
-        return storeRepository.findById(id);
-      } catch (NumberFormatException nfe) {
-        return Optional.empty();
-      }
-    }
-  }
-
-  public List<Store> getStoresByUserId(Long userId) {
-    return storeRepository.findByUserId(userId);
+    return storeRepository.findByOwnerUid(ownerUid);
   }
 
   @Transactional(readOnly = true)
-  public ImageResource getStoreImage(String identifier) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
-
-    String publicIdentifier = store.getUid() != null ? store.getUid().toString() : identifier;
+  public ImageResource getStoreImage(UUID storeUid) {
+    Store store = findStoreByUidOrThrow(storeUid);
 
     if (store.getUrl() == null || store.getUrl().isBlank()) {
-      throw new StoreImageNotFoundException(publicIdentifier);
+      throw new StoreImageNotFoundException(storeUid);
     }
 
     return imageStorageService
         .downloadImage(store.getUrl())
-        .orElseThrow(() -> new StoreImageNotFoundException(publicIdentifier));
+        .orElseThrow(() -> new StoreImageNotFoundException(storeUid));
   }
 
   @Transactional
-  public Store revokeStore(String identifier, String adminIdentifier) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+  public Store revokeStore(UUID storeUid, String adminIdentifier) {
+    Store store = findStoreByUidOrThrow(storeUid);
 
     if (store.isRevoked()) {
-      throw new StoreAlreadyRevokedException(identifier);
+      throw new StoreAlreadyRevokedException(storeUid.toString());
     }
 
-    if (store.getUserId() == null) {
+    if (store.getOwnerUid() == null) {
       throw new IllegalStateException(
           "Un commerce ne peut pas être révoqué s'il n'est pas lié à un commerçant.");
     }
@@ -132,20 +113,19 @@ public class StoreService {
 
     Store savedStore = storeRepository.save(store);
 
-    if (savedStore.getUserId() != null) {
-      userClient.unlinkStoreFromUser(savedStore.getUserId(), savedStore.getId());
+    if (savedStore.getOwnerUid() != null) {
+      userClient.unlinkStoreFromUser(savedStore.getOwnerUid(), savedStore.getUid());
     }
 
     return savedStore;
   }
 
   @Transactional
-  public Store reactivateStore(String identifier, StoreReactivateRequest request) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+  public Store reactivateStore(UUID storeUid, StoreReactivateRequest request) {
+    Store store = findStoreByUidOrThrow(storeUid);
 
     if (!store.isRevoked()) {
-      throw new StoreNotRevokedException(identifier);
+      throw new StoreNotRevokedException(storeUid.toString());
     }
 
     if (request == null || request.rib() == null || request.rib().isBlank()) {
@@ -160,18 +140,18 @@ public class StoreService {
     }
 
     // Gestion de la réaffectation du commerçant lors de la réactivation
-    Long targetUserId = request.userId() != null ? request.userId() : store.getUserId();
-    if (targetUserId == null || targetUserId <= 0) {
+    UUID targetOwnerUid = request.ownerUid() != null ? request.ownerUid() : store.getOwnerUid();
+    if (targetOwnerUid == null) {
       throw new IllegalArgumentException(
           "Un commerce ne peut pas être orphelin : l'identifiant du commerçant réaffecté doit être valide");
     }
 
-    if (!userClient.userExists(targetUserId)) {
-      throw new UserNotFoundException(targetUserId);
+    if (!userClient.userExists(targetOwnerUid)) {
+      throw new UserNotFoundException(targetOwnerUid);
     }
 
-    Long oldUserId = store.getUserId();
-    store.setUserId(targetUserId);
+    UUID oldOwnerUid = store.getOwnerUid();
+    store.setOwnerUid(targetOwnerUid);
     store.setStatus(StoreStatus.ACTIVE);
     store.setRib(cleanedRib);
     store.setRevokedAt(null);
@@ -180,18 +160,18 @@ public class StoreService {
     Store savedStore = storeRepository.save(store);
 
     // Relier systématiquement le commerce réactivé à son commerçant dans users-service
-    userClient.linkStoreToUser(targetUserId, savedStore.getId());
-    if (oldUserId != null && !oldUserId.equals(targetUserId)) {
-      userClient.unlinkStoreFromUser(oldUserId, savedStore.getId());
+    userClient.linkStoreToUser(targetOwnerUid, savedStore.getUid());
+    if (oldOwnerUid != null && !oldOwnerUid.equals(targetOwnerUid)) {
+      userClient.unlinkStoreFromUser(oldOwnerUid, savedStore.getUid());
     }
 
     return savedStore;
   }
 
   public Store createStore(StoreCreateRequest request, MultipartFile image) {
-    Long userId = request.getUserId();
-    if (!userClient.userExists(userId)) {
-      throw new UserNotFoundException(userId);
+    UUID ownerUid = request.getOwnerUid();
+    if (!userClient.userExists(ownerUid)) {
+      throw new UserNotFoundException(ownerUid);
     }
 
     Store storeToSave = request.toEntity();
@@ -203,7 +183,7 @@ public class StoreService {
 
     Store savedStore = storeRepository.save(storeToSave);
 
-    userClient.linkStoreToUser(userId, savedStore.getId());
+    userClient.linkStoreToUser(ownerUid, savedStore.getUid());
 
     return savedStore;
   }
@@ -212,58 +192,50 @@ public class StoreService {
     return createStore(request, null);
   }
 
+  @Transactional
   public Store patchStore(
-      String identifier, StorePatchRequest request, Long authenticatedUserId, String userRole) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+      UUID storeUid, StorePatchRequest request, UUID authenticatedUserId, String userRole) {
+    Store store = findStoreByUidOrThrow(storeUid);
 
     boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
 
     if (store.isRevoked()) {
       // Seul un administrateur peut modifier un commerce révoqué, et uniquement pour lui réaffecter
       // un nouveau propriétaire
-      if (!isAdmin || request.getUserId() == null) {
-        throw new RevokedStoreException(identifier);
+      if (!isAdmin || request.getOwnerUid() == null) {
+        throw new RevokedStoreException(storeUid.toString());
       }
-      Long newUserId = request.getUserId();
-      if (newUserId <= 0) {
-        throw new IllegalArgumentException(
-            "Un commerce ne peut pas être orphelin : l'identifiant du nouveau commerçant doit être valide et strictement positif");
+      UUID newOwnerUid = request.getOwnerUid();
+      if (!userClient.userExists(newOwnerUid)) {
+        throw new UserNotFoundException(newOwnerUid);
       }
-      if (!userClient.userExists(newUserId)) {
-        throw new UserNotFoundException(newUserId);
-      }
-      Long oldUserId = store.getUserId();
-      store.setUserId(newUserId);
+      UUID oldOwnerUid = store.getOwnerUid();
+      store.setOwnerUid(newOwnerUid);
       Store savedStore = storeRepository.save(store);
 
-      userClient.linkStoreToUser(newUserId, savedStore.getId());
-      if (oldUserId != null && !oldUserId.equals(newUserId)) {
-        userClient.unlinkStoreFromUser(oldUserId, savedStore.getId());
+      userClient.linkStoreToUser(newOwnerUid, savedStore.getUid());
+      if (oldOwnerUid != null && !oldOwnerUid.equals(newOwnerUid)) {
+        userClient.unlinkStoreFromUser(oldOwnerUid, savedStore.getUid());
       }
       return savedStore;
     }
 
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 
-    if (request.getUserId() != null) {
+    if (request.getOwnerUid() != null) {
       if (!isAdmin) {
         throw new AccessDeniedException(
             "Seul un administrateur est autorisé à réassigner le propriétaire d'un commerce");
       }
-      Long newUserId = request.getUserId();
-      if (newUserId <= 0) {
-        throw new IllegalArgumentException(
-            "Un commerce ne peut pas être orphelin : l'identifiant du nouveau commerçant doit être valide et strictement positif");
+      UUID newOwnerUid = request.getOwnerUid();
+      if (!userClient.userExists(newOwnerUid)) {
+        throw new UserNotFoundException(newOwnerUid);
       }
-      if (!userClient.userExists(newUserId)) {
-        throw new UserNotFoundException(newUserId);
-      }
-      Long oldUserId = store.getUserId();
-      store.setUserId(newUserId);
-      userClient.linkStoreToUser(newUserId, store.getId());
-      if (oldUserId != null && !oldUserId.equals(newUserId)) {
-        userClient.unlinkStoreFromUser(oldUserId, store.getId());
+      UUID oldOwnerUid = store.getOwnerUid();
+      store.setOwnerUid(newOwnerUid);
+      userClient.linkStoreToUser(newOwnerUid, store.getUid());
+      if (oldOwnerUid != null && !oldOwnerUid.equals(newOwnerUid)) {
+        userClient.unlinkStoreFromUser(oldOwnerUid, store.getUid());
       }
     }
 
@@ -290,65 +262,94 @@ public class StoreService {
     if (request.getOpeningHours() != null) {
       store.setOpeningHours(request.getOpeningHours().trim());
     }
+    if (request.getOwnerUid() != null && "ADMIN".equalsIgnoreCase(userRole)) {
+      store.setOwnerUid(request.getOwnerUid());
+    }
     if (Boolean.TRUE.equals(request.getClearAbsence())) {
       store.clearAbsences();
     } else if (request.getAbsences() != null) {
-      store.getAbsences().clear();
-      for (StoreAbsenceRequest absenceReq : request.getAbsences()) {
-        if (absenceReq.getStartDate() == null) {
-          throw new IllegalArgumentException(
-              "La date de début est obligatoire pour chaque absence");
-        }
-        if (absenceReq.getEndDate() != null
-            && absenceReq.getEndDate().isBefore(absenceReq.getStartDate())) {
-          throw new IllegalArgumentException(
-              "La date de fin d'absence ne peut pas être antérieure à la date de début");
-        }
-        StoreAbsence absence =
-            new StoreAbsence(
-                store,
-                absenceReq.getStartDate(),
-                absenceReq.getEndDate(),
-                absenceReq.getReason() != null ? absenceReq.getReason().trim() : null);
-        store.getAbsences().add(absence);
-      }
-      store.syncCurrentAbsenceFields();
+      applyBulkAbsencesUpdate(store, request.getAbsences());
     } else {
-      if (request.getAbsenceStartDate() != null) {
-        store.setAbsenceStartDate(request.getAbsenceStartDate());
-      }
-      if (request.getAbsenceEndDate() != null) {
-        store.setAbsenceEndDate(request.getAbsenceEndDate());
-      }
-      if (request.getAbsenceReason() != null) {
-        store.setAbsenceReason(request.getAbsenceReason().trim());
-      }
-      if (store.getAbsenceStartDate() != null
-          && store.getAbsenceEndDate() != null
-          && store.getAbsenceEndDate().isBefore(store.getAbsenceStartDate())) {
-        throw new IllegalArgumentException(
-            "La date de fin d'absence ne peut pas être antérieure à la date de début");
-      }
-      if (request.getAbsenceStartDate() != null && store.getAbsences().isEmpty()) {
-        store.addAbsence(
-            new StoreAbsence(
-                store,
-                store.getAbsenceStartDate(),
-                store.getAbsenceEndDate(),
-                store.getAbsenceReason()));
-      }
+      applyLegacySingleAbsenceUpdate(store, request);
     }
 
     return storeRepository.save(store);
   }
 
+  private void applyBulkAbsencesUpdate(Store store, List<StoreAbsenceRequest> absenceRequests) {
+    Map<UUID, StoreAbsence> existingByUid = new HashMap<>();
+    for (StoreAbsence existing : store.getAbsences()) {
+      if (existing.getUid() != null) {
+        existingByUid.put(existing.getUid(), existing);
+      }
+    }
+    Set<UUID> retainedUids = new HashSet<>();
+    List<StoreAbsence> toAdd = new ArrayList<>();
+
+    for (StoreAbsenceRequest absenceReq : absenceRequests) {
+      if (absenceReq.getStartDate() == null) {
+        throw new IllegalArgumentException("La date de début est obligatoire pour chaque absence");
+      }
+      if (absenceReq.getEndDate() != null
+          && absenceReq.getEndDate().isBefore(absenceReq.getStartDate())) {
+        throw new IllegalArgumentException(
+            "La date de fin d'absence ne peut pas être antérieure à la date de début");
+      }
+      String trimmedReason = absenceReq.getReason() != null ? absenceReq.getReason().trim() : null;
+      UUID reqUid = absenceReq.getUid();
+      if (reqUid != null && existingByUid.containsKey(reqUid) && retainedUids.add(reqUid)) {
+        StoreAbsence existing = existingByUid.get(reqUid);
+        existing.setStartDate(absenceReq.getStartDate());
+        existing.setEndDate(absenceReq.getEndDate());
+        existing.setReason(trimmedReason);
+      } else {
+        StoreAbsence created =
+            new StoreAbsence(
+                store, absenceReq.getStartDate(), absenceReq.getEndDate(), trimmedReason);
+        if (reqUid != null && !existingByUid.containsKey(reqUid) && retainedUids.add(reqUid)) {
+          created.setUid(reqUid);
+        }
+        toAdd.add(created);
+      }
+    }
+
+    store.getAbsences().removeIf(a -> a.getUid() == null || !retainedUids.contains(a.getUid()));
+    store.getAbsences().addAll(toAdd);
+    store.syncCurrentAbsenceFields();
+  }
+
+  private void applyLegacySingleAbsenceUpdate(Store store, StorePatchRequest request) {
+    if (request.getAbsenceStartDate() != null) {
+      store.setAbsenceStartDate(request.getAbsenceStartDate());
+    }
+    if (request.getAbsenceEndDate() != null) {
+      store.setAbsenceEndDate(request.getAbsenceEndDate());
+    }
+    if (request.getAbsenceReason() != null) {
+      store.setAbsenceReason(request.getAbsenceReason().trim());
+    }
+    if (store.getAbsenceStartDate() != null
+        && store.getAbsenceEndDate() != null
+        && store.getAbsenceEndDate().isBefore(store.getAbsenceStartDate())) {
+      throw new IllegalArgumentException(
+          "La date de fin d'absence ne peut pas être antérieure à la date de début");
+    }
+    if (request.getAbsenceStartDate() != null && store.getAbsences().isEmpty()) {
+      store.addAbsence(
+          new StoreAbsence(
+              store,
+              store.getAbsenceStartDate(),
+              store.getAbsenceEndDate(),
+              store.getAbsenceReason()));
+    }
+  }
+
   @Transactional
   public Store addStoreAbsence(
-      String identifier, StoreAbsenceRequest request, Long authenticatedUserId, String userRole) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+      UUID storeUid, StoreAbsenceRequest request, UUID authenticatedUserId, String userRole) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(identifier);
+      throw new RevokedStoreException(storeUid.toString());
     }
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 
@@ -366,30 +367,34 @@ public class StoreService {
             request.getStartDate(),
             request.getEndDate(),
             request.getReason() != null ? request.getReason().trim() : null);
+    if (request.getUid() != null
+        && store.getAbsences().stream().noneMatch(a -> request.getUid().equals(a.getUid()))) {
+      absence.setUid(request.getUid());
+    }
     store.addAbsence(absence);
     return storeRepository.save(store);
   }
 
   @Transactional
   public Store updateStoreAbsence(
-      String identifier,
-      Long absenceId,
+      UUID storeUid,
+      UUID absenceUid,
       StoreAbsenceRequest request,
-      Long authenticatedUserId,
+      UUID authenticatedUserId,
       String userRole) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(identifier);
+      throw new RevokedStoreException(storeUid.toString());
     }
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 
     StoreAbsence absence =
         store.getAbsences().stream()
-            .filter(a -> a.getId() != null && a.getId().equals(absenceId))
+            .filter(a -> a.getUid() != null && a.getUid().equals(absenceUid))
             .findFirst()
             .orElseThrow(
-                () -> new IllegalArgumentException("Absence introuvable avec l'ID: " + absenceId));
+                () ->
+                    new IllegalArgumentException("Absence introuvable avec l'UID: " + absenceUid));
 
     if (request.getStartDate() != null) {
       absence.setStartDate(request.getStartDate());
@@ -413,18 +418,17 @@ public class StoreService {
   }
 
   @Transactional
-  public Store deleteStoreAbsenceById(
-      String identifier, Long absenceId, Long authenticatedUserId, String userRole) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+  public Store deleteStoreAbsenceByUid(
+      UUID storeUid, UUID absenceUid, UUID authenticatedUserId, String userRole) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(identifier);
+      throw new RevokedStoreException(storeUid.toString());
     }
     verifyStoreOwnership(store, authenticatedUserId, userRole);
 
     StoreAbsence absence =
         store.getAbsences().stream()
-            .filter(a -> a.getId() != null && a.getId().equals(absenceId))
+            .filter(a -> a.getUid() != null && a.getUid().equals(absenceUid))
             .findFirst()
             .orElse(null);
 
@@ -435,11 +439,10 @@ public class StoreService {
   }
 
   @Transactional
-  public Store clearStoreAbsence(String identifier, Long authenticatedUserId, String userRole) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+  public Store clearStoreAbsence(UUID storeUid, UUID authenticatedUserId, String userRole) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(identifier);
+      throw new RevokedStoreException(storeUid.toString());
     }
     verifyStoreOwnership(store, authenticatedUserId, userRole);
     store.clearAbsences();
@@ -447,11 +450,10 @@ public class StoreService {
   }
 
   public Store updateStoreImage(
-      String identifier, MultipartFile image, Long authenticatedUserId, String userRole) {
-    Store store =
-        getStoreByIdOrUid(identifier).orElseThrow(() -> new StoreNotFoundException(identifier));
+      UUID storeUid, MultipartFile image, UUID authenticatedUserId, String userRole) {
+    Store store = findStoreByUidOrThrow(storeUid);
     if (store.isRevoked()) {
-      throw new RevokedStoreException(identifier);
+      throw new RevokedStoreException(storeUid.toString());
     }
 
     verifyStoreOwnership(store, authenticatedUserId, userRole);
@@ -470,11 +472,20 @@ public class StoreService {
     return storeRepository.save(store);
   }
 
-  private void verifyStoreOwnership(Store store, Long authenticatedUserId, String userRole) {
+  private Store findStoreByUidOrThrow(UUID storeUid) {
+    if (storeUid == null) {
+      throw new StoreNotFoundException((UUID) null);
+    }
+    return storeRepository
+        .findByUid(storeUid)
+        .orElseThrow(() -> new StoreNotFoundException(storeUid));
+  }
+
+  private void verifyStoreOwnership(Store store, UUID authenticatedUserId, String userRole) {
     if ("ADMIN".equalsIgnoreCase(userRole)) {
       return;
     }
-    if (authenticatedUserId != null && authenticatedUserId.equals(store.getUserId())) {
+    if (authenticatedUserId != null && authenticatedUserId.equals(store.getOwnerUid())) {
       return;
     }
     throw new AccessDeniedException(

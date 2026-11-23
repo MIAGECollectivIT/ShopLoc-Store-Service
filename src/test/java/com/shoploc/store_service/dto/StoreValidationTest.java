@@ -7,6 +7,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ class StoreValidationTest {
             "https://example.com/shop.jpg",
             "Boulangerie",
             "FR7630006000011234567890189",
-            1L);
+            UUID.randomUUID());
 
     Set<ConstraintViolation<StoreCreateRequest>> violations = validator.validate(request);
     assertThat(violations).isEmpty();
@@ -42,7 +43,12 @@ class StoreValidationTest {
   void shouldRejectBlankName() {
     StoreCreateRequest request =
         new StoreCreateRequest(
-            "", "10 rue Nationale", null, "Boulangerie", "FR7630006000011234567890189", 1L);
+            "",
+            "10 rue Nationale",
+            null,
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            UUID.randomUUID());
 
     Set<ConstraintViolation<StoreCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("name"));
@@ -53,7 +59,12 @@ class StoreValidationTest {
   void shouldRejectBlankCategory() {
     StoreCreateRequest request =
         new StoreCreateRequest(
-            "Mon Magasin", "10 rue Nationale", null, "   ", "FR7630006000011234567890189", 1L);
+            "Mon Magasin",
+            "10 rue Nationale",
+            null,
+            "   ",
+            "FR7630006000011234567890189",
+            UUID.randomUUID());
 
     Set<ConstraintViolation<StoreCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("category"));
@@ -69,15 +80,15 @@ class StoreValidationTest {
             null,
             "Boulangerie",
             "FR7630006000011234567890188", // Invalid check digits
-            1L);
+            UUID.randomUUID());
 
     Set<ConstraintViolation<StoreCreateRequest>> violations = validator.validate(request);
     assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("rib"));
   }
 
   @Test
-  @DisplayName("Should allow null userId (injected from JWT) but reject negative values")
-  void shouldAllowNullUserIdAndRejectNegative() {
+  @DisplayName("Should allow null ownerUid (injected from JWT)")
+  void shouldAllowNullOwnerUid() {
     StoreCreateRequest requestNullUser =
         new StoreCreateRequest(
             "Mon Magasin",
@@ -89,18 +100,5 @@ class StoreValidationTest {
 
     Set<ConstraintViolation<StoreCreateRequest>> violations = validator.validate(requestNullUser);
     assertThat(violations).isEmpty();
-
-    StoreCreateRequest requestNegativeUser =
-        new StoreCreateRequest(
-            "Mon Magasin",
-            "10 rue Nationale",
-            null,
-            "Boulangerie",
-            "FR7630006000011234567890189",
-            -5L);
-
-    Set<ConstraintViolation<StoreCreateRequest>> violationsNeg =
-        validator.validate(requestNegativeUser);
-    assertThat(violationsNeg).anyMatch(v -> v.getPropertyPath().toString().equals("userId"));
   }
 }

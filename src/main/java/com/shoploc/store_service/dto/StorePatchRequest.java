@@ -2,6 +2,7 @@ package com.shoploc.store_service.dto;
 
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.UUID;
 
 public class StorePatchRequest {
 
@@ -30,7 +31,7 @@ public class StorePatchRequest {
 
   private Boolean clearAbsence;
 
-  private Long userId;
+  private UUID ownerUid;
 
   private java.util.List<StoreAbsenceRequest> absences;
 
@@ -145,11 +146,11 @@ public class StorePatchRequest {
     this.absences = absences;
   }
 
-  public Long getUserId() {
-    return userId;
+  public UUID getOwnerUid() {
+    return ownerUid;
   }
 
-  public void setUserId(Long userId) {
-    this.userId = userId;
+  public void setOwnerUid(UUID ownerUid) {
+    this.ownerUid = ownerUid;
   }
 }

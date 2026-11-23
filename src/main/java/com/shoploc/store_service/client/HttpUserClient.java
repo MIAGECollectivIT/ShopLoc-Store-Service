@@ -3,6 +3,8 @@ package com.shoploc.store_service.client;
 import com.shoploc.store_service.exception.UserServiceUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,7 +64,7 @@ public class HttpUserClient implements UserClient {
   }
 
   @Override
-  public boolean userExists(Long userId) {
+  public boolean userExists(UUID userId) {
     if (userId == null) {
       return false;
     }
@@ -102,63 +104,66 @@ public class HttpUserClient implements UserClient {
   }
 
   @Override
-  public void linkStoreToUser(Long userId, Long storeId) {
+  public void linkStoreToUser(UUID userId, UUID storeUid) {
+    if (userId == null || storeUid == null) {
+      return;
+    }
     try {
       restClient
           .post()
           .uri("/v1/users/stores")
           .contentType(MediaType.APPLICATION_JSON)
-          .body(Map.of("userId", userId, "storeId", storeId))
+          .body(Map.of("userId", userId, "storeUid", storeUid))
           .retrieve()
           .toBodilessEntity();
-      log.info("Successfully linked store {} to partner {} in users-service", storeId, userId);
+      log.info("Successfully linked store {} to partner {} in users-service", storeUid, userId);
     } catch (Exception e) {
       log.warn(
           "Failed to notify users-service about link between store {} and user {}: {}",
-          storeId,
+          storeUid,
           userId,
           e.getMessage());
     }
   }
 
   @Override
-  public void unlinkStoreFromUser(Long userId, Long storeId) {
-    if (userId == null || storeId == null) {
+  public void unlinkStoreFromUser(UUID userId, UUID storeUid) {
+    if (userId == null || storeUid == null) {
       return;
     }
     try {
       restClient
           .delete()
-          .uri("/v1/admin/partners/{id}/stores/{storeId}", userId, storeId)
+          .uri("/v1/admin/partners/{id}/stores/{storeUid}", userId, storeUid)
           .retrieve()
           .toBodilessEntity();
       log.info(
           "Successfully unlinked store {} from former partner {} in users-service",
-          storeId,
+          storeUid,
           userId);
     } catch (Exception e) {
       log.warn(
           "Failed to notify users-service about unlinking store {} from user {}: {}",
-          storeId,
+          storeUid,
           userId,
           e.getMessage());
     }
   }
 
   @Override
-  public java.util.Optional<String> getUserEmail(Long userId) {
+  public Optional<String> getUserEmail(UUID userId) {
     if (userId == null) {
-      return java.util.Optional.empty();
+      return Optional.empty();
     }
     try {
       Map<?, ?> resp =
           restClient.get().uri("/v1/users/{userId}", userId).retrieve().body(Map.class);
       if (resp != null && resp.get("email") instanceof String email && !email.isBlank()) {
-        return java.util.Optional.of(email.trim());
+        return Optional.of(email.trim());
       }
     } catch (Exception e) {
       log.warn("Could not retrieve user email for user {}: {}", userId, e.getMessage());
     }
-    return java.util.Optional.empty();
+    return Optional.empty();
   }
 }

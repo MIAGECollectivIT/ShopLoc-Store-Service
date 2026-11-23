@@ -7,6 +7,7 @@ import com.shoploc.store_service.exception.InsufficientStockException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,7 +44,7 @@ class ProductStockConcurrencyIntegrationTest {
                 "https://s3.shoploc.fr/boulangerie.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                100L));
+                UUID.randomUUID()));
 
     product =
         productRepository.save(
@@ -81,8 +82,8 @@ class ProductStockConcurrencyIntegrationTest {
                 try {
                   startLatch.await();
                   productService.updateStock(
-                      store.getId(),
-                      product.getId(),
+                      store.getUid(),
+                      product.getUid(),
                       StockUpdateRequest.ofDelta(-1),
                       null,
                       "SERVICE");
@@ -108,7 +109,7 @@ class ProductStockConcurrencyIntegrationTest {
     assertThat(successCount.get()).isEqualTo(expectedSuccesses);
     assertThat(failureCount.get()).isEqualTo(expectedFailures);
 
-    Product finalProduct = productRepository.findById(product.getId()).orElseThrow();
+    Product finalProduct = productRepository.findByUid(product.getUid()).orElseThrow();
     assertThat(finalProduct.getStockQuantity()).isEqualTo(0);
   }
 
@@ -135,8 +136,8 @@ class ProductStockConcurrencyIntegrationTest {
                 try {
                   startLatch.await();
                   productService.updateStock(
-                      store.getId(),
-                      product.getId(),
+                      store.getUid(),
+                      product.getUid(),
                       StockUpdateRequest.ofDelta(incrementPerThread),
                       null,
                       "SERVICE");
@@ -154,7 +155,7 @@ class ProductStockConcurrencyIntegrationTest {
     }
     executor.shutdown();
 
-    Product finalProduct = productRepository.findById(product.getId()).orElseThrow();
+    Product finalProduct = productRepository.findByUid(product.getUid()).orElseThrow();
     assertThat(finalProduct.getStockQuantity()).isEqualTo(totalThreads * incrementPerThread);
   }
 }

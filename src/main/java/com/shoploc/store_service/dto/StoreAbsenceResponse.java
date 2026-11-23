@@ -2,10 +2,11 @@ package com.shoploc.store_service.dto;
 
 import com.shoploc.store_service.StoreAbsence;
 import java.time.Instant;
+import java.util.UUID;
 
 public class StoreAbsenceResponse {
 
-  private Long id;
+  private UUID uid;
   private Instant startDate;
   private Instant endDate;
   private String reason;
@@ -23,7 +24,7 @@ public class StoreAbsenceResponse {
     }
     Instant now = Instant.now();
     StoreAbsenceResponse response = new StoreAbsenceResponse();
-    response.setId(absence.getId());
+    response.setUid(absence.getUid());
     response.setStartDate(absence.getStartDate());
     response.setEndDate(absence.getEndDate());
     response.setReason(absence.getReason());
@@ -35,12 +36,12 @@ public class StoreAbsenceResponse {
     return response;
   }
 
-  public Long getId() {
-    return id;
+  public UUID getUid() {
+    return uid;
   }
 
-  public void setId(Long id) {
-    this.id = id;
+  public void setUid(UUID uid) {
+    this.uid = uid;
   }
 
   public Instant getStartDate() {

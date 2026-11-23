@@ -1,6 +1,7 @@
 package com.shoploc.store_service.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -15,6 +16,7 @@ import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,7 @@ class ProductValidationExceptionHandlerTest {
 
   private final GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
   private static final String STORE_UID = "11111111-1111-1111-1111-111111111111";
+  private static final String PRODUCT_UID = "22222222-2222-2222-2222-222222222222";
 
   @BeforeEach
   void setUp() {
@@ -95,7 +98,7 @@ class ProductValidationExceptionHandlerTest {
 
     mockMvc
         .perform(
-            put("/v1/stores/" + STORE_UID + "/products/10")
+            put("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)))
         .andExpect(status().isBadRequest())
@@ -116,7 +119,7 @@ class ProductValidationExceptionHandlerTest {
 
     mockMvc
         .perform(
-            patch("/v1/stores/" + STORE_UID + "/products/10/stock")
+            patch("/v1/stores/" + STORE_UID + "/products/" + PRODUCT_UID + "/stock")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidStock)))
         .andExpect(status().isBadRequest())
@@ -127,13 +130,30 @@ class ProductValidationExceptionHandlerTest {
   }
 
   @Test
+  @DisplayName("GET product with non-UUID path variable -> should return 400 Bad Request")
+  void shouldReturn400WhenProductUidIsNotUuid() throws Exception {
+    mockMvc
+        .perform(get("/v1/stores/" + STORE_UID + "/products/10"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.error").value("Bad Request"));
+
+    mockMvc
+        .perform(get("/v1/stores/123/products"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.error").value("Bad Request"));
+  }
+
+  @Test
   @DisplayName("GlobalExceptionHandler: direct verification of catalog domain exception responses")
   void shouldVerifyDirectHandlerResponses() {
+    UUID productUid = UUID.fromString(PRODUCT_UID);
     ResponseEntity<Map<String, Object>> notFoundResp =
-        exceptionHandler.handleNotFoundExceptions(new ProductNotFoundException(99L));
+        exceptionHandler.handleNotFoundExceptions(new ProductNotFoundException(productUid));
     assertThat(notFoundResp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(notFoundResp.getBody().get("message"))
-        .isEqualTo("Produit 99 introuvable dans le commerce");
+        .isEqualTo("Produit " + productUid + " introuvable dans le commerce");
 
     ResponseEntity<Map<String, Object>> conflictResp =
         exceptionHandler.handleProductReferenceConflict(

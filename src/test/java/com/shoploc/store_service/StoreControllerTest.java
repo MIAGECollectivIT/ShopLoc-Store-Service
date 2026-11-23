@@ -15,9 +15,11 @@ import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreNotRevokedException;
 import com.shoploc.store_service.exception.UserNotFoundException;
 import com.shoploc.store_service.exception.UserServiceUnavailableException;
+import com.shoploc.store_service.security.RoleInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,7 +52,7 @@ class StoreControllerTest {
             "https://img.com/a.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            100L));
+            UUID.randomUUID()));
 
     List<StoreResponse> stores = storeController.getAllStores(null);
 
@@ -59,8 +61,10 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores?userId={userId} - Should filter partner stores")
+  @DisplayName("GET /v1/stores?userId={userId} - Should filter partner stores by ownerUid")
   void shouldFilterStoresByUserId() {
+    UUID owner1 = UUID.randomUUID();
+    UUID owner2 = UUID.randomUUID();
     storeRepository.save(
         new Store(
             "Store User 1",
@@ -68,7 +72,7 @@ class StoreControllerTest {
             "https://img.com/1.jpg",
             "Epicerie",
             "FR7630006000011234567890189",
-            201L));
+            owner1));
     storeRepository.save(
         new Store(
             "Store User 2",
@@ -76,19 +80,20 @@ class StoreControllerTest {
             "https://img.com/2.jpg",
             "Boucherie",
             "FR7630006000011234567890189",
-            202L));
+            owner2));
 
-    List<StoreResponse> stores = storeController.getAllStores(201L);
+    List<StoreResponse> stores = storeController.getAllStores(owner1);
 
     assertThat(stores).hasSize(1);
     assertThat(stores.get(0).getName()).isEqualTo("Store User 1");
-    assertThat(stores.get(0).getUserId()).isEqualTo(201L);
+    assertThat(stores.get(0).getOwnerUid()).isEqualTo(owner1);
   }
 
   @Test
   @DisplayName("POST /v1/stores - Should successfully create store when partner exists")
   void shouldCreateStoreWhenUserExists() {
-    when(userClient.userExists(300L)).thenReturn(true);
+    UUID ownerUid = UUID.randomUUID();
+    when(userClient.userExists(ownerUid)).thenReturn(true);
 
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -97,7 +102,7 @@ class StoreControllerTest {
             "https://img.com/store.jpg",
             "Fleuriste",
             "FR7630006000011234567890189",
-            300L);
+            ownerUid);
 
     ResponseEntity<StoreResponse> response =
         storeController.createStore(request, (HttpServletRequest) null);
@@ -105,21 +110,22 @@ class StoreControllerTest {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     StoreResponse body = response.getBody();
     assertThat(body).isNotNull();
-    assertThat(body.getId()).isNotNull();
+    assertThat(body.getUid()).isNotNull();
     assertThat(body.getName()).isEqualTo("Nouveau Magasin");
     assertThat(body.getCategory()).isEqualTo("Fleuriste");
     assertThat(body.getRib()).isEqualTo("FR7630006000011234567890189");
-    assertThat(body.getUserId()).isEqualTo(300L);
+    assertThat(body.getOwnerUid()).isEqualTo(ownerUid);
 
-    verify(userClient).userExists(300L);
-    verify(userClient).linkStoreToUser(eq(300L), eq(body.getId()));
+    verify(userClient).userExists(ownerUid);
+    verify(userClient).linkStoreToUser(eq(ownerUid), eq(body.getUid()));
   }
 
   @Test
   @DisplayName(
       "POST /v1/stores (multipart) - Should upload image and assign generated URL to store")
   void shouldCreateStoreWithUploadedImageWhenMultipartProvided() {
-    when(userClient.userExists(301L)).thenReturn(true);
+    UUID ownerUid = UUID.randomUUID();
+    when(userClient.userExists(ownerUid)).thenReturn(true);
     when(imageStorageService.uploadStoreImage(any()))
         .thenReturn("https://dev.shop-loc.fr/storage/store-images/sample-uuid.jpg");
 
@@ -130,7 +136,7 @@ class StoreControllerTest {
             null,
             "Pâtisserie",
             "FR7630006000011234567890189",
-            301L);
+            ownerUid);
 
     org.springframework.mock.web.MockMultipartFile mockFile =
         new org.springframework.mock.web.MockMultipartFile(
@@ -145,14 +151,15 @@ class StoreControllerTest {
         .isEqualTo("https://dev.shop-loc.fr/storage/store-images/sample-uuid.jpg");
 
     verify(imageStorageService).uploadStoreImage(mockFile);
-    verify(userClient).linkStoreToUser(eq(301L), eq(body.getId()));
+    verify(userClient).linkStoreToUser(eq(ownerUid), eq(body.getUid()));
   }
 
   @Test
   @DisplayName(
       "POST /v1/stores - Should fail with UserNotFoundException when partner does not exist")
   void shouldFailWhenUserDoesNotExist() {
-    when(userClient.userExists(999L)).thenReturn(false);
+    UUID unknownUid = UUID.randomUUID();
+    when(userClient.userExists(unknownUid)).thenReturn(false);
 
     StoreCreateRequest request =
         new StoreCreateRequest(
@@ -161,20 +168,21 @@ class StoreControllerTest {
             "https://img.com/lost.jpg",
             "Mode",
             "FR7630006000011234567890189",
-            999L);
+            unknownUid);
 
     assertThatThrownBy(() -> storeController.createStore(request, (HttpServletRequest) null))
         .isInstanceOf(com.shoploc.store_service.exception.UserNotFoundException.class)
-        .hasMessageContaining("999");
+        .hasMessageContaining(unknownUid.toString());
 
-    verify(userClient).userExists(999L);
-    verify(userClient, never()).linkStoreToUser(anyLong(), anyLong());
+    verify(userClient).userExists(unknownUid);
+    verify(userClient, never()).linkStoreToUser(any(), any());
   }
 
   @Test
   @DisplayName("POST /v1/stores - Should fail when users service is unavailable")
   void shouldFailWhenUserServiceIsUnavailable() {
-    when(userClient.userExists(500L))
+    UUID ownerUid = UUID.randomUUID();
+    when(userClient.userExists(ownerUid))
         .thenThrow(new UserServiceUnavailableException("Service down"));
 
     StoreCreateRequest request =
@@ -184,37 +192,14 @@ class StoreControllerTest {
             "https://img.com/net.jpg",
             "Technologie",
             "FR7630006000011234567890189",
-            500L);
+            ownerUid);
 
     assertThatThrownBy(() -> storeController.createStore(request, (HttpServletRequest) null))
         .isInstanceOf(UserServiceUnavailableException.class);
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/stores/{identifier} - Should retrieve store by technical numeric ID as fallback")
-  void shouldGetStoreByNumericIdFallback() {
-    Store store =
-        storeRepository.save(
-            new Store(
-                "Superette Centrale",
-                "8 rue Principale",
-                "https://img.com/superette.jpg",
-                "Alimentation",
-                "FR7630006000011234567890189",
-                501L));
-
-    ResponseEntity<StoreResponse> response = storeController.getStoreById(store.getId().toString());
-
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().getId()).isEqualTo(store.getId());
-    assertThat(response.getBody().getUid()).isEqualTo(store.getUid());
-    assertThat(response.getBody().getName()).isEqualTo("Superette Centrale");
-  }
-
-  @Test
-  @DisplayName("GET /v1/stores/{identifier} - Should retrieve store by UUID uid")
+  @DisplayName("GET /v1/stores/{storeUid} - Should retrieve store by UUID uid")
   void shouldGetStoreByUid() {
     Store store =
         storeRepository.save(
@@ -224,39 +209,29 @@ class StoreControllerTest {
                 "https://img.com/superette-uid.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                502L));
+                UUID.randomUUID()));
 
-    ResponseEntity<StoreResponse> response =
-        storeController.getStoreById(store.getUid().toString());
+    ResponseEntity<StoreResponse> response = storeController.getStoreByUid(store.getUid());
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().getId()).isEqualTo(store.getId());
     assertThat(response.getBody().getUid()).isEqualTo(store.getUid());
+    assertThat(response.getBody().getOwnerUid()).isEqualTo(store.getOwnerUid());
     assertThat(response.getBody().getName()).isEqualTo("Superette UID");
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{identifier} - Should return 404 when store not found by uid")
+  @DisplayName("GET /v1/stores/{storeUid} - Should return 404 when store not found by uid")
   void shouldReturnNotFoundWhenStoreNotFoundByUid() {
-    java.util.UUID randomUid = java.util.UUID.randomUUID();
+    UUID randomUid = UUID.randomUUID();
 
-    ResponseEntity<StoreResponse> response = storeController.getStoreById(randomUid.toString());
+    ResponseEntity<StoreResponse> response = storeController.getStoreByUid(randomUid);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/stores/{identifier} - Should return 404 when identifier is invalid or blank")
-  void shouldReturnNotFoundWhenIdentifierIsInvalidOrBlank() {
-    assertThat(storeController.getStoreById("invalid-id-or-uuid").getStatusCode())
-        .isEqualTo(HttpStatus.NOT_FOUND);
-    assertThat(storeController.getStoreById("   ").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  @DisplayName("GET /v1/stores/{identifier}/image - Should stream image successfully")
+  @DisplayName("GET /v1/stores/{storeUid}/image - Should stream image successfully")
   void shouldGetStoreImageSuccessfully() {
     Store store =
         storeRepository.save(
@@ -266,7 +241,7 @@ class StoreControllerTest {
                 "https://cdn.shoploc.fr/store-images/superette.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                503L));
+                UUID.randomUUID()));
 
     byte[] expectedBytes = new byte[] {0x11, 0x22, 0x33};
     when(imageStorageService.downloadImage("https://cdn.shoploc.fr/store-images/superette.jpg"))
@@ -274,7 +249,7 @@ class StoreControllerTest {
             java.util.Optional.of(
                 new com.shoploc.store_service.storage.ImageResource(expectedBytes, "image/jpeg")));
 
-    ResponseEntity<byte[]> response = storeController.getStoreImage(store.getUid().toString());
+    ResponseEntity<byte[]> response = storeController.getStoreImage(store.getUid());
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isEqualTo(expectedBytes);
@@ -284,7 +259,7 @@ class StoreControllerTest {
 
   @Test
   @DisplayName(
-      "GET /v1/stores/{identifier}/image - Should throw StoreImageNotFoundException when image absent")
+      "GET /v1/stores/{storeUid}/image - Should throw StoreImageNotFoundException when image absent")
   void shouldThrowWhenStoreHasNoImage() {
     Store store =
         storeRepository.save(
@@ -294,15 +269,16 @@ class StoreControllerTest {
                 null,
                 "Alimentation",
                 "FR7630006000011234567890189",
-                504L));
+                UUID.randomUUID()));
 
-    assertThatThrownBy(() -> storeController.getStoreImage(store.getUid().toString()))
+    assertThatThrownBy(() -> storeController.getStoreImage(store.getUid()))
         .isInstanceOf(com.shoploc.store_service.exception.StoreImageNotFoundException.class);
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{identifier} - Should partially update store and absence info")
+  @DisplayName("PATCH /v1/stores/{storeUid} - Should partially update store and absence info")
   void shouldPartiallyUpdateStoreAndAbsence() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         storeRepository.save(
             new Store(
@@ -311,30 +287,29 @@ class StoreControllerTest {
                 "https://img.com/initial.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                601L));
+                ownerUid));
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(601L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
-    com.shoploc.store_service.dto.StorePatchRequest patchRequest =
-        new com.shoploc.store_service.dto.StorePatchRequest();
+    StorePatchRequest patchRequest = new StorePatchRequest();
     patchRequest.setAddress("25 rue Nouvelle");
     patchRequest.setOpeningHours("Lun-Ven: 09h-19h");
-    java.time.Instant start = java.time.Instant.now().plusSeconds(3600);
-    java.time.Instant end = start.plusSeconds(86400 * 5);
+    Instant start = Instant.now().plusSeconds(3600);
+    Instant end = start.plusSeconds(86400 * 5);
     patchRequest.setAbsenceStartDate(start);
     patchRequest.setAbsenceEndDate(end);
     patchRequest.setAbsenceReason("Conges annuels");
 
     ResponseEntity<StoreResponse> response =
-        storeController.patchStore(store.getUid().toString(), patchRequest, servletRequest);
+        storeController.patchStore(store.getUid(), patchRequest, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     StoreResponse updated = response.getBody();
     assertThat(updated).isNotNull();
-    assertThat(updated.getName()).isEqualTo("Boutique Initiale"); // unchanged
-    assertThat(updated.getAddress()).isEqualTo("25 rue Nouvelle"); // updated
+    assertThat(updated.getName()).isEqualTo("Boutique Initiale");
+    assertThat(updated.getAddress()).isEqualTo("25 rue Nouvelle");
     assertThat(updated.getOpeningHours()).isEqualTo("Lun-Ven: 09h-19h");
     assertThat(updated.getAbsenceReason()).isEqualTo("Conges annuels");
     assertThat(updated.getAbsenceDurationDays()).isGreaterThanOrEqualTo(4L);
@@ -342,8 +317,92 @@ class StoreControllerTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/stores/{identifier} - Should throw IllegalArgumentException when end date before start date")
+      "PATCH /v1/stores/{storeUid} - Should match existing absences by uid during bulk update")
+  void shouldUpdateAbsencesMatchingByUidOnBulkPatch() {
+    UUID ownerUid = UUID.randomUUID();
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Bulk Absence",
+                "10 rue Bulk",
+                "https://img.com/bulk.jpg",
+                "Alimentation",
+                "FR7630006000011234567890189",
+                ownerUid));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
+
+    ResponseEntity<StoreResponse> addResp =
+        storeController.addStoreAbsence(
+            store.getUid(),
+            new StoreAbsenceRequest(
+                Instant.parse("2026-08-01T00:00:00Z"),
+                Instant.parse("2026-08-05T00:00:00Z"),
+                "Initial"),
+            servletRequest);
+    UUID existingAbsenceUid = addResp.getBody().getAbsences().get(0).getUid();
+
+    StorePatchRequest patchRequest = new StorePatchRequest();
+    patchRequest.setAbsences(
+        List.of(
+            new StoreAbsenceRequest(
+                existingAbsenceUid,
+                Instant.parse("2026-08-01T00:00:00Z"),
+                Instant.parse("2026-08-08T00:00:00Z"),
+                "Prolongé"),
+            new StoreAbsenceRequest(
+                Instant.parse("2026-12-24T00:00:00Z"),
+                Instant.parse("2026-12-26T00:00:00Z"),
+                "Noël")));
+
+    ResponseEntity<StoreResponse> patched =
+        storeController.patchStore(store.getUid(), patchRequest, servletRequest);
+
+    assertThat(patched.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(patched.getBody().getAbsences()).hasSize(2);
+    assertThat(patched.getBody().getAbsences().get(0).getUid()).isEqualTo(existingAbsenceUid);
+    assertThat(patched.getBody().getAbsences().get(0).getReason()).isEqualTo("Prolongé");
+    assertThat(patched.getBody().getAbsences().get(1).getUid()).isNotNull();
+    assertThat(patched.getBody().getAbsences().get(1).getReason()).isEqualTo("Noël");
+  }
+
+  @Test
+  @DisplayName("PATCH /v1/stores/{storeUid} - Should allow ADMIN to reassign ownerUid")
+  void shouldAllowAdminToReassignOwnerUid() {
+    UUID initialOwner = UUID.randomUUID();
+    UUID newOwner = UUID.randomUUID();
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Boutique Reassign",
+                "10 rue Admin",
+                "https://img.com/admin.jpg",
+                "Mode",
+                "FR7630006000011234567890189",
+                initialOwner));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("ADMIN");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(UUID.randomUUID());
+    when(userClient.userExists(newOwner)).thenReturn(true);
+
+    StorePatchRequest patchRequest = new StorePatchRequest();
+    patchRequest.setOwnerUid(newOwner);
+
+    ResponseEntity<StoreResponse> response =
+        storeController.patchStore(store.getUid(), patchRequest, servletRequest);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody().getOwnerUid()).isEqualTo(newOwner);
+  }
+
+  @Test
+  @DisplayName(
+      "PATCH /v1/stores/{storeUid} - Should throw IllegalArgumentException when end date before start date")
   void shouldRejectAbsenceEndDateBeforeStartDate() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         storeRepository.save(
             new Store(
@@ -352,28 +411,26 @@ class StoreControllerTest {
                 "https://img.com/test.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                602L));
+                ownerUid));
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(602L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
-    com.shoploc.store_service.dto.StorePatchRequest patchRequest =
-        new com.shoploc.store_service.dto.StorePatchRequest();
-    java.time.Instant start = java.time.Instant.now().plusSeconds(86400);
-    java.time.Instant end = start.minusSeconds(3600);
+    StorePatchRequest patchRequest = new StorePatchRequest();
+    Instant start = Instant.now().plusSeconds(86400);
+    Instant end = start.minusSeconds(3600);
     patchRequest.setAbsenceStartDate(start);
     patchRequest.setAbsenceEndDate(end);
 
     assertThatThrownBy(
-            () ->
-                storeController.patchStore(store.getUid().toString(), patchRequest, servletRequest))
+            () -> storeController.patchStore(store.getUid(), patchRequest, servletRequest))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("La date de fin d'absence ne peut pas être antérieure");
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{identifier} - Should throw AccessDeniedException on IDOR attempt")
+  @DisplayName("PATCH /v1/stores/{storeUid} - Should throw AccessDeniedException on IDOR attempt")
   void shouldRejectPatchWhenNotOwner() {
     Store store =
         storeRepository.save(
@@ -383,25 +440,24 @@ class StoreControllerTest {
                 "https://img.com/test.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                603L));
+                UUID.randomUUID()));
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(999L); // different user
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(UUID.randomUUID());
 
-    com.shoploc.store_service.dto.StorePatchRequest patchRequest =
-        new com.shoploc.store_service.dto.StorePatchRequest();
+    StorePatchRequest patchRequest = new StorePatchRequest();
     patchRequest.setName("Piratage");
 
     assertThatThrownBy(
-            () ->
-                storeController.patchStore(store.getUid().toString(), patchRequest, servletRequest))
+            () -> storeController.patchStore(store.getUid(), patchRequest, servletRequest))
         .isInstanceOf(com.shoploc.store_service.exception.AccessDeniedException.class);
   }
 
   @Test
-  @DisplayName("PATCH /v1/stores/{identifier}/image - Should update store image on S3")
+  @DisplayName("PATCH /v1/stores/{storeUid}/image - Should update store image on S3")
   void shouldUpdateStoreImage() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         storeRepository.save(
             new Store(
@@ -410,11 +466,11 @@ class StoreControllerTest {
                 "https://cdn.shoploc.fr/store-images/old.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                604L));
+                ownerUid));
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(604L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
     org.springframework.web.multipart.MultipartFile imageFile =
         new org.springframework.mock.web.MockMultipartFile(
@@ -423,7 +479,7 @@ class StoreControllerTest {
         .thenReturn("https://cdn.shoploc.fr/store-images/new.jpg");
 
     ResponseEntity<StoreResponse> response =
-        storeController.updateStoreImage(store.getUid().toString(), imageFile, servletRequest);
+        storeController.updateStoreImage(store.getUid(), imageFile, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -435,6 +491,7 @@ class StoreControllerTest {
 
   @Test
   void testDeleteStoreAbsence_success() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         storeRepository.save(
             new Store(
@@ -443,18 +500,18 @@ class StoreControllerTest {
                 "https://cdn.shoploc.fr/store-images/img.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                605L));
+                ownerUid));
     store.setAbsenceStartDate(Instant.parse("2026-08-01T00:00:00Z"));
     store.setAbsenceEndDate(Instant.parse("2026-08-15T00:00:00Z"));
     store.setAbsenceReason("Conges");
     store = storeRepository.save(store);
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(605L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
     ResponseEntity<StoreResponse> response =
-        storeController.deleteStoreAbsence(store.getUid().toString(), servletRequest);
+        storeController.deleteStoreAbsence(store.getUid(), servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -465,6 +522,7 @@ class StoreControllerTest {
 
   @Test
   void testPatchStore_clearAbsenceViaPatch() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         storeRepository.save(
             new Store(
@@ -473,21 +531,21 @@ class StoreControllerTest {
                 "https://cdn.shoploc.fr/store-images/img.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                606L));
+                ownerUid));
     store.setAbsenceStartDate(Instant.parse("2026-08-01T00:00:00Z"));
     store.setAbsenceEndDate(Instant.parse("2026-08-15T00:00:00Z"));
     store.setAbsenceReason("Conges");
     store = storeRepository.save(store);
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(606L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
     StorePatchRequest patchReq = new StorePatchRequest();
     patchReq.setClearAbsence(true);
 
     ResponseEntity<StoreResponse> response =
-        storeController.patchStore(store.getUid().toString(), patchReq, servletRequest);
+        storeController.patchStore(store.getUid(), patchReq, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -497,8 +555,9 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{id}/absences - Should add an absence to store's list")
+  @DisplayName("POST /v1/stores/{storeUid}/absences - Should add an absence to store's list")
   void testAddStoreAbsence_success() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         storeRepository.save(
             new Store(
@@ -507,11 +566,11 @@ class StoreControllerTest {
                 "https://cdn.shoploc.fr/img.jpg",
                 "Boulangerie",
                 "FR7630006000011234567890189",
-                701L));
+                ownerUid));
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(701L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
     StoreAbsenceRequest req =
         new StoreAbsenceRequest(
@@ -520,18 +579,21 @@ class StoreControllerTest {
             "Fermeture estivale");
 
     ResponseEntity<StoreResponse> response =
-        storeController.addStoreAbsence(store.getUid().toString(), req, servletRequest);
+        storeController.addStoreAbsence(store.getUid(), req, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().getAbsences()).hasSize(1);
+    assertThat(response.getBody().getAbsences().get(0).getUid()).isNotNull();
     assertThat(response.getBody().getAbsences().get(0).getReason()).isEqualTo("Fermeture estivale");
     assertThat(response.getBody().getAbsences().get(0).getDurationDays()).isEqualTo(14L);
   }
 
   @Test
-  @DisplayName("PUT /v1/stores/{id}/absences/{absenceId} - Should update specific absence in list")
+  @DisplayName(
+      "PUT /v1/stores/{storeUid}/absences/{absenceUid} - Should update specific absence in list")
   void testUpdateStoreAbsence_success() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         new Store(
             "Commerce Update Absence",
@@ -539,12 +601,12 @@ class StoreControllerTest {
             "https://cdn.shoploc.fr/img.jpg",
             "Fleuriste",
             "FR7630006000011234567890189",
-            702L);
+            ownerUid);
     store = storeRepository.save(store);
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(702L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
     StoreAbsenceRequest addReq =
         new StoreAbsenceRequest(
@@ -552,8 +614,8 @@ class StoreControllerTest {
             Instant.parse("2026-12-26T00:00:00Z"),
             "Fetes de fin d'annee");
     ResponseEntity<StoreResponse> addResp =
-        storeController.addStoreAbsence(store.getUid().toString(), addReq, servletRequest);
-    Long absenceId = addResp.getBody().getAbsences().get(0).getId();
+        storeController.addStoreAbsence(store.getUid(), addReq, servletRequest);
+    UUID absenceUid = addResp.getBody().getAbsences().get(0).getUid();
 
     StoreAbsenceRequest updateReq =
         new StoreAbsenceRequest(
@@ -562,19 +624,21 @@ class StoreControllerTest {
             "Vacances de fin d'annee prolongees");
 
     ResponseEntity<StoreResponse> updateResp =
-        storeController.updateStoreAbsence(
-            store.getUid().toString(), absenceId, updateReq, servletRequest);
+        storeController.updateStoreAbsence(store.getUid(), absenceUid, updateReq, servletRequest);
 
     assertThat(updateResp.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(updateResp.getBody().getAbsences()).hasSize(1);
+    assertThat(updateResp.getBody().getAbsences().get(0).getUid()).isEqualTo(absenceUid);
     assertThat(updateResp.getBody().getAbsences().get(0).getReason())
         .isEqualTo("Vacances de fin d'annee prolongees");
     assertThat(updateResp.getBody().getAbsences().get(0).getDurationDays()).isEqualTo(4L);
   }
 
   @Test
-  @DisplayName("DELETE /v1/stores/{id}/absences/{absenceId} - Should delete one absence from list")
-  void testDeleteStoreAbsenceById_success() {
+  @DisplayName(
+      "DELETE /v1/stores/{storeUid}/absences/{absenceUid} - Should delete one absence from list")
+  void testDeleteStoreAbsenceByUid_success() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         new Store(
             "Commerce Delete One Absence",
@@ -582,26 +646,24 @@ class StoreControllerTest {
             "https://cdn.shoploc.fr/img.jpg",
             "Epicerie",
             "FR7630006000011234567890189",
-            703L);
+            ownerUid);
     store = storeRepository.save(store);
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(703L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
-    // Add first absence
     storeController.addStoreAbsence(
-        store.getUid().toString(),
+        store.getUid(),
         new StoreAbsenceRequest(
             Instant.parse("2026-05-01T00:00:00Z"),
             Instant.parse("2026-05-03T00:00:00Z"),
             "Pont du 1er mai"),
         servletRequest);
 
-    // Add second absence
     ResponseEntity<StoreResponse> resp2 =
         storeController.addStoreAbsence(
-            store.getUid().toString(),
+            store.getUid(),
             new StoreAbsenceRequest(
                 Instant.parse("2026-08-01T00:00:00Z"),
                 Instant.parse("2026-08-15T00:00:00Z"),
@@ -609,12 +671,10 @@ class StoreControllerTest {
             servletRequest);
 
     assertThat(resp2.getBody().getAbsences()).hasSize(2);
-    Long firstAbsenceId = resp2.getBody().getAbsences().get(0).getId();
+    UUID firstAbsenceUid = resp2.getBody().getAbsences().get(0).getUid();
 
-    // Delete the first absence
     ResponseEntity<StoreResponse> deleteResp =
-        storeController.deleteStoreAbsenceById(
-            store.getUid().toString(), firstAbsenceId, servletRequest);
+        storeController.deleteStoreAbsenceByUid(store.getUid(), firstAbsenceUid, servletRequest);
 
     assertThat(deleteResp.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(deleteResp.getBody().getAbsences()).hasSize(1);
@@ -623,8 +683,9 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/stores/{id}/absences - Should retrieve list of absences")
+  @DisplayName("GET /v1/stores/{storeUid}/absences - Should retrieve list of absences")
   void testGetStoreAbsences_success() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         new Store(
             "Commerce Get Absences",
@@ -632,15 +693,15 @@ class StoreControllerTest {
             "https://cdn.shoploc.fr/img.jpg",
             "Coiffure",
             "FR7630006000011234567890189",
-            704L);
+            ownerUid);
     store = storeRepository.save(store);
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(704L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(ownerUid);
 
     storeController.addStoreAbsence(
-        store.getUid().toString(),
+        store.getUid(),
         new StoreAbsenceRequest(
             Instant.parse("2026-07-10T00:00:00Z"),
             Instant.parse("2026-07-20T00:00:00Z"),
@@ -648,10 +709,11 @@ class StoreControllerTest {
         servletRequest);
 
     ResponseEntity<List<StoreAbsenceResponse>> resp =
-        storeController.getStoreAbsences(store.getUid().toString());
+        storeController.getStoreAbsences(store.getUid());
 
     assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(resp.getBody()).hasSize(1);
+    assertThat(resp.getBody().get(0).getUid()).isNotNull();
     assertThat(resp.getBody().get(0).getReason()).isEqualTo("Inventaire annuel");
   }
 
@@ -665,7 +727,7 @@ class StoreControllerTest {
             "https://img.com/b1.jpg",
             "Boulangerie",
             "FR7630006000011234567890189",
-            601L));
+            UUID.randomUUID()));
     storeRepository.save(
         new Store(
             "Boucherie Test 2",
@@ -673,7 +735,7 @@ class StoreControllerTest {
             "https://img.com/b2.jpg",
             "Boucherie",
             "FR7630006000011234567890189",
-            602L));
+            UUID.randomUUID()));
 
     List<StoreResponse> results = storeController.searchStores(null, null, null, null, null);
 
@@ -694,7 +756,7 @@ class StoreControllerTest {
             "https://img.com/paul.jpg",
             "Boulangerie",
             "FR7630006000011234567890189",
-            603L));
+            UUID.randomUUID()));
     storeRepository.save(
         new Store(
             "Pharmacie Centrale",
@@ -702,7 +764,7 @@ class StoreControllerTest {
             "https://img.com/pharm.jpg",
             "Santé",
             "FR7630006000011234567890189",
-            604L));
+            UUID.randomUUID()));
 
     List<StoreResponse> results =
         storeController.searchStores("traditionnelle", null, null, null, null);
@@ -721,7 +783,7 @@ class StoreControllerTest {
             "https://img.com/patisserie.jpg",
             "Pâtisserie",
             "FR7630006000011234567890189",
-            605L));
+            UUID.randomUUID()));
 
     List<StoreResponse> resultsQuery =
         storeController.searchStores(null, "gourmande", null, null, null);
@@ -745,7 +807,7 @@ class StoreControllerTest {
             "https://img.com/a.jpg",
             "Boulangerie",
             "FR7630006000011234567890189",
-            606L));
+            UUID.randomUUID()));
     storeRepository.save(
         new Store(
             "Boucherie B",
@@ -753,7 +815,7 @@ class StoreControllerTest {
             "https://img.com/b.jpg",
             "Boucherie",
             "FR7630006000011234567890189",
-            607L));
+            UUID.randomUUID()));
 
     List<StoreResponse> results =
         storeController.searchStores(null, null, null, List.of("boulangerie"), null);
@@ -773,7 +835,7 @@ class StoreControllerTest {
             "https://img.com/c.jpg",
             "Boulangerie",
             "FR7630006000011234567890189",
-            608L));
+            UUID.randomUUID()));
     storeRepository.save(
         new Store(
             "Epicerie Fine D",
@@ -781,7 +843,7 @@ class StoreControllerTest {
             "https://img.com/d.jpg",
             "Epicerie",
             "FR7630006000011234567890189",
-            609L));
+            UUID.randomUUID()));
     storeRepository.save(
         new Store(
             "Fleuriste E",
@@ -789,7 +851,7 @@ class StoreControllerTest {
             "https://img.com/e.jpg",
             "Fleuriste",
             "FR7630006000011234567890189",
-            610L));
+            UUID.randomUUID()));
 
     List<StoreResponse> results =
         storeController.searchStores(null, null, null, null, List.of("Boulangerie", "Epicerie"));
@@ -810,7 +872,7 @@ class StoreControllerTest {
             "https://img.com/f.jpg",
             "Fromagerie",
             "FR7630006000011234567890189",
-            611L));
+            UUID.randomUUID()));
 
     List<StoreResponse> results =
         storeController.searchStores(null, null, null, List.of("Fromagerie, Primeur"), null);
@@ -829,7 +891,7 @@ class StoreControllerTest {
             "https://img.com/pain.jpg",
             "Boulangerie",
             "FR7630006000011234567890189",
-            612L));
+            UUID.randomUUID()));
     storeRepository.save(
         new Store(
             "Le Bon Boeuf",
@@ -837,7 +899,7 @@ class StoreControllerTest {
             "https://img.com/boeuf.jpg",
             "Boucherie",
             "FR7630006000011234567890189",
-            613L));
+            UUID.randomUUID()));
 
     List<StoreResponse> matchResults =
         storeController.searchStores("Le Bon", null, null, List.of("Boulangerie"), null);
@@ -859,7 +921,7 @@ class StoreControllerTest {
             "https://img.com/livres.jpg",
             "Librairie",
             "FR7630006000011234567890189",
-            614L));
+            UUID.randomUUID()));
 
     List<StoreResponse> results =
         storeController.searchStores("   ", null, null, List.of("   "), List.of());
@@ -869,7 +931,7 @@ class StoreControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/stores/{id}/revoke - Should successfully revoke active store")
+  @DisplayName("POST /v1/stores/{storeUid}/revoke - Should successfully revoke active store")
   void shouldRevokeStoreWhenAdmin() {
     Store store =
         storeRepository.save(
@@ -879,13 +941,12 @@ class StoreControllerTest {
                 "https://img.com/depart.jpg",
                 "Mode",
                 "FR7630006000011234567890189",
-                701L));
+                UUID.randomUUID()));
 
     MockHttpServletRequest request = new MockHttpServletRequest();
-    request.setAttribute("authenticatedUserEmail", "admin@ville.fr");
+    request.setAttribute(RoleInterceptor.ATTR_USER_EMAIL, "admin@ville.fr");
 
-    ResponseEntity<StoreResponse> response =
-        storeController.revokeStore(String.valueOf(store.getId()), request);
+    ResponseEntity<StoreResponse> response = storeController.revokeStore(store.getUid(), request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -894,22 +955,21 @@ class StoreControllerTest {
     assertThat(response.getBody().getRevokedAt()).isNotNull();
     assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
     assertThat(response.getBody().getRib()).isEqualTo("REVOKED");
-    verify(userClient).unlinkStoreFromUser(eq(701L), eq(store.getId()));
+    verify(userClient).unlinkStoreFromUser(eq(store.getOwnerUid()), eq(store.getUid()));
   }
 
   @Test
   @DisplayName(
       "GET /v1/stores - Should exclude revoked stores by default, but include them with includeRevoked=true")
   void shouldFilterRevokedStoresFromPublicListing() {
-    Store activeStore =
-        storeRepository.save(
-            new Store(
-                "Actif Store",
-                "1 rue Active",
-                "https://img.com/actif.jpg",
-                "Mode",
-                "FR7630006000011234567890189",
-                702L));
+    storeRepository.save(
+        new Store(
+            "Actif Store",
+            "1 rue Active",
+            "https://img.com/actif.jpg",
+            "Mode",
+            "FR7630006000011234567890189",
+            UUID.randomUUID()));
 
     Store revokedStore =
         storeRepository.save(
@@ -919,7 +979,7 @@ class StoreControllerTest {
                 "https://img.com/mort.jpg",
                 "Mode",
                 "FR7630006000011234567890189",
-                703L));
+                UUID.randomUUID()));
     revokedStore.setStatus(StoreStatus.REVOKED);
     storeRepository.save(revokedStore);
 
@@ -937,48 +997,50 @@ class StoreControllerTest {
   @DisplayName(
       "GET /v1/stores/me - Should return stores belonging to authenticated merchant from token")
   void shouldReturnStoresForAuthenticatedUserViaMe() {
-    Store myStore =
-        storeRepository.save(
-            new Store(
-                "Mon Magasin",
-                "15 rue du Pain",
-                "https://img.com/pain.jpg",
-                "Boulangerie",
-                "FR7630006000011234567890189",
-                888L));
+    UUID merchantUid = UUID.randomUUID();
+    storeRepository.save(
+        new Store(
+            "Mon Magasin",
+            "15 rue du Pain",
+            "https://img.com/pain.jpg",
+            "Boulangerie",
+            "FR7630006000011234567890189",
+            merchantUid));
 
     MockHttpServletRequest request = new MockHttpServletRequest();
-    request.setAttribute("authenticatedUserDbId", 888L);
+    request.setAttribute(RoleInterceptor.ATTR_USER_ID, merchantUid);
 
     List<StoreResponse> myStores = storeController.getMyStores(request);
 
     assertThat(myStores).hasSize(1);
     assertThat(myStores.get(0).getName()).isEqualTo("Mon Magasin");
-    assertThat(myStores.get(0).getUserId()).isEqualTo(888L);
+    assertThat(myStores.get(0).getOwnerUid()).isEqualTo(merchantUid);
   }
 
   @Test
   @DisplayName(
-      "POST /v1/stores/{id}/reactivate - Should successfully reactivate revoked store with new RIB")
+      "POST /v1/stores/{storeUid}/reactivate - Should successfully reactivate revoked store with new RIB")
   void shouldReactivateRevokedStoreWhenAdmin() {
-    Store rawStore =
-        new Store(
-            "Commerce Sortant",
-            "20 rue du Départ",
-            "https://img.com/depart.jpg",
-            "Mode",
-            "REVOKED",
-            701L);
-    rawStore.setStatus(StoreStatus.REVOKED);
-    rawStore.setRevokedAt(Instant.now());
-    rawStore.setRevokedBy("admin@ville.fr");
-    Store store = storeRepository.save(rawStore);
+    UUID ownerUid = UUID.randomUUID();
+    Store store =
+        storeRepository.save(
+            new Store(
+                "Commerce Sortant",
+                "20 rue du Départ",
+                "https://img.com/depart.jpg",
+                "Mode",
+                "REVOKED",
+                ownerUid));
+    store.setStatus(StoreStatus.REVOKED);
+    store.setRevokedAt(Instant.now());
+    store.setRevokedBy("admin@ville.fr");
+    store = storeRepository.save(store);
 
-    when(userClient.userExists(701L)).thenReturn(true);
+    when(userClient.userExists(ownerUid)).thenReturn(true);
     StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
 
     ResponseEntity<StoreResponse> response =
-        storeController.reactivateStore(String.valueOf(store.getId()), request);
+        storeController.reactivateStore(store.getUid(), request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
@@ -987,13 +1049,15 @@ class StoreControllerTest {
     assertThat(response.getBody().getUrl()).isEqualTo("https://img.com/depart.jpg");
     assertThat(response.getBody().getRevokedAt()).isNull();
     assertThat(response.getBody().getRevokedBy()).isNull();
-    verify(userClient).linkStoreToUser(eq(701L), eq(store.getId()));
+    verify(userClient).linkStoreToUser(eq(store.getOwnerUid()), eq(store.getUid()));
   }
 
   @Test
   @DisplayName(
-      "POST /v1/stores/{id}/reactivate - Should reassign owner to new user on reactivation")
+      "POST /v1/stores/{storeUid}/reactivate - Should reassign owner to new user on reactivation")
   void shouldReactivateRevokedStoreWithNewOwner() {
+    UUID oldOwnerUid = UUID.randomUUID();
+    UUID newOwnerUid = UUID.randomUUID();
     Store rawStore =
         new Store(
             "Commerce Ancien Propriétaire",
@@ -1001,30 +1065,30 @@ class StoreControllerTest {
             "https://img.com/depart.jpg",
             "Mode",
             "REVOKED",
-            701L);
+            oldOwnerUid);
     rawStore.setStatus(StoreStatus.REVOKED);
     rawStore.setRevokedAt(Instant.now());
     rawStore.setRevokedBy("admin@ville.fr");
     Store store = storeRepository.save(rawStore);
 
-    when(userClient.userExists(702L)).thenReturn(true);
+    when(userClient.userExists(newOwnerUid)).thenReturn(true);
     StoreReactivateRequest request =
-        new StoreReactivateRequest("FR7630006000011234567890189", 702L);
+        new StoreReactivateRequest("FR7630006000011234567890189", newOwnerUid);
 
     ResponseEntity<StoreResponse> response =
-        storeController.reactivateStore(String.valueOf(store.getId()), request);
+        storeController.reactivateStore(store.getUid(), request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.ACTIVE);
-    assertThat(response.getBody().getUserId()).isEqualTo(702L);
-    verify(userClient).linkStoreToUser(eq(702L), eq(store.getId()));
-    verify(userClient).unlinkStoreFromUser(eq(701L), eq(store.getId()));
+    assertThat(response.getBody().getOwnerUid()).isEqualTo(newOwnerUid);
+    verify(userClient).linkStoreToUser(eq(newOwnerUid), eq(store.getUid()));
+    verify(userClient).unlinkStoreFromUser(eq(oldOwnerUid), eq(store.getUid()));
   }
 
   @Test
   @DisplayName(
-      "POST /v1/stores/{id}/reactivate - Should throw StoreNotRevokedException when store is ACTIVE")
+      "POST /v1/stores/{storeUid}/reactivate - Should throw StoreNotRevokedException when store is ACTIVE")
   void shouldFailToReactivateActiveStore() {
     Store store =
         storeRepository.save(
@@ -1034,18 +1098,17 @@ class StoreControllerTest {
                 "https://img.com/actif.jpg",
                 "Mode",
                 "FR7630006000011234567890189",
-                702L));
+                UUID.randomUUID()));
 
     StoreReactivateRequest request = new StoreReactivateRequest("FR7630006000011234567890189");
 
-    assertThatThrownBy(
-            () -> storeController.reactivateStore(String.valueOf(store.getId()), request))
+    assertThatThrownBy(() -> storeController.reactivateStore(store.getUid(), request))
         .isInstanceOf(StoreNotRevokedException.class);
   }
 
   @Test
   @DisplayName(
-      "SECURITY - GET /v1/stores/{id} - Should anonymize revokedBy on public endpoint to prevent admin email enumeration")
+      "SECURITY - GET /v1/stores/{storeUid} - Should anonymize revokedBy on public endpoint to prevent admin email enumeration")
   void shouldNotExposeAdminEmailOnPublicEndpointForRevokedStore() {
     Store store =
         storeRepository.save(
@@ -1055,14 +1118,13 @@ class StoreControllerTest {
                 "https://img.com/sec.jpg",
                 "Services",
                 "REVOKED",
-                801L));
+                UUID.randomUUID()));
     store.setStatus(StoreStatus.REVOKED);
     store.setRevokedAt(Instant.now());
     store.setRevokedBy("superadmin.secret@shop-loc.fr");
     storeRepository.save(store);
 
-    ResponseEntity<StoreResponse> publicResponse =
-        storeController.getStoreById(String.valueOf(store.getId()));
+    ResponseEntity<StoreResponse> publicResponse = storeController.getStoreByUid(store.getUid());
 
     assertThat(publicResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(publicResponse.getBody()).isNotNull();
@@ -1071,7 +1133,7 @@ class StoreControllerTest {
 
   @Test
   @DisplayName(
-      "SECURITY - PATCH /v1/stores/{id} - User 2 should NOT bypass ownership check on store owned by User 1")
+      "SECURITY - PATCH /v1/stores/{storeUid} - User 2 should NOT bypass ownership check on store owned by User 1")
   void shouldRejectPatchWhenUser2AttemptsToModifyStoreOwnedByUser1() {
     Store store =
         storeRepository.save(
@@ -1081,23 +1143,22 @@ class StoreControllerTest {
                 "https://img.com/marche.jpg",
                 "Alimentation",
                 "FR7630006000011234567890189",
-                1L));
+                UUID.randomUUID()));
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(2L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(UUID.randomUUID());
 
     StorePatchRequest patchReq = new StorePatchRequest();
     patchReq.setName("Détournement Commerce");
 
-    assertThatThrownBy(
-            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+    assertThatThrownBy(() -> storeController.patchStore(store.getUid(), patchReq, servletRequest))
         .isInstanceOf(com.shoploc.store_service.exception.AccessDeniedException.class);
   }
 
   @Test
   @DisplayName(
-      "SECURITY - PATCH /v1/stores/{id} - Merchant should NOT be able to access another merchant's store (BOLA)")
+      "SECURITY - PATCH /v1/stores/{storeUid} - Merchant should NOT be able to access another merchant's store (BOLA)")
   void shouldRejectPatchWhenStoreBelongsToDifferentMerchant() {
     Store store =
         storeRepository.save(
@@ -1107,24 +1168,25 @@ class StoreControllerTest {
                 "https://img.com/autre.jpg",
                 "Commerce",
                 "FR7630006000011234567890189",
-                802L));
+                UUID.randomUUID()));
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(777L);
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ROLE)).thenReturn("MERCHANT");
+    when(servletRequest.getAttribute(RoleInterceptor.ATTR_USER_ID)).thenReturn(UUID.randomUUID());
 
     StorePatchRequest patchReq = new StorePatchRequest();
     patchReq.setName("Prise De Contrôle");
 
-    assertThatThrownBy(
-            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+    assertThatThrownBy(() -> storeController.patchStore(store.getUid(), patchReq, servletRequest))
         .isInstanceOf(com.shoploc.store_service.exception.AccessDeniedException.class);
   }
 
   @Test
   @DisplayName(
-      "SLE-70 - PATCH /v1/stores/{id} - Admin can reassign owner of a REVOKED store without leaving it orphan")
+      "SLE-70 - PATCH /v1/stores/{storeUid} - Admin can reassign owner of a REVOKED store without leaving it orphan")
   void shouldReassignOwnerOfRevokedStoreWhenAdmin() {
+    UUID oldOwnerUid = UUID.randomUUID();
+    UUID newOwnerUid = UUID.randomUUID();
     Store rawStore =
         new Store(
             "Boutique Révoquée À Réassigner",
@@ -1132,37 +1194,38 @@ class StoreControllerTest {
             "https://img.com/sortant.jpg",
             "Alimentation",
             "REVOKED",
-            810L);
+            oldOwnerUid);
     rawStore.setStatus(StoreStatus.REVOKED);
     rawStore.setRevokedAt(Instant.now());
     rawStore.setRevokedBy("admin@ville.fr");
     Store store = storeRepository.save(rawStore);
 
-    when(userClient.userExists(850L)).thenReturn(true);
+    when(userClient.userExists(newOwnerUid)).thenReturn(true);
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("ADMIN");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(1L);
+    when(servletRequest.getAttribute("authenticatedUserId"))
+        .thenReturn(UUID.randomUUID().toString());
 
     StorePatchRequest patchReq = new StorePatchRequest();
-    patchReq.setUserId(850L);
+    patchReq.setOwnerUid(newOwnerUid);
 
     ResponseEntity<StoreResponse> response =
-        storeController.patchStore(store.getUid().toString(), patchReq, servletRequest);
+        storeController.patchStore(store.getUid(), patchReq, servletRequest);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().getUserId()).isEqualTo(850L);
+    assertThat(response.getBody().getOwnerUid()).isEqualTo(newOwnerUid);
     assertThat(response.getBody().getStatus()).isEqualTo(StoreStatus.REVOKED);
-
-    verify(userClient).linkStoreToUser(eq(850L), eq(store.getId()));
-    verify(userClient).unlinkStoreFromUser(eq(810L), eq(store.getId()));
+    verify(userClient).linkStoreToUser(eq(newOwnerUid), eq(store.getUid()));
+    verify(userClient).unlinkStoreFromUser(eq(oldOwnerUid), eq(store.getUid()));
   }
 
   @Test
   @DisplayName(
-      "SLE-70 - PATCH /v1/stores/{id} - Revoked store should reject patch without userId even when Admin")
+      "SLE-70 - PATCH /v1/stores/{storeUid} - Revoked store should reject patch without ownerUid even when Admin")
   void shouldRejectPatchOnRevokedStoreWithoutUserIdWhenAdmin() {
+    UUID ownerUid = UUID.randomUUID();
     Store rawStore =
         new Store(
             "Boutique Révoquée Lock",
@@ -1170,7 +1233,7 @@ class StoreControllerTest {
             "https://img.com/lock.jpg",
             "Mode",
             "REVOKED",
-            811L);
+            ownerUid);
     rawStore.setStatus(StoreStatus.REVOKED);
     rawStore.setRevokedAt(Instant.now());
     rawStore.setRevokedBy("admin@ville.fr");
@@ -1178,19 +1241,21 @@ class StoreControllerTest {
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("ADMIN");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(1L);
+    when(servletRequest.getAttribute("authenticatedUserId"))
+        .thenReturn(UUID.randomUUID().toString());
 
     StorePatchRequest patchReq = new StorePatchRequest();
     patchReq.setName("Nouveau Nom Illégal");
 
-    assertThatThrownBy(
-            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+    assertThatThrownBy(() -> storeController.patchStore(store.getUid(), patchReq, servletRequest))
         .isInstanceOf(RevokedStoreException.class);
   }
 
   @Test
-  @DisplayName("SLE-70 - PATCH /v1/stores/{id} - Merchant cannot reassign owner of a revoked store")
+  @DisplayName(
+      "SLE-70 - PATCH /v1/stores/{storeUid} - Merchant cannot reassign owner of a revoked store")
   void shouldRejectReassignOwnerOfRevokedStoreWhenMerchant() {
+    UUID ownerUid = UUID.randomUUID();
     Store rawStore =
         new Store(
             "Boutique Révoquée Fraude",
@@ -1198,7 +1263,7 @@ class StoreControllerTest {
             "https://img.com/fraude.jpg",
             "Mode",
             "REVOKED",
-            812L);
+            ownerUid);
     rawStore.setStatus(StoreStatus.REVOKED);
     rawStore.setRevokedAt(Instant.now());
     rawStore.setRevokedBy("admin@ville.fr");
@@ -1206,20 +1271,21 @@ class StoreControllerTest {
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(812L);
+    when(servletRequest.getAttribute("authenticatedUserId")).thenReturn(ownerUid.toString());
 
     StorePatchRequest patchReq = new StorePatchRequest();
-    patchReq.setUserId(850L);
+    patchReq.setOwnerUid(UUID.randomUUID());
 
-    assertThatThrownBy(
-            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+    assertThatThrownBy(() -> storeController.patchStore(store.getUid(), patchReq, servletRequest))
         .isInstanceOf(RevokedStoreException.class);
   }
 
   @Test
   @DisplayName(
-      "SLE-70 - PATCH /v1/stores/{id} - Reassigning owner to non-existent user throws UserNotFoundException")
+      "SLE-70 - PATCH /v1/stores/{storeUid} - Reassigning owner to non-existent user throws UserNotFoundException")
   void shouldRejectReassignOwnerWhenNewUserDoesNotExist() {
+    UUID ownerUid = UUID.randomUUID();
+    UUID unknownOwnerUid = UUID.randomUUID();
     Store store =
         storeRepository.save(
             new Store(
@@ -1228,52 +1294,27 @@ class StoreControllerTest {
                 "https://img.com/inc.jpg",
                 "Mode",
                 "FR7630006000011234567890189",
-                813L));
+                ownerUid));
 
-    when(userClient.userExists(9999L)).thenReturn(false);
+    when(userClient.userExists(unknownOwnerUid)).thenReturn(false);
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("ADMIN");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(1L);
+    when(servletRequest.getAttribute("authenticatedUserId"))
+        .thenReturn(UUID.randomUUID().toString());
 
     StorePatchRequest patchReq = new StorePatchRequest();
-    patchReq.setUserId(9999L);
+    patchReq.setOwnerUid(unknownOwnerUid);
 
-    assertThatThrownBy(
-            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+    assertThatThrownBy(() -> storeController.patchStore(store.getUid(), patchReq, servletRequest))
         .isInstanceOf(UserNotFoundException.class);
   }
 
   @Test
   @DisplayName(
-      "SLE-70 - PATCH /v1/stores/{id} - Reassigning owner to invalid ID (<= 0) throws IllegalArgumentException")
-  void shouldRejectReassignOwnerWhenUserIdIsZeroOrNegative() {
-    Store store =
-        storeRepository.save(
-            new Store(
-                "Boutique Orpheline Rejet",
-                "18 rue Orpheline",
-                "https://img.com/orph.jpg",
-                "Mode",
-                "FR7630006000011234567890189",
-                814L));
-
-    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
-    when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("ADMIN");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(1L);
-
-    StorePatchRequest patchReq = new StorePatchRequest();
-    patchReq.setUserId(0L);
-
-    assertThatThrownBy(
-            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("Un commerce ne peut pas être orphelin");
-  }
-
-  @Test
-  @DisplayName("SLE-70 - PATCH /v1/stores/{id} - Merchant cannot reassign owner on an ACTIVE store")
+      "SLE-70 - PATCH /v1/stores/{storeUid} - Merchant cannot reassign owner on an ACTIVE store")
   void shouldRejectReassignOwnerOnActiveStoreWhenMerchant() {
+    UUID ownerUid = UUID.randomUUID();
     Store store =
         storeRepository.save(
             new Store(
@@ -1282,17 +1323,16 @@ class StoreControllerTest {
                 "https://img.com/act.jpg",
                 "Mode",
                 "FR7630006000011234567890189",
-                815L));
+                ownerUid));
 
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     when(servletRequest.getAttribute("authenticatedUserRole")).thenReturn("MERCHANT");
-    when(servletRequest.getAttribute("authenticatedUserDbId")).thenReturn(815L);
+    when(servletRequest.getAttribute("authenticatedUserId")).thenReturn(ownerUid.toString());
 
     StorePatchRequest patchReq = new StorePatchRequest();
-    patchReq.setUserId(850L);
+    patchReq.setOwnerUid(UUID.randomUUID());
 
-    assertThatThrownBy(
-            () -> storeController.patchStore(store.getUid().toString(), patchReq, servletRequest))
+    assertThatThrownBy(() -> storeController.patchStore(store.getUid(), patchReq, servletRequest))
         .isInstanceOf(com.shoploc.store_service.exception.AccessDeniedException.class);
   }
 }

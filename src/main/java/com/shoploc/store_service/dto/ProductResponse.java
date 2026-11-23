@@ -3,11 +3,12 @@ package com.shoploc.store_service.dto;
 import com.shoploc.store_service.Product;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 public class ProductResponse {
 
-  private Long id;
-  private Long storeId;
+  private UUID uid;
+  private UUID storeUid;
   private String reference;
   private String name;
   private String description;
@@ -22,8 +23,8 @@ public class ProductResponse {
   public ProductResponse() {}
 
   public ProductResponse(
-      Long id,
-      Long storeId,
+      UUID uid,
+      UUID storeUid,
       String reference,
       String name,
       String description,
@@ -33,8 +34,8 @@ public class ProductResponse {
       Instant createdAt,
       Instant updatedAt) {
     this(
-        id,
-        storeId,
+        uid,
+        storeUid,
         reference,
         name,
         description,
@@ -48,8 +49,8 @@ public class ProductResponse {
   }
 
   public ProductResponse(
-      Long id,
-      Long storeId,
+      UUID uid,
+      UUID storeUid,
       String reference,
       String name,
       String description,
@@ -60,8 +61,8 @@ public class ProductResponse {
       Boolean isAvailable,
       Instant createdAt,
       Instant updatedAt) {
-    this.id = id;
-    this.storeId = storeId;
+    this.uid = uid;
+    this.storeUid = storeUid;
     this.reference = reference;
     this.name = name;
     this.description = description;
@@ -75,13 +76,13 @@ public class ProductResponse {
     this.updatedAt = updatedAt;
   }
 
-  public static ProductResponse fromEntity(Product product) {
+  public static ProductResponse fromEntity(Product product, UUID storeUid) {
     if (product == null) {
       return null;
     }
     return new ProductResponse(
-        product.getId(),
-        product.getStoreId(),
+        product.getUid(),
+        storeUid,
         product.getReference(),
         product.getName(),
         product.getDescription(),
@@ -94,20 +95,20 @@ public class ProductResponse {
         product.getUpdatedAt());
   }
 
-  public Long getId() {
-    return id;
+  public UUID getUid() {
+    return uid;
   }
 
-  public void setId(Long id) {
-    this.id = id;
+  public void setUid(UUID uid) {
+    this.uid = uid;
   }
 
-  public Long getStoreId() {
-    return storeId;
+  public UUID getStoreUid() {
+    return storeUid;
   }
 
-  public void setStoreId(Long storeId) {
-    this.storeId = storeId;
+  public void setStoreUid(UUID storeUid) {
+    this.storeUid = storeUid;
   }
 
   public String getReference() {

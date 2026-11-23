@@ -54,6 +54,10 @@ public class StoreResponse {
   }
 
   public static StoreResponse fromEntity(Store store) {
+    return fromEntity(store, false);
+  }
+
+  public static StoreResponse fromEntity(Store store, boolean includeSensitiveAudit) {
     if (store == null) {
       return null;
     }
@@ -75,7 +79,11 @@ public class StoreResponse {
     response.setAbsenceDurationDays(store.getAbsenceDurationDays());
     response.setStatus(store.getStatus());
     response.setRevokedAt(store.getRevokedAt());
-    response.setRevokedBy(store.getRevokedBy());
+    if (includeSensitiveAudit) {
+      response.setRevokedBy(store.getRevokedBy());
+    } else {
+      response.setRevokedBy(store.getRevokedBy() != null ? "ADMINISTRATEUR_SHOPLOC" : null);
+    }
     if (store.getAbsences() != null) {
       response.setAbsences(
           store.getAbsences().stream()

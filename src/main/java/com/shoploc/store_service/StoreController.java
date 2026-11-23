@@ -315,7 +315,7 @@ public class StoreController {
       adminEmail = "ADMIN";
     }
     Store revokedStore = storeService.revokeStore(identifier, adminEmail);
-    return ResponseEntity.ok(StoreResponse.fromEntity(revokedStore));
+    return ResponseEntity.ok(StoreResponse.fromEntity(revokedStore, true));
   }
 
   @PostMapping("/{identifier}/reactivate")

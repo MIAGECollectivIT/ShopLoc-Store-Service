@@ -401,22 +401,8 @@ public class StoreService {
     if ("ADMIN".equalsIgnoreCase(userRole)) {
       return;
     }
-    if (authenticatedUserId != null) {
-      if (authenticatedUserId.equals(store.getUserId())) {
-        return;
-      }
-      // Demo / seed data compatibility: merchant Suzanne Morel (id 2) managing default stores 1, 2
-      // or store where userId is 1
-      if (authenticatedUserId == 2L
-          && (store.getId() == null
-              || store.getId() <= 2L
-              || Long.valueOf(1L).equals(store.getUserId()))) {
-        return;
-      }
-      if (store.getUserId() == null) {
-        store.setUserId(authenticatedUserId);
-        return;
-      }
+    if (authenticatedUserId != null && authenticatedUserId.equals(store.getUserId())) {
+      return;
     }
     throw new AccessDeniedException(
         "Accès refusé : vous n'avez pas l'autorisation de modifier ce commerce");

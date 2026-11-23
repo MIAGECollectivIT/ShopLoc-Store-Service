@@ -1,6 +1,6 @@
 -- Migration V12: Add GPS coordinates to shops for Click & Collect itinerary optimization (SLE-31, SLE-297)
-ALTER TABLE shops ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);
-ALTER TABLE shops ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
 
 -- Create index on coordinates for spatial lookups
 CREATE INDEX IF NOT EXISTS idx_shops_coordinates ON shops(latitude, longitude);

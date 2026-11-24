@@ -1,4 +1,4 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.entity;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -82,7 +82,7 @@ public class Store {
       mappedBy = "store",
       cascade = CascadeType.ALL,
       orphanRemoval = true,
-      fetch = FetchType.EAGER)
+      fetch = FetchType.LAZY)
   @OrderBy("startDate ASC")
   private List<StoreAbsence> absences = new ArrayList<>();
 

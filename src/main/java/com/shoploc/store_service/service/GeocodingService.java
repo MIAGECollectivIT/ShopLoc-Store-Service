@@ -2,8 +2,8 @@ package com.shoploc.store_service.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.shoploc.store_service.Store;
-import com.shoploc.store_service.StoreRepository;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.repository.StoreRepository;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;

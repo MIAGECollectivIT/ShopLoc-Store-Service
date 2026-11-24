@@ -1,4 +1,4 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.controller;
 
 import com.shoploc.store_service.dto.itinerary.OptimizeItineraryRequest;
 import com.shoploc.store_service.dto.itinerary.OptimizeItineraryResponse;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/v1/stores/itinerary")
+@RequestMapping({"/v1/stores/itinerary", "/api/v1/stores/itinerary"})
 @Tag(
     name = "Itinerary",
     description =

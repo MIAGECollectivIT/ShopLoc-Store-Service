@@ -1,6 +1,6 @@
 package com.shoploc.store_service.dto;
 
-import com.shoploc.store_service.Product;
+import com.shoploc.store_service.entity.Product;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

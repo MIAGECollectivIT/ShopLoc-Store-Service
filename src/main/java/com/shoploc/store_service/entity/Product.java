@@ -1,4 +1,4 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

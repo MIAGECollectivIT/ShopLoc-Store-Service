@@ -2,8 +2,8 @@ package com.shoploc.store_service.service;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.shoploc.store_service.Store;
-import com.shoploc.store_service.StoreAbsence;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.entity.StoreAbsence;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;

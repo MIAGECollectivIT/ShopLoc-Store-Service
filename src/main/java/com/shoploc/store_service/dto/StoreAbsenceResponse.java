@@ -1,6 +1,6 @@
 package com.shoploc.store_service.dto;
 
-import com.shoploc.store_service.StoreAbsence;
+import com.shoploc.store_service.entity.StoreAbsence;
 import java.time.Instant;
 import java.util.UUID;
 

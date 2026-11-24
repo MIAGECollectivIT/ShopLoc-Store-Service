@@ -1,6 +1,6 @@
 package com.shoploc.store_service.dto;
 
-import com.shoploc.store_service.Product;
+import com.shoploc.store_service.entity.Product;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

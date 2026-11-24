@@ -3,9 +3,13 @@ package com.shoploc.store_service;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.shoploc.store_service.client.UserClient;
+import com.shoploc.store_service.controller.ItineraryController;
 import com.shoploc.store_service.dto.itinerary.OptimizeItineraryRequest;
 import com.shoploc.store_service.dto.itinerary.OptimizeItineraryResponse;
 import com.shoploc.store_service.dto.itinerary.TransportMode;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.entity.StoreStatus;
+import com.shoploc.store_service.repository.StoreRepository;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.time.Instant;
 import java.util.List;

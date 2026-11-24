@@ -1,7 +1,7 @@
 package com.shoploc.store_service.dto;
 
-import com.shoploc.store_service.Store;
-import com.shoploc.store_service.StoreStatus;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.entity.StoreStatus;
 import java.time.Instant;
 import java.util.UUID;
 

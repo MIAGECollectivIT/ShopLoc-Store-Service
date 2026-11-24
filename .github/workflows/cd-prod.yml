@@ -103,6 +103,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ env.TAG_LIST }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # ==========================================
   # JOB 4: DEPLOY TO K3S (PROD)

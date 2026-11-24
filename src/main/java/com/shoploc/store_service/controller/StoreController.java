@@ -1,4 +1,4 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.controller;
 
 import com.shoploc.store_service.dto.StoreAbsenceRequest;
 import com.shoploc.store_service.dto.StoreAbsenceResponse;
@@ -6,10 +6,12 @@ import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreReactivateRequest;
 import com.shoploc.store_service.dto.StoreResponse;
+import com.shoploc.store_service.entity.Store;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.security.RequiresRole;
 import com.shoploc.store_service.security.RoleInterceptor;
+import com.shoploc.store_service.service.StoreService;
 import com.shoploc.store_service.storage.ImageResource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,7 +30,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/v1/stores")
+@RequestMapping({"/v1/stores", "/api/v1/stores"})
 @Tag(name = "Stores", description = "Gestion des commerces")
 public class StoreController {
 
@@ -36,6 +38,25 @@ public class StoreController {
 
   public StoreController(StoreService storeService) {
     this.storeService = storeService;
+  }
+
+  @GetMapping("/page")
+  @Operation(
+      summary = "Récupère les commerces paginés (accès public - filtré sur actifs par défaut)")
+  public ResponseEntity<com.shoploc.store_service.dto.PageResponse<StoreResponse>>
+      getStoresPaginated(
+          @RequestParam(required = false) UUID userId,
+          @RequestParam(required = false, defaultValue = "false") boolean includeRevoked,
+          @RequestParam(defaultValue = "0") int page,
+          @RequestParam(defaultValue = "20") int size) {
+    List<StoreResponse> all = getAllStores(userId, includeRevoked);
+    int total = all.size();
+    int fromIndex = Math.min(page * size, total);
+    int toIndex = Math.min(fromIndex + size, total);
+    List<StoreResponse> content = all.subList(fromIndex, toIndex);
+    int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 0;
+    return ResponseEntity.ok(
+        com.shoploc.store_service.dto.PageResponse.of(content, page, size, total, totalPages));
   }
 
   @GetMapping

@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
-import com.shoploc.store_service.Store;
-import com.shoploc.store_service.StoreRepository;
-import com.shoploc.store_service.StoreStatus;
 import com.shoploc.store_service.dto.itinerary.OptimizeItineraryRequest;
 import com.shoploc.store_service.dto.itinerary.OptimizeItineraryResponse;
 import com.shoploc.store_service.dto.itinerary.TransportMode;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.entity.StoreStatus;
+import com.shoploc.store_service.repository.StoreRepository;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;

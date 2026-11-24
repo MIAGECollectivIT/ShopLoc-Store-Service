@@ -3,6 +3,10 @@ package com.shoploc.store_service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.shoploc.store_service.entity.Product;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.repository.ProductRepository;
+import com.shoploc.store_service.repository.StoreRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;

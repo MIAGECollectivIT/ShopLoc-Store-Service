@@ -9,13 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.shoploc.store_service.ProductController;
-import com.shoploc.store_service.ProductService;
+import com.shoploc.store_service.controller.ProductController;
 import com.shoploc.store_service.dto.ProductCreateRequest;
 import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
+import com.shoploc.store_service.service.ProductService;
 import java.math.BigDecimal;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.ProblemDetail;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -146,43 +145,44 @@ class ProductValidationExceptionHandlerTest {
   }
 
   @Test
-  @DisplayName("GlobalExceptionHandler: direct verification of catalog domain exception responses")
+  @DisplayName(
+      "GlobalExceptionHandler: direct verification of catalog domain exception responses (ProblemDetail RFC 7807)")
   void shouldVerifyDirectHandlerResponses() {
     UUID productUid = UUID.fromString(PRODUCT_UID);
-    ResponseEntity<Map<String, Object>> notFoundResp =
+    ProblemDetail notFoundResp =
         exceptionHandler.handleNotFoundExceptions(new ProductNotFoundException(productUid));
-    assertThat(notFoundResp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    assertThat(notFoundResp.getBody().get("message"))
+    assertThat(notFoundResp.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+    assertThat(notFoundResp.getDetail())
         .isEqualTo("Produit " + productUid + " introuvable dans le commerce");
 
-    ResponseEntity<Map<String, Object>> conflictResp =
+    ProblemDetail conflictResp =
         exceptionHandler.handleProductReferenceConflict(
             new ProductReferenceAlreadyExistsException("REF-01"));
-    assertThat(conflictResp.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-    assertThat(conflictResp.getBody().get("message").toString()).contains("REF-01");
+    assertThat(conflictResp.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+    assertThat(conflictResp.getDetail()).contains("REF-01");
 
-    ResponseEntity<Map<String, Object>> stockResp =
+    ProblemDetail stockResp =
         exceptionHandler.handleInsufficientStockException(
             new InsufficientStockException("Stock insuffisant"));
-    assertThat(stockResp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    assertThat(stockResp.getBody().get("error")).isEqualTo("Bad Request");
+    assertThat(stockResp.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(stockResp.getProperties().get("error")).isEqualTo("Bad Request");
 
-    ResponseEntity<Map<String, Object>> invalidFileResp =
+    ProblemDetail invalidFileResp =
         exceptionHandler.handleInvalidFileException(
             new InvalidFileException("Format non supporté"));
-    assertThat(invalidFileResp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(invalidFileResp.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
 
-    ResponseEntity<Map<String, Object>> fileStorageResp =
+    ProblemDetail fileStorageResp =
         exceptionHandler.handleFileStorageException(
             new FileStorageException("MinIO S3 down", new RuntimeException("S3 unreachable")));
-    assertThat(fileStorageResp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    assertThat(fileStorageResp.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
 
-    ResponseEntity<Map<String, Object>> accessDeniedResp =
+    ProblemDetail accessDeniedResp =
         exceptionHandler.handleAccessDeniedException(new AccessDeniedException("Accès refusé"));
-    assertThat(accessDeniedResp.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(accessDeniedResp.getStatus()).isEqualTo(HttpStatus.FORBIDDEN.value());
 
-    ResponseEntity<Map<String, Object>> unauthorizedResp =
+    ProblemDetail unauthorizedResp =
         exceptionHandler.handleUnauthorizedException(new UnauthorizedException("Token absent"));
-    assertThat(unauthorizedResp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    assertThat(unauthorizedResp.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
   }
 }

@@ -1,10 +1,12 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.service;
 
 import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.ProductCreateRequest;
 import com.shoploc.store_service.dto.ProductResponse;
 import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
+import com.shoploc.store_service.entity.Product;
+import com.shoploc.store_service.entity.Store;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.exception.InsufficientStockException;
 import com.shoploc.store_service.exception.InvalidFileException;
@@ -13,7 +15,8 @@ import com.shoploc.store_service.exception.ProductNotFoundException;
 import com.shoploc.store_service.exception.ProductReferenceAlreadyExistsException;
 import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
-import com.shoploc.store_service.service.StockAlertEmailService;
+import com.shoploc.store_service.repository.ProductRepository;
+import com.shoploc.store_service.repository.StoreRepository;
 import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import java.util.List;
@@ -21,6 +24,8 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -57,6 +62,7 @@ public class ProductService {
     this.userClient = userClient;
   }
 
+  @Cacheable(value = "products", key = "#storeUid")
   @Transactional(readOnly = true)
   public List<ProductResponse> getProductsByStore(UUID storeUid) {
     Store store = findStoreByUidOrThrow(storeUid);
@@ -179,6 +185,7 @@ public class ProductService {
     return ProductResponse.fromEntity(updatedProduct, store.getUid());
   }
 
+  @CacheEvict(value = "products", key = "#storeUid")
   @Transactional
   public void deleteProduct(
       UUID storeUid, UUID productUid, UUID authenticatedUserId, String userRole) {

@@ -2,7 +2,7 @@ package com.shoploc.store_service.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.shoploc.store_service.Store;
+import com.shoploc.store_service.entity.Store;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;

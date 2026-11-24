@@ -1,13 +1,13 @@
 package com.shoploc.store_service.service;
 
-import com.shoploc.store_service.Store;
-import com.shoploc.store_service.StoreRepository;
-import com.shoploc.store_service.StoreStatus;
 import com.shoploc.store_service.dto.itinerary.ItineraryOriginResponse;
 import com.shoploc.store_service.dto.itinerary.ItineraryStepResponse;
 import com.shoploc.store_service.dto.itinerary.OptimizeItineraryRequest;
 import com.shoploc.store_service.dto.itinerary.OptimizeItineraryResponse;
 import com.shoploc.store_service.dto.itinerary.TransportMode;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.entity.StoreStatus;
+import com.shoploc.store_service.repository.StoreRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;

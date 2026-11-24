@@ -12,11 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.shoploc.store_service.Store;
-import com.shoploc.store_service.StoreController;
-import com.shoploc.store_service.StoreService;
+import com.shoploc.store_service.controller.StoreController;
 import com.shoploc.store_service.dto.StoreCreateRequest;
+import com.shoploc.store_service.entity.Store;
 import com.shoploc.store_service.exception.GlobalExceptionHandler;
+import com.shoploc.store_service.service.StoreService;
 import io.jsonwebtoken.Jwts;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;

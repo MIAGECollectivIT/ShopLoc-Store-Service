@@ -1,5 +1,6 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.repository;
 
+import com.shoploc.store_service.entity.StoreAbsence;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

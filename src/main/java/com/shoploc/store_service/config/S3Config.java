@@ -1,39 +1,37 @@
 package com.shoploc.store_service.config;
 
 import java.net.URI;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
 @Configuration
 public class S3Config {
 
-  @Value("${s3.endpoint:http://minio:9000}")
-  private String endpoint;
+  private final S3Properties properties;
 
-  @Value("${s3.access-key:devadmin}")
-  private String accessKey;
-
-  @Value("${s3.secret-key}")
-  private String secretKey;
-
-  @Value("${s3.region:us-east-1}")
-  private String region;
+  public S3Config(S3Properties properties) {
+    this.properties = properties;
+  }
 
   @Bean
-  @ConditionalOnMissingBean
+  @ConditionalOnMissingBean(S3Client.class)
+  @ConditionalOnProperty(name = "s3.endpoint")
   public S3Client s3Client() {
+    AwsBasicCredentials credentials =
+        AwsBasicCredentials.create(properties.accessKey(), properties.secretKey());
+
     return S3Client.builder()
-        .endpointOverride(URI.create(endpoint))
-        .credentialsProvider(
-            StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
-        .region(Region.of(region))
-        .forcePathStyle(true)
+        .endpointOverride(URI.create(properties.endpoint()))
+        .credentialsProvider(StaticCredentialsProvider.create(credentials))
+        .region(Region.of(properties.region()))
+        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
         .build();
   }
 }

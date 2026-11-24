@@ -1,5 +1,6 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.repository;
 
+import com.shoploc.store_service.entity.Product;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;

@@ -13,14 +13,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.shoploc.store_service.ProductController;
-import com.shoploc.store_service.ProductService;
+import com.shoploc.store_service.controller.ProductController;
 import com.shoploc.store_service.dto.ProductCreateRequest;
 import com.shoploc.store_service.dto.ProductResponse;
 import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.exception.GlobalExceptionHandler;
+import com.shoploc.store_service.service.ProductService;
 import io.jsonwebtoken.Jwts;
 import java.math.BigDecimal;
 import java.security.KeyPair;

@@ -4,6 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.shoploc.store_service.client.UserClient;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.entity.StoreAbsence;
+import com.shoploc.store_service.repository.StoreAbsenceRepository;
+import com.shoploc.store_service.repository.StoreRepository;
+import com.shoploc.store_service.service.StoreService;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

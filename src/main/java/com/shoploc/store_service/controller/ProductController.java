@@ -1,4 +1,4 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.controller;
 
 import com.shoploc.store_service.dto.ProductCreateRequest;
 import com.shoploc.store_service.dto.ProductResponse;
@@ -6,6 +6,7 @@ import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
 import com.shoploc.store_service.security.RequiresRole;
 import com.shoploc.store_service.security.RoleInterceptor;
+import com.shoploc.store_service.service.ProductService;
 import com.shoploc.store_service.storage.ImageResource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/v1/stores/{storeUid}/products")
+@RequestMapping({"/v1/stores/{storeUid}/products", "/api/v1/stores/{storeUid}/products"})
 @Tag(
     name = "Products",
     description = "Gestion du catalogue Click & Collect et des stocks (Story SLE-58)")
@@ -32,6 +33,23 @@ public class ProductController {
 
   public ProductController(ProductService productService) {
     this.productService = productService;
+  }
+
+  @GetMapping("/page")
+  @Operation(summary = "Récupérer le catalogue de produits paginé d'un commerce (Accès public)")
+  public ResponseEntity<com.shoploc.store_service.dto.PageResponse<ProductResponse>>
+      getProductsPaginated(
+          @PathVariable UUID storeUid,
+          @RequestParam(defaultValue = "0") int page,
+          @RequestParam(defaultValue = "20") int size) {
+    List<ProductResponse> all = productService.getProductsByStore(storeUid);
+    int total = all.size();
+    int fromIndex = Math.min(page * size, total);
+    int toIndex = Math.min(fromIndex + size, total);
+    List<ProductResponse> content = all.subList(fromIndex, toIndex);
+    int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 0;
+    return ResponseEntity.ok(
+        com.shoploc.store_service.dto.PageResponse.of(content, page, size, total, totalPages));
   }
 
   @GetMapping

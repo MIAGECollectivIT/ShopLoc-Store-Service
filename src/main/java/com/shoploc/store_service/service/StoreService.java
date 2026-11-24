@@ -1,10 +1,13 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.service;
 
 import com.shoploc.store_service.client.UserClient;
 import com.shoploc.store_service.dto.StoreAbsenceRequest;
 import com.shoploc.store_service.dto.StoreCreateRequest;
 import com.shoploc.store_service.dto.StorePatchRequest;
 import com.shoploc.store_service.dto.StoreReactivateRequest;
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.entity.StoreAbsence;
+import com.shoploc.store_service.entity.StoreStatus;
 import com.shoploc.store_service.exception.AccessDeniedException;
 import com.shoploc.store_service.exception.RevokedStoreException;
 import com.shoploc.store_service.exception.StoreAlreadyRevokedException;
@@ -12,6 +15,8 @@ import com.shoploc.store_service.exception.StoreImageNotFoundException;
 import com.shoploc.store_service.exception.StoreNotFoundException;
 import com.shoploc.store_service.exception.StoreNotRevokedException;
 import com.shoploc.store_service.exception.UserNotFoundException;
+import com.shoploc.store_service.repository.StoreRepository;
+import com.shoploc.store_service.repository.StoreSpecifications;
 import com.shoploc.store_service.storage.ImageResource;
 import com.shoploc.store_service.storage.ImageStorageService;
 import com.shoploc.store_service.validation.RibIbanHelper;
@@ -24,6 +29,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,6 +51,7 @@ public class StoreService {
     this.imageStorageService = imageStorageService;
   }
 
+  @Cacheable(value = "stores", key = "'active'")
   @Transactional(readOnly = true)
   public List<Store> getAllStores() {
     return getAllStores(false);
@@ -93,6 +101,7 @@ public class StoreService {
         .orElseThrow(() -> new StoreImageNotFoundException(storeUid));
   }
 
+  @CacheEvict(value = "stores", allEntries = true)
   @Transactional
   public Store revokeStore(UUID storeUid, String adminIdentifier) {
     Store store = findStoreByUidOrThrow(storeUid);
@@ -120,6 +129,7 @@ public class StoreService {
     return savedStore;
   }
 
+  @CacheEvict(value = "stores", allEntries = true)
   @Transactional
   public Store reactivateStore(UUID storeUid, StoreReactivateRequest request) {
     Store store = findStoreByUidOrThrow(storeUid);
@@ -192,6 +202,7 @@ public class StoreService {
     return createStore(request, null);
   }
 
+  @CacheEvict(value = "stores", allEntries = true)
   @Transactional
   public Store patchStore(
       UUID storeUid, StorePatchRequest request, UUID authenticatedUserId, String userRole) {

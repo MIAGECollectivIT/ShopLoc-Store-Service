@@ -11,7 +11,6 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -39,11 +38,21 @@ public class S3ImageStorageService implements ImageStorageService {
 
   @Autowired
   public S3ImageStorageService(
+      S3Client s3Client, com.shoploc.store_service.config.S3Properties s3Properties) {
+    this(
+        s3Client,
+        s3Properties.bucketName(),
+        s3Properties.productsBucketName(),
+        s3Properties.endpoint(),
+        s3Properties.publicBaseUrl());
+  }
+
+  public S3ImageStorageService(
       S3Client s3Client,
-      @Value("${s3.bucket-name:store-images}") String storeBucketName,
-      @Value("${s3.products-bucket-name:product-images}") String productsBucketName,
-      @Value("${s3.endpoint:http://minio:9000}") String endpoint,
-      @Value("${s3.public-base-url:}") String publicBaseUrl) {
+      String storeBucketName,
+      String productsBucketName,
+      String endpoint,
+      String publicBaseUrl) {
     this.s3Client = s3Client;
     this.storeBucketName = storeBucketName;
     this.productsBucketName =
@@ -198,23 +207,7 @@ public class S3ImageStorageService implements ImageStorageService {
     return "image/jpeg";
   }
 
-  private static class ParsedS3Ref {
-    private final String bucket;
-    private final String key;
-
-    public ParsedS3Ref(String bucket, String key) {
-      this.bucket = bucket;
-      this.key = key;
-    }
-
-    public String bucket() {
-      return bucket;
-    }
-
-    public String key() {
-      return key;
-    }
-  }
+  private record ParsedS3Ref(String bucket, String key) {}
 
   private ParsedS3Ref parseS3Ref(String input) {
     if (input == null || input.isBlank()) {
@@ -223,26 +216,7 @@ public class S3ImageStorageService implements ImageStorageService {
 
     String trimmed = input.trim();
     if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-      try {
-        URI uri = URI.create(trimmed);
-        String path = uri.getPath();
-        if (path != null) {
-          if (path.startsWith("/")) {
-            path = path.substring(1);
-          }
-          int slashIdx = path.indexOf('/');
-          if (slashIdx > 0) {
-            String bucket = path.substring(0, slashIdx);
-            String key = path.substring(slashIdx + 1);
-            if (isAllowedBucket(bucket)) {
-              return new ParsedS3Ref(bucket, key);
-            }
-            return new ParsedS3Ref("", "");
-          }
-        }
-      } catch (Exception ignored) {
-      }
-      return new ParsedS3Ref("", "");
+      return parseHttpUri(trimmed);
     }
 
     if (trimmed.startsWith(productsBucketName + "/")) {
@@ -254,5 +228,27 @@ public class S3ImageStorageService implements ImageStorageService {
     }
 
     return new ParsedS3Ref(productsBucketName, trimmed);
+  }
+
+  private ParsedS3Ref parseHttpUri(String uriString) {
+    try {
+      URI uri = URI.create(uriString);
+      String rawPath = uri.getPath();
+      if (rawPath == null || rawPath.isEmpty()) {
+        return new ParsedS3Ref("", "");
+      }
+      String cleanPath = rawPath.startsWith("/") ? rawPath.substring(1) : rawPath;
+      int slashIdx = cleanPath.indexOf('/');
+      if (slashIdx > 0) {
+        String bucket = cleanPath.substring(0, slashIdx);
+        String key = cleanPath.substring(slashIdx + 1);
+        return isAllowedBucket(bucket) ? new ParsedS3Ref(bucket, key) : new ParsedS3Ref("", "");
+      }
+    } catch (IllegalArgumentException ex) {
+      if (log.isDebugEnabled()) {
+        log.debug("Référence d'image S3 non analysable '{}' : {}", uriString, ex.getMessage());
+      }
+    }
+    return new ParsedS3Ref("", "");
   }
 }

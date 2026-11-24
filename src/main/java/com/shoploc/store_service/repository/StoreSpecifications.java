@@ -1,5 +1,7 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.repository;
 
+import com.shoploc.store_service.entity.Store;
+import com.shoploc.store_service.entity.StoreStatus;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;

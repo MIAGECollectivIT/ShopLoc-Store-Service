@@ -1,120 +1,90 @@
 package com.shoploc.store_service.exception;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.ProblemDetail;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+/**
+ * Gestionnaire d'erreurs global conforme à la RFC 7807 (ProblemDetail). Maintient également les
+ * propriétés 'error', 'message', 'timestamp' pour rétro-compatibilité client.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  private static final String PROBLEM_BASE_URL = "https://errors.shoploc.com/";
+
+  private ProblemDetail createProblem(HttpStatus status, String type, String message) {
+    ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, message);
+    problem.setType(URI.create(PROBLEM_BASE_URL + type));
+    problem.setProperty("timestamp", Instant.now().toString());
+    problem.setProperty("error", status.getReasonPhrase());
+    problem.setProperty("message", message);
+    return problem;
+  }
+
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<Map<String, Object>> handleValidationExceptions(
-      MethodArgumentNotValidException ex) {
+  public ProblemDetail handleValidationExceptions(MethodArgumentNotValidException ex) {
     Map<String, String> fieldErrors = new HashMap<>();
     for (FieldError error : ex.getBindingResult().getFieldErrors()) {
       fieldErrors.put(error.getField(), error.getDefaultMessage());
     }
 
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.BAD_REQUEST.value());
-    body.put("error", "Bad Request");
-    body.put("message", "Validation des données d'entrée échouée");
-    body.put("fieldErrors", fieldErrors);
-
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    ProblemDetail problem =
+        createProblem(
+            HttpStatus.BAD_REQUEST, "validation-error", "Validation des données d'entrée échouée");
+    problem.setProperty("fieldErrors", fieldErrors);
+    problem.setProperty("invalid_params", fieldErrors);
+    return problem;
   }
 
   @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-  public ResponseEntity<Map<String, Object>> handleTypeMismatchException(
-      MethodArgumentTypeMismatchException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.BAD_REQUEST.value());
-    body.put("error", "Bad Request");
+  public ProblemDetail handleTypeMismatchException(MethodArgumentTypeMismatchException ex) {
     String paramName = ex.getName();
     String requiredType =
         ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "valide";
-    body.put(
-        "message",
-        String.format("Paramètre '%s' invalide : format %s attendu", paramName, requiredType));
-
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    String message =
+        String.format("Paramètre '%s' invalide : format %s attendu", paramName, requiredType);
+    return createProblem(HttpStatus.BAD_REQUEST, "type-mismatch", message);
   }
 
   @ExceptionHandler(UserNotFoundException.class)
-  public ResponseEntity<Map<String, Object>> handleUserNotFoundException(UserNotFoundException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.NOT_FOUND.value());
-    body.put("error", "Not Found");
-    body.put("message", ex.getMessage());
-    body.put("userId", ex.getUserId());
-
-    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+  public ProblemDetail handleUserNotFoundException(UserNotFoundException ex) {
+    ProblemDetail problem = createProblem(HttpStatus.NOT_FOUND, "user-not-found", ex.getMessage());
+    problem.setProperty("userId", ex.getUserId());
+    return problem;
   }
 
   @ExceptionHandler(UserServiceUnavailableException.class)
-  public ResponseEntity<Map<String, Object>> handleUserServiceUnavailableException(
-      UserServiceUnavailableException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
-    body.put("error", "Service Unavailable");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+  public ProblemDetail handleUserServiceUnavailableException(UserServiceUnavailableException ex) {
+    return createProblem(HttpStatus.SERVICE_UNAVAILABLE, "service-unavailable", ex.getMessage());
   }
 
   @ExceptionHandler(InvalidFileException.class)
-  public ResponseEntity<Map<String, Object>> handleInvalidFileException(InvalidFileException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.BAD_REQUEST.value());
-    body.put("error", "Bad Request");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+  public ProblemDetail handleInvalidFileException(InvalidFileException ex) {
+    return createProblem(HttpStatus.BAD_REQUEST, "invalid-file", ex.getMessage());
   }
 
   @ExceptionHandler(FileStorageException.class)
-  public ResponseEntity<Map<String, Object>> handleFileStorageException(FileStorageException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-    body.put("error", "Internal Server Error");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+  public ProblemDetail handleFileStorageException(FileStorageException ex) {
+    return createProblem(HttpStatus.INTERNAL_SERVER_ERROR, "file-storage-error", ex.getMessage());
   }
 
   @ExceptionHandler(UnauthorizedException.class)
-  public ResponseEntity<Map<String, Object>> handleUnauthorizedException(UnauthorizedException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.UNAUTHORIZED.value());
-    body.put("error", "Unauthorized");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+  public ProblemDetail handleUnauthorizedException(UnauthorizedException ex) {
+    return createProblem(HttpStatus.UNAUTHORIZED, "unauthorized", ex.getMessage());
   }
 
   @ExceptionHandler(AccessDeniedException.class)
-  public ResponseEntity<Map<String, Object>> handleAccessDeniedException(AccessDeniedException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.FORBIDDEN.value());
-    body.put("error", "Forbidden");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+  public ProblemDetail handleAccessDeniedException(AccessDeniedException ex) {
+    return createProblem(HttpStatus.FORBIDDEN, "forbidden", ex.getMessage());
   }
 
   @ExceptionHandler({
@@ -122,84 +92,42 @@ public class GlobalExceptionHandler {
     StoreNotFoundException.class,
     ProductImageNotFoundException.class
   })
-  public ResponseEntity<Map<String, Object>> handleNotFoundExceptions(RuntimeException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.NOT_FOUND.value());
-    body.put("error", "Not Found");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+  public ProblemDetail handleNotFoundExceptions(RuntimeException ex) {
+    return createProblem(HttpStatus.NOT_FOUND, "not-found", ex.getMessage());
   }
 
   @ExceptionHandler(ProductReferenceAlreadyExistsException.class)
-  public ResponseEntity<Map<String, Object>> handleProductReferenceConflict(
-      ProductReferenceAlreadyExistsException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.CONFLICT.value());
-    body.put("error", "Conflict");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+  public ProblemDetail handleProductReferenceConflict(ProductReferenceAlreadyExistsException ex) {
+    return createProblem(HttpStatus.CONFLICT, "product-reference-conflict", ex.getMessage());
   }
 
   @ExceptionHandler(InsufficientStockException.class)
-  public ResponseEntity<Map<String, Object>> handleInsufficientStockException(
-      InsufficientStockException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.BAD_REQUEST.value());
-    body.put("error", "Bad Request");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+  public ProblemDetail handleInsufficientStockException(InsufficientStockException ex) {
+    return createProblem(HttpStatus.BAD_REQUEST, "insufficient-stock", ex.getMessage());
   }
 
   @ExceptionHandler(StoreAlreadyRevokedException.class)
-  public ResponseEntity<Map<String, Object>> handleStoreAlreadyRevokedException(
-      StoreAlreadyRevokedException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.CONFLICT.value());
-    body.put("error", "Conflict");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+  public ProblemDetail handleStoreAlreadyRevokedException(StoreAlreadyRevokedException ex) {
+    return createProblem(HttpStatus.CONFLICT, "store-already-revoked", ex.getMessage());
   }
 
   @ExceptionHandler(StoreNotRevokedException.class)
-  public ResponseEntity<Map<String, Object>> handleStoreNotRevokedException(
-      StoreNotRevokedException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.CONFLICT.value());
-    body.put("error", "Conflict");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+  public ProblemDetail handleStoreNotRevokedException(StoreNotRevokedException ex) {
+    return createProblem(HttpStatus.CONFLICT, "store-not-revoked", ex.getMessage());
   }
 
   @ExceptionHandler(RevokedStoreException.class)
-  public ResponseEntity<Map<String, Object>> handleRevokedStoreException(RevokedStoreException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.UNPROCESSABLE_ENTITY.value());
-    body.put("error", "Unprocessable Entity");
-    body.put("message", ex.getMessage());
-
-    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(body);
+  public ProblemDetail handleRevokedStoreException(RevokedStoreException ex) {
+    return createProblem(HttpStatus.UNPROCESSABLE_ENTITY, "revoked-store", ex.getMessage());
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
-  public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(
-      IllegalArgumentException ex) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.BAD_REQUEST.value());
-    body.put("error", "Bad Request");
-    body.put("message", ex.getMessage());
+  public ProblemDetail handleIllegalArgumentException(IllegalArgumentException ex) {
+    return createProblem(HttpStatus.BAD_REQUEST, "illegal-argument", ex.getMessage());
+  }
 
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+  @ExceptionHandler(IllegalStateException.class)
+  public ProblemDetail handleIllegalStateException(IllegalStateException ex) {
+    return createProblem(HttpStatus.CONFLICT, "illegal-state", ex.getMessage());
   }
 }

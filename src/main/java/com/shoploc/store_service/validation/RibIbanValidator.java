@@ -7,7 +7,7 @@ public class RibIbanValidator implements ConstraintValidator<ValidRibOrIban, Str
 
   @Override
   public boolean isValid(String value, ConstraintValidatorContext context) {
-    if (value == null || value.trim().isEmpty()) {
+    if (value == null || value.isBlank()) {
       return false;
     }
     return RibIbanHelper.isValidRibOrIban(value);

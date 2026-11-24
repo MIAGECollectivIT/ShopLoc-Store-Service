@@ -1,4 +1,4 @@
-package com.shoploc.store_service;
+package com.shoploc.store_service.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;

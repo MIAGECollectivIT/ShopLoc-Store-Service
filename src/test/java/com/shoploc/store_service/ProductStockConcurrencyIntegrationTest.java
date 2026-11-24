@@ -3,7 +3,12 @@ package com.shoploc.store_service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.shoploc.store_service.dto.StockUpdateRequest;
+import com.shoploc.store_service.entity.Product;
+import com.shoploc.store_service.entity.Store;
 import com.shoploc.store_service.exception.InsufficientStockException;
+import com.shoploc.store_service.repository.ProductRepository;
+import com.shoploc.store_service.repository.StoreRepository;
+import com.shoploc.store_service.service.ProductService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;

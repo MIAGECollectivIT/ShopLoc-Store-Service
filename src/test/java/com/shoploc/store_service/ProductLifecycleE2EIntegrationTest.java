@@ -10,10 +10,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shoploc.store_service.controller.ProductController;
 import com.shoploc.store_service.dto.ProductCreateRequest;
 import com.shoploc.store_service.dto.ProductUpdateRequest;
 import com.shoploc.store_service.dto.StockUpdateRequest;
+import com.shoploc.store_service.entity.Store;
 import com.shoploc.store_service.exception.GlobalExceptionHandler;
+import com.shoploc.store_service.repository.ProductRepository;
+import com.shoploc.store_service.repository.StoreRepository;
 import com.shoploc.store_service.security.JwtValidatorService;
 import com.shoploc.store_service.security.RoleInterceptor;
 import io.jsonwebtoken.Jwts;

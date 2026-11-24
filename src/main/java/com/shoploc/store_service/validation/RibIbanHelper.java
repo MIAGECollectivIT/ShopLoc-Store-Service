@@ -15,6 +15,9 @@ public final class RibIbanHelper {
   private static final Pattern FRENCH_RIB_PATTERN =
       Pattern.compile("^[0-9]{5}[0-9]{5}[A-Z0-9]{11}[0-9]{2}$");
   private static final Pattern WHITESPACE_OR_HYPHEN = Pattern.compile("[\\s-]+");
+  private static final int FRENCH_RIB_LENGTH = 23;
+  private static final int MIN_IBAN_LENGTH = 15;
+  private static final int FRENCH_IBAN_LENGTH = 27;
 
   private RibIbanHelper() {}
 
@@ -36,16 +39,11 @@ public final class RibIbanHelper {
     if (isPotentialIban(cleaned)) {
       return isValidIban(cleaned);
     }
-
-    if (cleaned.length() == 23) {
-      return isValidFrenchRib(cleaned);
-    }
-
-    return false;
+    return cleaned.length() == FRENCH_RIB_LENGTH && isValidFrenchRib(cleaned);
   }
 
   private static boolean isPotentialIban(String cleaned) {
-    if (cleaned.length() < 15) {
+    if (cleaned.length() < MIN_IBAN_LENGTH) {
       return false;
     }
     char firstChar = cleaned.charAt(0);
@@ -61,7 +59,7 @@ public final class RibIbanHelper {
     if (!IBAN_FORMAT_PATTERN.matcher(cleaned).matches()) {
       return false;
     }
-    if (cleaned.startsWith("FR") && cleaned.length() != 27) {
+    if (cleaned.startsWith("FR") && cleaned.length() != FRENCH_IBAN_LENGTH) {
       return false;
     }
 

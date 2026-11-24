@@ -1,6 +1,6 @@
 package com.shoploc.store_service.dto;
 
-import com.shoploc.store_service.Store;
+import com.shoploc.store_service.entity.Store;
 import com.shoploc.store_service.validation.RibIbanHelper;
 import com.shoploc.store_service.validation.ValidRibOrIban;
 import jakarta.validation.constraints.NotBlank;

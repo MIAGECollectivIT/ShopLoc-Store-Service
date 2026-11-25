@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # ==========================================
 # Étape 1 : Build de l'application (Maven + Eclipse Temurin 21)
 # ==========================================
@@ -6,11 +7,12 @@ WORKDIR /build
 
 # Mise en cache des dépendances Maven (cache BuildKit persistant, hors image finale)
 COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 mvn -B dependency:resolve
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:resolve-plugins dependency:resolve
 
-# Compilation et empaquetage du livrable jar
-COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -B clean package -DskipTests
+# Compilation des sources principales et extraction des couches Spring Boot (Layered JAR)
+COPY src/main ./src/main
+RUN --mount=type=cache,target=/root/.m2 mvn -B -o package -Dmaven.test.skip=true \
+    && java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination extracted
 
 # ==========================================
 # Étape 2 : Image d'exécution minimale ARM64 / Multi-Arch
@@ -19,30 +21,23 @@ FROM eclipse-temurin:21-jre-alpine AS runner
 WORKDIR /app
 
 # Sécurité : Exécution sous un utilisateur non-root dédié
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown appuser:appgroup /app
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copie du jar exécutable depuis le builder
-COPY --from=builder --chown=appuser:appgroup /build/target/*.jar app.jar
+# Copie ordonnée des couches Spring Boot (de la moins fréquente à la plus fréquente)
+COPY --from=builder --chown=appuser:appgroup /build/extracted/dependencies/ ./
+COPY --from=builder --chown=appuser:appgroup /build/extracted/spring-boot-loader/ ./
+COPY --from=builder --chown=appuser:appgroup /build/extracted/snapshot-dependencies/ ./
+COPY --from=builder --chown=appuser:appgroup /build/extracted/application/ ./
 
 USER appuser
-
-# AppCDS : archive des classes chargées au démarrage, générée À LA CONSTRUCTION de l'image
-# (donc pour l'architecture cible, ARM64 incluse). Entraînement sans base de données :
-# le contexte Spring est rafraîchi puis arrêté (spring.context.exit=onRefresh).
-# Non bloquant : si l'entraînement échoue, l'image reste valide (démarrage sans archive).
-RUN java -XX:ArchiveClassesAtExit=/app/app.jsa \
-      -Dspring.context.exit=onRefresh \
-      -Dspring.flyway.enabled=false \
-      -Dspring.jpa.hibernate.ddl-auto=none \
-      -Dspring.jpa.properties.hibernate.boot.allow_jdbc_metadata_access=false \
-      -Dservices.users.url= \
-      -jar app.jar > /tmp/cds-training.log 2>&1 \
-    || (echo "AppCDS training failed (non bloquant):" && tail -n 20 /tmp/cds-training.log)
 
 # Port d'écoute standard
 EXPOSE 8080
 
-# Options JVM optimisées pour conteneurs (K3s / cgroups) + AppCDS (-Xshare:auto = repli sûr)
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+# Options JVM optimisées pour conteneurs (K3s / cgroups)
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+HEALTHCHECK --interval=15s --timeout=3s --start-period=25s --retries=3 \
+  CMD wget -q --spider http://localhost:8080/actuator/health/liveness || exit 1
+
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

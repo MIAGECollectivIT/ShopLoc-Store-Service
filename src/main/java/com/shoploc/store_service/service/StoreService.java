@@ -178,6 +178,7 @@ public class StoreService {
     return savedStore;
   }
 
+  @CacheEvict(value = "stores", allEntries = true)
   public Store createStore(StoreCreateRequest request, MultipartFile image) {
     UUID ownerUid = request.getOwnerUid();
     if (!userClient.userExists(ownerUid)) {
@@ -198,6 +199,7 @@ public class StoreService {
     return savedStore;
   }
 
+  @CacheEvict(value = "stores", allEntries = true)
   public Store createStore(StoreCreateRequest request) {
     return createStore(request, null);
   }

@@ -87,6 +87,7 @@ public class ProductService {
     return ProductResponse.fromEntity(product, store.getUid());
   }
 
+  @CacheEvict(value = "products", key = "#storeUid")
   @Transactional
   public ProductResponse createProduct(
       UUID storeUid,
@@ -132,6 +133,7 @@ public class ProductService {
     return ProductResponse.fromEntity(savedProduct, store.getUid());
   }
 
+  @CacheEvict(value = "products", key = "#storeUid")
   @Transactional
   public ProductResponse updateProduct(
       UUID storeUid,
@@ -208,6 +210,7 @@ public class ProductService {
     log.info("Produit uid={} supprimé avec succès du commerce {}", productUid, storeUid);
   }
 
+  @CacheEvict(value = "products", key = "#storeUid")
   @Transactional
   public ProductResponse updateProductImage(
       UUID storeUid,
@@ -242,6 +245,7 @@ public class ProductService {
     return ProductResponse.fromEntity(saved, store.getUid());
   }
 
+  @CacheEvict(value = "products", key = "#storeUid")
   @Transactional
   public ProductResponse updateProductImageUrl(
       UUID storeUid, UUID productUid, String imageUrl, UUID authenticatedUserId, String userRole) {
@@ -282,6 +286,7 @@ public class ProductService {
         .orElseThrow(() -> new ProductImageNotFoundException(productUid));
   }
 
+  @CacheEvict(value = "products", key = "#storeUid")
   @Transactional
   public ProductResponse updateStock(
       UUID storeUid,

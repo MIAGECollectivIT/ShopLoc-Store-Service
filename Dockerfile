@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:resolve-plugins dep
 
 # Compilation des sources principales et extraction des couches Spring Boot (Layered JAR)
 COPY src/main ./src/main
-RUN --mount=type=cache,target=/root/.m2 mvn -B -o package -Dmaven.test.skip=true \
+RUN --mount=type=cache,target=/root/.m2 mvn -B package -Dmaven.test.skip=true \
     && java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination extracted
 
 # ==========================================
